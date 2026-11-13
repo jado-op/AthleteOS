@@ -249,126 +249,6 @@ public extension DailyQuotes {
     }
 }
 
-// MARK: - The day's progress
-
-/// What today is made of, for the evening's "Today complete" and the ring:
-/// practice (when there is one), the workout (when one is planned or done),
-/// mobility and the reflection. A rest day completes without a workout.
-public struct DayProgress: Equatable, Sendable {
-    public enum Part: String, Sendable, CaseIterable, Identifiable {
-        case practice, workout, rest, mobility, reflection
-        public var id: String { rawValue }
-
-        public var title: String {
-            switch self {
-            case .practice: "Practice"
-            case .workout: "Workout"
-            case .rest: "Rest"
-            case .mobility: "Mobility"
-            case .reflection: "Reflection"
-            }
-        }
-
-        public var color: Color {
-            switch self {
-            case .practice: AppTheme.orange
-            case .workout: AppTheme.red
-            case .rest: AppTheme.ink.opacity(0.7)
-            case .mobility: AppTheme.cyan
-            case .reflection: AppTheme.purple
-            }
-        }
-    }
-
-    public struct Item: Equatable, Sendable, Identifiable {
-        public let part: Part
-        public let done: Bool
-        public var id: String { part.rawValue }
-    }
-
-    public let items: [Item]
-
-    /// `restDay`: the plan says rest — resting is correct execution, so it
-    /// counts as done (§1, §21).
-    public init(practiceToday: Bool, practiceLogged: Bool, workoutPlanned: Bool, workoutDone: Bool,
-                mobilityDone: Bool, reflected: Bool, restDay: Bool = false) {
-        var items: [Item] = []
-        if practiceToday || practiceLogged { items.append(Item(part: .practice, done: practiceLogged)) }
-        if workoutPlanned || workoutDone { items.append(Item(part: .workout, done: workoutDone)) }
-        else if restDay { items.append(Item(part: .rest, done: true)) }
-        items.append(Item(part: .mobility, done: mobilityDone))
-        items.append(Item(part: .reflection, done: reflected))
-        self.items = items
-    }
-
-    public var doneCount: Int { items.filter(\.done).count }
-    public var isComplete: Bool { items.allSatisfy(\.done) }
-}
-
-/// The day's parts as a horizontal track (docs/VERSION-6.md §1): thin
-/// segments, done ones softly lit in their colour, the next one with a red
-/// glow, later ones muted. Not a ring, not a game.
-struct DailyPerformanceTrack: View {
-    let progress: DayProgress
-    /// Evening: the reflection is "Now" rather than "Tonight".
-    var evening: Bool = false
-    var onTap: (DayProgress.Part) -> Void = { _ in }
-
-    private var nextIndex: Int? { progress.items.firstIndex { !$0.done } }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Today")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
-                Spacer()
-                Text(String(format: "%02d / %02d", progress.doneCount, progress.items.count))
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                + Text(progress.isComplete ? "  complete" : "")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            HStack(alignment: .top, spacing: 10) {
-                ForEach(Array(progress.items.enumerated()), id: \.element.id) { index, item in
-                    Button { onTap(item.part) } label: { column(item, index: index) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("\(item.part.title), \(state(item, index: index))")
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.5), value: progress)
-    }
-
-    private func column(_ item: DayProgress.Item, index: Int) -> some View {
-        let isNext = index == nextIndex
-        let tint: Color = item.done ? item.part.color : isNext ? AppTheme.brand : AppTheme.fill
-        return VStack(alignment: .leading, spacing: 8) {
-            Capsule()
-                .fill(tint.opacity(item.done ? 0.9 : 1))
-                .frame(height: 3)
-                .shadow(color: item.done ? item.part.color.opacity(0.55) : isNext ? AppTheme.brand.opacity(0.8) : .clear, radius: 6)
-            Text(item.part.title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(item.done || isNext ? AppTheme.ink : AppTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(state(item, index: index))
-                .font(.caption)
-                .foregroundStyle(isNext ? AppTheme.brightRed : AppTheme.mutedText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-    }
-
-    private func state(_ item: DayProgress.Item, index: Int) -> String {
-        if item.done { return item.part == .rest ? "On plan" : "Done" }
-        if index == nextIndex { return item.part == .reflection && !evening ? "Tonight" : "Next" }
-        return item.part == .reflection ? (evening ? "Now" : "Tonight") : "Later"
-    }
-}
-
 // MARK: - The week
 
 /// "Your week" on Home: one small block, not accounting software.
@@ -573,6 +453,116 @@ struct HomeDetailRow<Trailing: View>: View {
         }
         .frame(minHeight: 50)
         .contentShape(Rectangle())
+    }
+}
+
+/// The eyebrow over the step to do now: a small lit dot, then the words.
+struct NextStepEyebrow: View {
+    let text: String
+    let accent: Color
+
+    init(_ text: String, accent: Color) {
+        self.text = text
+        self.accent = accent
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(accent)
+                .frame(width: 7, height: 7)
+                .shadow(color: accent.opacity(0.9), radius: 6)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// One step of today's plan (TodayPlan): its number — a check once done,
+/// lit when it is the next one — its name, and a few words on the right.
+struct PlanStepRow: View {
+    let row: TodayPlan.Row
+    let title: String
+    let detail: String?
+    let accent: Color
+    var showsChevron = true
+
+    var body: some View {
+        HStack(spacing: 12) {
+            marker
+            Text(title)
+                .font(.body.weight(row.state == .now ? .semibold : .regular))
+                .foregroundStyle(row.state == .done ? AppTheme.secondaryText : AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            if let detail {
+                Text(detail)
+                    .font(.subheadline.weight(.medium).monospacedDigit())
+                    .foregroundStyle(row.state == .now ? AppTheme.ink : AppTheme.secondaryText)
+                    .lineLimit(1)
+            }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.mutedText)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(minHeight: 50)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    @ViewBuilder
+    private var marker: some View {
+        switch row.state {
+        case .done:
+            Image(systemName: "checkmark")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.green)
+                .frame(width: 28, height: 28)
+                .background(AppTheme.green.opacity(0.15), in: Circle())
+        case .now:
+            Text(number)
+                .font(.footnote.weight(.bold).monospacedDigit())
+                .foregroundStyle(AppTheme.ink)
+                .frame(width: 28, height: 28)
+                .background(accent.opacity(0.35), in: Circle())
+                .overlay(Circle().stroke(accent, lineWidth: 1))
+                .shadow(color: accent.opacity(0.6), radius: 8)
+        case .open:
+            Text(number)
+                .font(.footnote.weight(.semibold).monospacedDigit())
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(width: 28, height: 28)
+                .overlay(Circle().stroke(AppTheme.mutedText.opacity(0.6), lineWidth: 1))
+        case .info:
+            Image(systemName: "leaf.fill")
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(width: 28, height: 28)
+        }
+    }
+
+    private var number: String { row.number.map { "\($0)" } ?? "" }
+
+    private var spoken: String {
+        var parts: [String] = []
+        if let step = row.number { parts.append("Step \(step)") }
+        parts.append(title)
+        if let detail { parts.append(detail) }
+        switch row.state {
+        case .done: parts.append("done")
+        case .now: parts.append("next")
+        case .open, .info: break
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

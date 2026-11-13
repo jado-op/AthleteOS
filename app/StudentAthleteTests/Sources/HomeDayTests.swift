@@ -1,7 +1,7 @@
 import XCTest
 
-/// Home V4: the part of the day decides what Home is for, the light drifts
-/// without jumps, a rest day still completes, and the week counts right.
+/// Home: the part of the day sets the light, which drifts without jumps, and
+/// the week counts right. Today's steps: TodayPlanTests.
 final class HomeDayTests: XCTestCase {
     func testThePartsOfTheDay() {
         XCTAssertEqual(DayPhase.at(minute: 4 * 60 + 59), .night)
@@ -31,19 +31,6 @@ final class HomeDayTests: XCTestCase {
         let evening = AmbientLight.at(minute: 20 * 60)
         XCTAssertGreaterThan(morning.green, day.green, "warmer: more orange in it")
         XCTAssertLessThan(evening.red, day.red, "deeper crimson")
-    }
-
-    func testARestDayCompletesWithoutAWorkout() {
-        let rest = DayProgress(practiceToday: false, practiceLogged: false, workoutPlanned: false, workoutDone: false,
-                               mobilityDone: true, reflected: true)
-        XCTAssertEqual(rest.items.map(\.part), [.mobility, .reflection])
-        XCTAssertTrue(rest.isComplete)
-
-        let busy = DayProgress(practiceToday: true, practiceLogged: true, workoutPlanned: true, workoutDone: true,
-                               mobilityDone: true, reflected: false)
-        XCTAssertEqual(busy.items.map(\.part), [.practice, .workout, .mobility, .reflection])
-        XCTAssertEqual(busy.doneCount, 3)
-        XCTAssertFalse(busy.isComplete)
     }
 
     func testTheWeekCountsThisWeekOnly() {
