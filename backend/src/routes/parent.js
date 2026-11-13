@@ -213,12 +213,12 @@ export function page(title, body) {
 <meta name="robots" content="noindex, nofollow">
 <title>${escape(title)} — AthleteOS</title>
 <style>
-  :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --red: #E5383B; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; } }
+  :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --brand: #6D28D9; --red: #E5383B; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; --brand: #A78BFA; } }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 28px 18px 60px; }
   h1 { font-size: 36px; margin: 0; letter-spacing: -0.02em; }
-  h1 span { color: var(--red); }
+  h1 span { color: var(--brand); }
   .updated { color: var(--muted); margin: 4px 0 20px; }
   section { background: var(--card); border-radius: 24px; padding: 18px 20px; margin: 0 0 14px; }
   section.warn { border: 2px solid var(--red); }

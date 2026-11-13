@@ -157,11 +157,11 @@ function page({ title, body, appStoreId, appArgument }) {
 ${banner}
 <title>${title.replace(/<[^>]+>/g, '')} — AthleteOS</title>
 <style>
-  :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --red: #E5383B; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; } }
+  :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --brand: #6D28D9; --red: #E5383B; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; --brand: #A78BFA; } }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 28px 18px 60px; }
-  .brand { font-weight: 800; letter-spacing: -0.01em; } .brand span { color: var(--red); }
+  .brand { font-weight: 800; letter-spacing: -0.01em; } .brand span { color: var(--brand); }
   h1 { font-size: 32px; margin: 8px 0 18px; letter-spacing: -0.02em; line-height: 1.15; }
   section { background: var(--card); border-radius: 24px; padding: 18px 20px; margin: 0 0 14px; }
   section.code { text-align: center; }

@@ -3,8 +3,8 @@
 
 §9 forbids stock or commissioned art: every image in this project is produced by
 code in this repo. This draws the mark — a doubled ascending chevron, read as
-"levelling up" — and writes the flattened 1024x1024 RGB PNG that both the iOS and
-watchOS asset catalogues point at.
+"levelling up" — and writes the flattened 1024x1024 RGB PNG that the iOS and watchOS app icons
+and the in-app logo point at.
 
 App Store icons must have no alpha channel, so the output is RGB and never RGBA.
 The mark is inset far enough to survive watchOS's circular mask.
@@ -74,6 +74,8 @@ def main() -> None:
     targets = [
         repo / "app/StudentAthlete/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
         repo / "app/StudentAthleteWatch/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+        # The in-app logo (age gate, onboarding) is the same mark.
+        repo / "app/StudentAthlete/Resources/Assets.xcassets/Logo.imageset/logo-1024.png",
     ]
     for path in targets:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -154,7 +154,7 @@ export function webLoginRouter({ prisma, sessionSecret, now = () => new Date(), 
     res.set('Cache-Control', 'no-store');
     res.type('html').send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>AthleteOS</title>
 <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#050608;color:#fff;font:16px/1.5 -apple-system,system-ui,sans-serif;padding:24px;box-sizing:border-box">
-<main style="max-width:420px"><p style="letter-spacing:.2em;font-size:12px;color:#ef4444;font-weight:700">ATHLETEOS</p>
+<main style="max-width:420px"><p style="letter-spacing:.2em;font-size:12px;color:#A78BFA;font-weight:700">ATHLETEOS</p>
 <h1 style="font-size:32px;line-height:1.1">Scan this code with the iPhone that has AthleteOS</h1>
 <p style="color:rgba(255,255,255,.6)">Open the Camera app on your iPhone and point it at the code on your computer. AthleteOS opens and asks you to approve the sign-in.</p></main>`);
   });
