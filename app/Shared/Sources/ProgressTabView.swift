@@ -119,6 +119,7 @@ struct ProgressTabView: View {
     @State private var revision = 0
     @State private var tracking = ProAccess.isPro ? TrackingLevel.current : .easy
     @State private var paywall: ProFeature?
+    @State private var catalogue = Catalogue()
 
     enum Zoom: String, CaseIterable, Identifiable {
         case month = "Month", season = "Season", year = "Year"
@@ -131,7 +132,7 @@ struct ProgressTabView: View {
     }
 
     enum ProgressSheet: String, Identifiable {
-        case schedule, calendars, addGame, addTraining, history, tests
+        case schedule, calendars, addGame, addTraining, history, tests, trends, exercises, checkIns
         var id: String { rawValue }
     }
 
@@ -148,6 +149,15 @@ struct ProgressTabView: View {
     }
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
+
+    private var coachSessions: [CoachSession] {
+        sessions.map { session in
+            CoachSession(
+                date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
+                sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) }
+            )
+        }
+    }
 
     // MARK: Marks
 
@@ -205,8 +215,8 @@ struct ProgressTabView: View {
                     practiceSection
                     thirtyDaysSection
                     statsSection
-                    scheduleSection
                     workoutsSection
+                    scheduleSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -220,6 +230,7 @@ struct ProgressTabView: View {
                 revision += 1
                 if IntentRoute.take([.logPractice]) != nil { loggingPractice = DayBox(date: .now) }
             }
+            .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .sheet(item: $selectedDay, onDismiss: { revision += 1 }) { box in
                 DayDetailSheet(athlete: athlete, date: box.date, marks: marks(on: box.date, from: marksByDay), week: week) {
                     let date = box.date
@@ -241,6 +252,9 @@ struct ProgressTabView: View {
                 case .addTraining: ExtraPracticeSheet { onPlanInputsChanged() }
                 case .history: SessionHistoryView()
                 case .tests: BenchmarksView(sportSlug: sportSlug)
+                case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
+                case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
+                case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 }
             }
             .proFeature(item: $paywall, athlete: athlete)
@@ -754,9 +768,11 @@ struct ProgressTabView: View {
         let upcomingGames = AthleteStats.upcomingCompetitions(athlete).prefix(4)
         let extras = ExtraPractices.all.filter { $0.day >= DayKey.of(.now, calendar: calendar) }.prefix(4)
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Schedule & events")
-            row("Practice days & times", PracticeSchedule.weekdays.isEmpty ? "Not set" : practiceSummary, icon: "clock.fill") { sheet = .schedule }
-            row("Team & school calendars", ScheduleStore.feeds.isEmpty ? "Connect TeamSnap, Google or Apple" : "\(ScheduleStore.feeds.count) connected", icon: "link") { sheet = .calendars }
+            SectionHeader("Games & events")
+            // The schedule itself is set up in Me → Training Setup; here only while it is missing.
+            if !PracticeSchedule.isSet {
+                row("Set up your schedule", "Practice days and team calendars", icon: "calendar.badge.clock") { sheet = .calendars }
+            }
             ButtonRow {
                 Button { sheet = .addGame } label: { Label("Add a game", systemImage: "sportscourt.fill") }
                     .buttonStyle(.primary)
@@ -844,12 +860,36 @@ struct ProgressTabView: View {
                 }
                 .cardStyle(padding: 12)
             }
-            ButtonRow {
-                Button { sheet = .history } label: { Label("All workouts", systemImage: "clock.arrow.circlepath") }
-                    .buttonStyle(.secondary)
-                Button { sheet = .tests } label: { Label("Tests", systemImage: "stopwatch.fill") }
-                    .buttonStyle(.secondary)
+            // Every look back lives here (docs/CLARITY-PLAN.md): one list.
+            VStack(spacing: 0) {
+                Button { sheet = .history } label: {
+                    ListRow(systemImage: "clock.arrow.circlepath", color: AppTheme.ink, title: "All workouts", detail: "\(sessions.count)")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button {
+                    if ProAccess.isPro { sheet = .exercises } else { paywall = .exerciseProgress }
+                } label: {
+                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AppTheme.ink, title: "Exercise progress", detail: "Each lift over time")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { sheet = .tests } label: {
+                    ListRow(systemImage: "stopwatch.fill", color: AppTheme.ink, title: "Tests", detail: "Every 6–8 weeks")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { sheet = .trends } label: {
+                    ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Sleep, load, balance")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { sheet = .checkIns } label: {
+                    ListRow(systemImage: "sun.max.fill", color: AppTheme.ink, title: "Past check-ins", detail: "\(athlete.checkIns.count)")
+                }
+                .buttonStyle(.plain)
             }
+            .cardStyle(padding: 12)
         }
     }
 

@@ -128,7 +128,7 @@ struct AppTourView: View {
         Page(icon: "person.fill", color: AppTheme.purple, tab: "Me",
              title: "You, your goals and settings",
              body: "Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, tests, team & family, reminders and your account live here too.",
-             steps: ["Me → My Development Goals", "Me → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
+             steps: ["Me → My Development Goals", "Progress → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
     ]
 
     var body: some View {
@@ -416,7 +416,7 @@ struct HelpCenterView: View {
         ("Why did my workout change?",
          "If your morning check-in shows poor sleep or high soreness, workouts get lighter. You can always switch back to the full ones."),
         ("How do games change my week?",
-         "Add a game in Progress → Schedule & events (or the + on Home). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
+         "Add a game in Progress → Games & events (or the + on Home). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
         ("What do the colours in the calendar mean?",
          "Red: a workout. Orange: team practice. Yellow: the extra workout after practice. Blue: stretching and mobility. A day with several gets a split dot; outlined means planned; a ring marks a game."),
         ("How do I log team practice?",

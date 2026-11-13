@@ -58,33 +58,36 @@ movement between them is never played. `content/src/stills.js`, `RigPoseView.swi
   the readiness hero, the progress track, the supporting list. Their content is in the plan.
 - Below the plan, quiet: the week, then the athlete's own widgets.
 
-### 3 · Workout: what do I train?
-- Hero: today's session with one "Start training" button (same session as Home).
-- Then **This week** (the plan, day by day).
-- Everything else — muscle picker, own routines, exercise library, sport drills, tests,
-  conditioning, travel workout — in one grouped **More workouts** list instead of a wall
-  of tiles.
+### 3 · Workout: what do I train? — shipped
+- Hero: today's session with one Start button (the same session as Home).
+- Then **This week** (the gym days).
+- **More workouts**: one list instead of separate cards — the other modes, skill plans and
+  muscle workouts, train together, the off-season program.
+- **My workouts** (own and shared), then **Your plan**: gym days and length, a new plan,
+  the workouts the athlete changed — one card.
 
-### 4 · Progress: how am I doing?
-- Hero: Athlete Score and this week.
-- Then results only: training history, strength, tests, practice log, body.
-- Schedule and practice-time setup move to Me → Training setup; Progress links there only
-  when the schedule is missing.
+### 4 · Progress: how am I doing? — shipped
+- Results only, in one order: this week, calendar, practice log, 30 days, stats, training
+  history.
+- **Training history** holds every look back in one list: all workouts, exercise progress,
+  tests, trends, past check-ins (they used to be split between Progress and Me).
+- "Schedule & events" became **Games & events**: add a game or a training, what is coming
+  up. Practice days and calendars are set up in Me → Training Setup; Progress links there
+  only while the schedule is missing.
 
-### 5 · Me: grouped
-- Header (name, sport, score ring) stays.
-- Four groups instead of one list: **My sport** (sport, position, goals, season, team),
-  **Training setup** (schedule, equipment, practice times), **App** (notifications,
-  widgets, Watch, appearance of Home), **Account** (Pro, privacy, parents, data, help).
+### 5 · Me: who am I, how is it set up? — shipped
+- Profile, goals, then setup and settings only: Training Setup, Food/mind/health, Safety,
+  Team & Family, Settings, Subscription, Your data, About, Account.
+- The "Training History" group moved to Progress.
 
 ### 6 · Campus: what do I learn next?
-- Hero: continue the next lesson.
-- Then the nine categories.
-- Leagues, badges and the library grouped under one row each, below.
+Already follows the rules (one recommended lesson, continue, the nine areas, your sport,
+progress last). Next: Leagues, badges and the library under one row each.
 
 ### 7 · One home per feature
 Sweep for duplicate entry points (check-in, schedule, practice log, tests, history,
-fuel) and keep each only in its home plus the place where it is the next step.
+fuel) and keep each only in its home plus the place where it is the next step. Home's
+search keeps finding everything.
 
 ## What stays as it is
 Colours and the dark, glass design; the five tabs; every sport and every feature; the free

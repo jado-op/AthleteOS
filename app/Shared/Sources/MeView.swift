@@ -118,22 +118,6 @@ struct MeView: View {
                         coachToggleRow
                     }
 
-                    SectionHeader("Training History")
-                    menuCard {
-                        menuRow("Trends", icon: "chart.xyaxis.line", tint: AppTheme.brand, detail: "Sleep, load, balance") { activeSheet = .trends }
-                        menuDivider
-                        menuRow("Exercise progress", icon: "chart.line.uptrend.xyaxis", tint: AppTheme.orange,
-                                detail: ProAccess.isPro ? "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises" : "") {
-                            if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
-                        }
-                        menuDivider
-                        menuRow("Tests", icon: "stopwatch.fill", tint: AppTheme.coral, detail: "Every 6–8 weeks") { activeSheet = .tests }
-                        menuDivider
-                        menuRow("Past workouts", icon: "clock.arrow.circlepath", tint: AppTheme.ink, detail: "\(sessions.count)") { activeSheet = .history }
-                        menuDivider
-                        menuRow("Past check-ins", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
-                    }
-
                     SectionHeader("Food, mind & health")
                     menuCard {
                         menuRow("Food & water", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
@@ -673,7 +657,7 @@ struct MeView: View {
 
 /// §11: "Chart sleep against training load... make that chart the first
 /// thing on the trends screen."
-/// Sleep, training load and body balance (Me → Training History → Trends).
+/// Sleep, training load and body balance (Progress → Training History → Trends).
 struct TrendsSheet: View {
     let athlete: Athlete
     let sessions: [Session]

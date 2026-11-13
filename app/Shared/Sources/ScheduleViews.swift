@@ -365,7 +365,7 @@ struct AddCalendarSheet: View {
             case .hudl: [
                 "Hudl doesn't publish a calendar link, so it can't be connected.",
                 "If your team also uses TeamSnap, GameChanger, SportsEngine or a school calendar, connect that instead.",
-                "Otherwise add games by hand: Progress → Schedule & events → Add a game.",
+                "Otherwise add games by hand: Progress → Games & events → Add a game.",
             ]
             case .google: [
                 "On a computer, open calendar.google.com and point at the team or school calendar.",

@@ -1,10 +1,9 @@
 import SwiftData
 import SwiftUI
 
-/// Workout (V3): TODAY'S TRAINING — one recommended workout with its purpose,
-/// length, focus and the reason for it — then the other modes as a compact
-/// list, this week's gym days, the athlete's own workouts and the other ways
-/// to train (a skill, a muscle group).
+/// Workout answers "what do I train?" (docs/CLARITY-PLAN.md): today's session
+/// with one Start button, this week's gym days, then everything else in one
+/// "More workouts" list, the athlete's own workouts and the plan's settings.
 struct WorkoutTabView: View {
     let athlete: Athlete
     let apiClient: APIClient
@@ -99,10 +98,9 @@ struct WorkoutTabView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     recommendedCard
                         .padding(.bottom, 24)
-                    otherModes
                     weekSection
+                    moreWorkouts
                     myWorkoutsSection
-                    moreSection
                     customizeSection
                 }
                 .padding(.horizontal, 20)
@@ -336,32 +334,6 @@ struct WorkoutTabView: View {
         .padding(.top, 24)
     }
 
-    /// The modes not recommended today, one line each.
-    private var otherModes: some View {
-        let recommended = recommendation.mode
-        let all: [WorkoutMode] = [.afterPractice, .gymDay, .mobility, .travel]
-        let others: [WorkoutMode] = all.filter { mode in mode != recommended }
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Other modes")
-            VStack(spacing: 0) {
-                ForEach(others, id: \.self) { mode in
-                    let modeSession = session(for: mode)
-                    Button {
-                        if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
-                    } label: {
-                        ListRow(systemImage: icon(mode), color: color(mode), title: mode.title, detail: detail(mode, modeSession))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(modeSession == nil)
-                    if mode != others.last {
-                        Divider().padding(.leading, 54)
-                    }
-                }
-            }
-            .cardStyle(padding: 12)
-        }
-    }
-
     private func detail(_ mode: WorkoutMode, _ session: GeneratedSession?) -> String {
         guard let session else { return "Nothing fits your equipment yet" }
         if mode == .gymDay, let gym = gymSession, !gym.isToday {
@@ -403,7 +375,7 @@ struct WorkoutTabView: View {
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader("This week's gym days", subtitle: isDeloadWeek(week)
+                SectionHeader("This week", subtitle: isDeloadWeek(week)
                               ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
                 VStack(spacing: 0) {
                     ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
@@ -440,38 +412,45 @@ struct WorkoutTabView: View {
         Deload.isDeloadWeek(weekStart: week.weekStart, anchor: athlete.createdAt, phase: week.phase)
     }
 
-    private var moreSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("More ways to train")
-            Button { showingImprove = true } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "target")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.onAccent)
-                        .frame(width: 48, height: 48)
-                        .background(AppTheme.accent, in: Circle())
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Skill plans & muscle workouts").font(.headline).foregroundStyle(AppTheme.ink)
-                        Text("One skill before a game, or chosen muscles").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+    /// Everything that isn't today's session, in one list: the other modes,
+    /// a skill or chosen muscles, training together, an off-season program.
+    private var moreWorkouts: some View {
+        let recommended = recommendation.mode
+        let all: [WorkoutMode] = [.afterPractice, .gymDay, .mobility, .travel]
+        let others: [WorkoutMode] = all.filter { mode in mode != recommended }
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("More workouts")
+            VStack(spacing: 0) {
+                ForEach(others, id: \.self) { mode in
+                    let modeSession = session(for: mode)
+                    Button {
+                        if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
+                    } label: {
+                        ListRow(systemImage: icon(mode), color: color(mode), title: mode.title, detail: detail(mode, modeSession))
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondaryText)
+                    .buttonStyle(.plain)
+                    .disabled(modeSession == nil)
+                    Divider().padding(.leading, 54)
                 }
-                .cardStyle(padding: 14)
+                Button { showingImprove = true } label: {
+                    ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans & muscle workouts",
+                            detail: "One skill before a game, or chosen muscles")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { showingTogether = true } label: {
+                    ListRow(systemImage: "person.2.fill", color: AppTheme.ink, title: "Train together",
+                            detail: "Same workout with a partner or teammates")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { showingProgram = true } label: {
+                    ListRow(systemImage: "calendar.badge.clock", color: AppTheme.ink, title: "Off-season program",
+                            detail: ProgramStore.active.map { "\($0.goal.title) · week \($0.week() ?? 1) of \($0.weeks)" } ?? "One goal, 4–8 weeks, tested at both ends")
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            Button { showingTogether = true } label: {
-                ListRow(systemImage: "person.2.fill", color: AppTheme.ink, title: "Train together",
-                        detail: "Same workout with a partner or teammates")
-                    .cardStyle(padding: 12)
-            }
-            .buttonStyle(.plain)
-            Button { showingProgram = true } label: {
-                ListRow(systemImage: "calendar.badge.clock", color: AppTheme.ink, title: "Off-season program",
-                        detail: ProgramStore.active.map { "\($0.goal.title) · week \($0.week() ?? 1) of \($0.weeks)" } ?? "One goal, 4–8 weeks, tested at both ends")
-                    .cardStyle(padding: 12)
-            }
-            .buttonStyle(.plain)
+            .cardStyle(padding: 12)
         }
         .sheet(isPresented: $showingProgram) {
             ProgramsView(onChanged: onPlanInputsChanged)
@@ -578,7 +557,7 @@ struct WorkoutTabView: View {
         onPlanInputsChanged()
     }
 
-    /// The week's shape, and which workouts the athlete has made their own.
+    /// The plan's settings in one place: the week's shape, a new plan, and the workouts the athlete changed.
     private var customizeSection: some View {
         let settings = custom.settings
         let dayNames = Calendar.current.shortWeekdaySymbols
@@ -588,41 +567,30 @@ struct WorkoutTabView: View {
             settings.effectiveMinutesPerSession.map { "\($0) min each" } ?? "length picked for you",
         ].joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Make it yours", subtitle: "Your gym days, their length, and any exercise (View workout → Change it).")
-            Button { showingPlanSettings = true } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.onAccent)
-                        .frame(width: 48, height: 48)
-                        .background(AppTheme.accent, in: Circle())
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Your week").font(.headline).foregroundStyle(AppTheme.ink)
-                        Text(summary).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondaryText)
-                }
-                .cardStyle(padding: 14)
-            }
-            .buttonStyle(.plain)
-            Button { confirmingNewPlan = true } label: {
-                ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
-                        detail: "Generate one or build it yourself")
-                    .cardStyle(padding: 12)
-            }
-            .buttonStyle(.plain)
-            if planVariant > 0 {
-                Button {
-                    PlanVariant.backToOriginal()
-                    onPlanInputsChanged()
-                } label: {
-                    ListRow(systemImage: "arrow.uturn.backward", color: AppTheme.ink, title: "Back to my first plan")
-                        .cardStyle(padding: 12)
+            SectionHeader("Your plan")
+            VStack(spacing: 0) {
+                Button { showingPlanSettings = true } label: {
+                    ListRow(systemImage: "calendar", color: AppTheme.ink, title: "Gym days and length", detail: summary)
                 }
                 .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { confirmingNewPlan = true } label: {
+                    ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
+                            detail: "Generate one or build it yourself")
+                }
+                .buttonStyle(.plain)
+                if planVariant > 0 {
+                    Divider().padding(.leading, 54)
+                    Button {
+                        PlanVariant.backToOriginal()
+                        onPlanInputsChanged()
+                    } label: {
+                        ListRow(systemImage: "arrow.uturn.backward", color: AppTheme.ink, title: "Back to my first plan")
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .cardStyle(padding: 12)
             let edited = custom.sessions.keys.sorted()
             if !edited.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
