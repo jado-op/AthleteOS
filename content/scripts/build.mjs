@@ -28,6 +28,7 @@ import { CATALOGUE, BASE_ITEMS, INTERIM_BY_POSE } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
 import { JOINTS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
 import { frameAt, frameAtTime, pathSeconds, placeKeyframes } from '../src/rig3d.js';
+import { stillsFor } from '../src/stills.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
@@ -311,6 +312,7 @@ function animationData() {
   const r3 = (v) => Math.round((v ?? 0) * 1000) / 1000;
   const patterns = POSE_PATTERNS.map((p) => ({
     id: p.slug, name: p.name, view: p.view ?? 'side', loops: !!p.loop, thumb: p.thumb ?? 0,
+    stills: stillsFor(p),
     fixture: p.fixture ? {
       kind: p.fixture.kind,
       params: Object.fromEntries(Object.entries(p.fixture).filter(([k, v]) => k !== 'kind' && typeof v === 'number').map(([k, v]) => [k, r3(v)])),
@@ -494,6 +496,9 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let loops: Bool
     /// Keyframe shown as the still thumbnail.
     public let thumb: Int
+    /// Keyframes the app cross-fades between instead of playing the movement:
+    /// the start and the far end of the rep (absent in older downloaded sets).
+    public let stills: [Int]?
     public let fixture: RigFixtureSpec?
     public let implement: RigImplementSpec?
     public let ball: RigBallSpec?

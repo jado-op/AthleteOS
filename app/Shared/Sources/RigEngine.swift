@@ -623,6 +623,47 @@ final class RigPlayback {
         flattenBoth(raw[i], contacts[i], contacts[i]).translated(by: offsets[i])
     }
 
+    // MARK: Stills (the app cross-fades these instead of playing the movement)
+
+    /// Cycle position of keyframe `i` (the end of the cycle for a last keyframe that doesn't loop).
+    private func position(ofKeyframe i: Int) -> Double {
+        let moves = info.loops ? info.keyframes.count : info.keyframes.count - 1
+        var at = 0.0
+        for k in 0..<i { at += info.keyframes[k].hold + (k < moves ? info.keyframes[k].move : 0) }
+        return min((at + 1e-6) / cycleSeconds, 0.999999)
+    }
+
+    /// Keyframe `i` as a picture: the body as placed, with the fixture, the
+    /// ball and the cast where they are at that moment. Never on its path.
+    func still(_ i: Int) -> RigSkeleton {
+        let t = position(ofKeyframe: min(max(i, 0), info.keyframes.count - 1))
+        let cast = info.cast == nil ? [] : castAt(t)
+        var s = frame(at: t, cast: cast)
+        s.cast = cast
+        return s
+    }
+
+    /// The keyframes to show, in order: the set's own choice (content/src/stills.js),
+    /// or — a set downloaded before stills existed — the start and the thumb
+    /// keyframe, or the keyframe whose joints are furthest from the start.
+    lazy var stills: [Int] = pickStills()
+
+    private func pickStills() -> [Int] {
+        let n = info.keyframes.count
+        var picked: [Int] = []
+        for i in info.stills ?? [] where i >= 0 && i < n && !picked.contains(i) { picked.append(i) }
+        if !picked.isEmpty { return picked }
+        if n < 2 { return [0] }
+        if info.thumb > 0 && info.thumb < n { return [0, info.thumb] }
+        var best = 1, bestDistance = -1.0
+        for i in 1..<n {
+            var d = 0.0
+            for (a, b) in zip(angles[0].values, angles[i].values) { d += abs(a - b) }
+            if d > bestDistance { best = i; bestDistance = d }
+        }
+        return [0, best]
+    }
+
     // MARK: Fixture placement (body axes around keyframe 0's pelvis)
 
     struct Fixture {

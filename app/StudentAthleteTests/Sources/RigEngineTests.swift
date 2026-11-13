@@ -42,6 +42,37 @@ final class RigEngineTests: XCTestCase {
         for (old, name) in legacyPosePatterns { XCTAssertNotNil(posePatternsBySlug[name], "\(old) → \(name)") }
     }
 
+    /// What the app shows: two or three positions of each movement, cross-faded.
+    func testEveryPatternHasStillsThatDraw() {
+        for pattern in posePatterns {
+            let playback = RigPlaybackCache.playback(for: pattern)
+            XCTAssertGreaterThanOrEqual(playback.stills.count, 2, pattern.id)
+            XCTAssertLessThanOrEqual(playback.stills.count, 3, pattern.id)
+            for keyframe in playback.stills {
+                XCTAssertTrue(keyframe >= 0 && keyframe < pattern.keyframes.count, "\(pattern.id) still \(keyframe)")
+                let shapes = RigShapes.scene(playback.still(keyframe), playback: playback, glow: ["abs": 1], palette: .forScheme(.dark))
+                XCTAssertFalse(shapes.isEmpty, pattern.id)
+                for shape in shapes {
+                    for p in shape.points { XCTAssertTrue(p.x.isFinite && p.y.isFinite, "\(pattern.id) has a non-finite point") }
+                }
+            }
+            for keyframe in playback.stills {
+                let box = RigFraming.bounds(for: playback, keyframe: keyframe)
+                XCTAssertTrue(box.width.isFinite && box.height.isFinite && box.width > 1 && box.height > 1, "\(pattern.id) camera box")
+            }
+        }
+    }
+
+    func testAStillIsTheKeyframeItself() {
+        guard let pattern = posePatternsBySlug["sit-up"] else { return XCTFail("no sit-up") }
+        let playback = RigPlaybackCache.playback(for: pattern)
+        for keyframe in playback.stills {
+            let still = playback.still(keyframe), placed = playback.keyframe(keyframe)
+            XCTAssertEqual(still.head.x, placed.head.x, accuracy: 0.05)
+            XCTAssertEqual(still.head.y, placed.head.y, accuracy: 0.05)
+        }
+    }
+
     func testEveryPatternDrawsWithoutDegenerateShapes() {
         for pattern in posePatterns {
             let playback = RigPlaybackCache.playback(for: pattern)

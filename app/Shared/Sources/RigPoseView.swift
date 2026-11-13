@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// §9 job 2 — the exercise animation: a 3D athlete performing the item's
-/// movement pattern keyframe by keyframe, with planted feet and hands that
-/// stay put, the equipment in hand, the bench or bar or bike it uses, and
-/// the muscles the item works glowing red on the moving body.
+/// §9 job 2 — how an exercise looks: a 3D athlete in the movement's key
+/// positions (a sit-up lying down, then sitting up), with the equipment in
+/// hand, the bench or bar or bike it uses, and the muscles the item works
+/// glowing on the body. The positions are pictures that cross-fade into each
+/// other; the movement between them is never played.
 ///
 /// The maths lives in RigEngine.swift and the drawing in RigShapes.swift;
 /// both mirror content/src/rig3d.js and rigDraw.js, which the content tests
@@ -13,7 +14,12 @@ public struct RigPoseView: View {
     private let muscles: [String: Double]
     private let animated: Bool
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Which of the stills is showing.
+    @State private var shown = 0
+
+    /// How long each position stays, fade included, and the fade itself.
+    private static let stepSeconds = 1.5
+    private static let fadeSeconds = 0.5
 
     public init(pattern: PosePatternInfo, muscles: [String: Double] = [:], animated: Bool = true) {
         self.pattern = pattern
@@ -25,21 +31,34 @@ public struct RigPoseView: View {
         let playback = RigPlaybackCache.playback(for: pattern)
         let glow = RigMuscleRegion.glow(for: muscles)
         let palette = RigPalette.forScheme(colorScheme)
-        let frame = RigFraming.bounds(for: playback)
-        let still = !animated || reduceMotion
-        let loop = RigFraming.loopSeconds(for: playback)
-        TimelineView(.animation(paused: still)) { timeline in
-            let seconds = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: loop)
-            let skeleton = still ? RigFraming.thumbFrame(for: playback) : playback.frame(atTime: seconds, loop: loop)
-            Canvas { context, size in
-                RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: glow, palette: palette, scheme: colorScheme), in: &context,
-                               size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil,
-                               grade: playback.info.path?.grade ?? 0,
-                               wave: playback.info.path.flatMap { p in p.waveAmp.flatMap { a in p.waveLength.map { (a, $0) } } })
+        let stills = animated ? playback.stills : [RigFraming.thumbIndex(for: playback)]
+        let visible = shown < stills.count ? shown : 0
+        ZStack {
+            ForEach(Array(stills.enumerated()), id: \.offset) { entry in
+                let skeleton = playback.still(entry.element)
+                let frame = RigFraming.bounds(for: playback, keyframe: entry.element)
+                Canvas { context, size in
+                    RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: glow, palette: palette, scheme: colorScheme), in: &context,
+                                   size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
+                }
+                .opacity(entry.offset == visible ? 1 : 0)
             }
         }
         .clipped() // water and backdrops are drawn wider than the view
         .accessibilityHidden(true) // decorative alongside the item's own text
+        .task(id: "\(pattern.id)-\(stills.count)") {
+            shown = 0
+            let count = stills.count
+            guard count > 1 else { return }
+            for _ in 0..<200_000 {
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(Self.stepSeconds * 1_000_000_000))
+                } catch {
+                    return
+                }
+                withAnimation(.easeInOut(duration: Self.fadeSeconds)) { shown = (shown + 1) % count }
+            }
+        }
     }
 
 }
@@ -52,8 +71,9 @@ struct RigStillView: View {
     var body: some View {
         let playback = RigPlaybackCache.playback(for: pattern)
         let palette = RigPalette.forScheme(colorScheme)
-        let frame = RigFraming.bounds(for: playback)
-        let skeleton = RigFraming.thumbFrame(for: playback)
+        let thumb = RigFraming.thumbIndex(for: playback)
+        let frame = RigFraming.bounds(for: playback, keyframe: thumb)
+        let skeleton = playback.still(thumb)
         Canvas { context, size in
             RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: [:], palette: palette, scheme: colorScheme), in: &context,
                            size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
@@ -63,76 +83,71 @@ struct RigStillView: View {
     }
 }
 
-/// One fixed camera box per pattern (sampled over the whole cycle), so the
-/// view never jitters or zooms while the athlete moves.
+/// The camera box for each picture of a pattern (its stills and its
+/// thumbnail). One box around all of them, so nothing jumps or zooms when one
+/// fades into the next — except a movement that travels with nothing standing
+/// on the ground (a long jump): there each picture is centred on the athlete,
+/// at the same scale, so the body stays large.
 @MainActor
 enum RigFraming {
-    private static var cache: [String: CGRect] = [:]
-    private static var loops: [String: Double] = [:]
+    private static var cache: [String: [Int: CGRect]] = [:]
 
-    /// Seconds for the whole animation (a travelling drill's full path).
-    static func loopSeconds(for playback: RigPlayback) -> Double {
-        if let hit = loops[playback.info.id] { return hit }
-        let value = max(playback.loopSeconds, 0.2)
-        loops[playback.info.id] = value
-        return value
+    /// The keyframe list thumbnails show.
+    static func thumbIndex(for playback: RigPlayback) -> Int {
+        min(max(playback.info.thumb, 0), playback.info.keyframes.count - 1)
     }
 
-    /// The still frame: the thumb keyframe, with the cast where they stand then.
-    static func thumbFrame(for playback: RigPlayback) -> RigSkeleton {
-        let i = min(playback.info.thumb, playback.info.keyframes.count - 1)
-        var s = playback.keyframe(i)
-        if playback.info.cast != nil {
-            var at = 0.0
-            let moves = playback.info.loops ? playback.info.keyframes.count : playback.info.keyframes.count - 1
-            for k in 0..<i { at += playback.info.keyframes[k].hold + (k < moves ? playback.info.keyframes[k].move : 0) }
-            s.cast = playback.castAt((at + 1e-6) / playback.cycleSeconds)
-        }
-        return s
+    static func bounds(for playback: RigPlayback, keyframe: Int) -> CGRect {
+        let all = boxes(for: playback)
+        return all[keyframe] ?? all[thumbIndex(for: playback)] ?? CGRect(x: -50, y: -100, width: 100, height: 104)
     }
 
-    static func bounds(for playback: RigPlayback) -> CGRect {
+    private static func boxes(for playback: RigPlayback) -> [Int: CGRect] {
         if let hit = cache[playback.info.id] { return hit }
         var minX = Double.infinity, maxX = -Double.infinity, minY = Double.infinity, maxY = -Double.infinity
         let palette = RigPalette.forScheme(.light)
-        let loop = loopSeconds(for: playback)
-        let samples = playback.info.path == nil ? 20 : 40
-        for n in 0..<samples {
-            let s = playback.frame(atTime: Double(n) / Double(samples) * loop, loop: loop)
+        var keyframes = playback.stills
+        let thumb = thumbIndex(for: playback)
+        if !keyframes.contains(thumb) { keyframes.append(thumb) }
+        var spans: [Int: (low: Double, high: Double)] = [:]
+        for keyframe in keyframes {
+            var low = Double.infinity, high = -Double.infinity
+            let s = playback.still(keyframe)
             for shape in RigShapes.scene(s, playback: playback, glow: [:], palette: palette) where shape.depth > -1e5 && !shape.isBall {
                 for p in shape.points {
-                    minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
+                    low = min(low, p.x); high = max(high, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
                 }
             }
+            spans[keyframe] = (low, high)
+            minX = min(minX, low); maxX = max(maxX, high)
         }
         let pad = 4.0
-        let rect = CGRect(x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: max(maxY, 2) - minY + pad * 2)
-        cache[playback.info.id] = rect
-        return rect
+        let top = minY - pad, height = max(maxY, 2) - minY + pad * 2
+        let widest = spans.values.map { $0.high - $0.low }.max() ?? 0
+        let centres = spans.values.map { ($0.low + $0.high) / 2 }
+        let drift = (centres.max() ?? 0) - (centres.min() ?? 0)
+        let travels = playback.info.fixture == nil && playback.info.cast == nil && drift > widest * 0.5
+        var boxes: [Int: CGRect] = [:]
+        for (keyframe, span) in spans {
+            boxes[keyframe] = travels
+                ? CGRect(x: (span.low + span.high) / 2 - widest / 2 - pad, y: top, width: widest + pad * 2, height: height)
+                : CGRect(x: minX - pad, y: top, width: maxX - minX + pad * 2, height: height)
+        }
+        cache[playback.info.id] = boxes
+        return boxes
     }
 }
 
 enum RigCanvas {
-    static func draw(_ shapes: [RigShape], in context: inout GraphicsContext, size: CGSize, frame: CGRect, ground: Color?, grade: Double = 0,
-                     wave: (amp: Double, length: Double)? = nil) {
+    static func draw(_ shapes: [RigShape], in context: inout GraphicsContext, size: CGSize, frame: CGRect, ground: Color?) {
         let scale = min(size.width / frame.width, size.height / frame.height)
         let offsetX = (size.width - frame.width * scale) / 2 - frame.minX * scale
         let offsetY = (size.height - frame.height * scale) / 2 - frame.minY * scale
         let transform = CGAffineTransform(translationX: offsetX, y: offsetY).scaledBy(x: scale, y: scale)
         if let ground {
             var line = Path()
-            // A hill path's ground slopes with it; a pump track's rolls (side view).
-            let c = RigProjection.c
-            func groundY(_ x: Double) -> Double {
-                var y = x * grade
-                if let wave { y += wave.amp * sin(2 * .pi * x / wave.length) }
-                return -y * c
-            }
-            line.move(to: CGPoint(x: frame.minX, y: groundY(frame.minX)))
-            for i in 1...40 {
-                let x = frame.minX + (frame.maxX - frame.minX) * Double(i) / 40
-                line.addLine(to: CGPoint(x: x, y: groundY(x)))
-            }
+            line.move(to: CGPoint(x: frame.minX, y: 0))
+            line.addLine(to: CGPoint(x: frame.maxX, y: 0))
             context.stroke(line.applying(transform), with: .color(ground), lineWidth: 1.2)
         }
         for shape in shapes where shape.points.count >= 2 {
