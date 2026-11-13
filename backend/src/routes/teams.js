@@ -126,12 +126,16 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
     const members = await prisma.teamMember.findMany({ where: { teamId, shareHealth: true } });
     if (members.length === 0) return [];
     const since = new Date(now().getTime() - 14 * DAY_MS);
-    const notes = await prisma.healthNote.findMany({ where: { athleteId: { in: members.map((m) => m.athleteId) }, day: { gte: since } } });
-    const rtpEntries = await prisma.rtpEntry.findMany({ where: { teamId, athleteId: { in: members.map((m) => m.athleteId) } } });
+    const ids = members.map((m) => m.athleteId);
+    const latestFirst = (a, b) => b.day - a.day || b.createdAt - a.createdAt;
+    const notes = await prisma.healthNote.findMany({ where: { athleteId: { in: ids }, day: { gte: since } } });
+    // A pause stays until it is cleared, however long ago it began.
+    const pauses = await prisma.healthNote.findMany({ where: { athleteId: { in: ids }, kind: { in: ['paused', 'cleared'] } } });
+    const rtpEntries = await prisma.rtpEntry.findMany({ where: { teamId, athleteId: { in: ids } } });
     return members
       .map((m) => {
-        const mine = notes.filter((n) => n.athleteId === m.athleteId).sort((a, b) => b.day - a.day || b.createdAt - a.createdAt);
-        const lastPause = mine.find((n) => n.kind === 'paused' || n.kind === 'cleared');
+        const mine = notes.filter((n) => n.athleteId === m.athleteId).sort(latestFirst);
+        const lastPause = pauses.filter((n) => n.athleteId === m.athleteId).sort(latestFirst)[0];
         const latestPain = mine.find((n) => n.kind === 'pain' || n.kind === 'painGone');
         const rtp = rtpEntries.filter((r) => r.athleteId === m.athleteId).sort((a, b) => b.createdAt - a.createdAt)[0];
         return {

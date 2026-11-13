@@ -207,24 +207,26 @@ test('parent link: a private weekly summary page that can be switched off', asyn
 test('teams: health is shared only with consent, with the coach and the athletic trainer', async () => {
   const prisma = fakePrisma();
   const { call, close } = await serve(prisma);
+  // Pain shows for 14 days, so it is reported today; the pause below is weeks old and still shows.
+  const day = new Date().toISOString().slice(0, 10);
   try {
     const { team } = await (await call('coach', 'POST', '/teams', { name: 'Varsity Soccer' })).json();
     await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Sam' });
     await call('ath2', 'POST', '/teams/join', { code: team.code, nickname: 'Ali' });
 
     // Not shared yet: the note is dropped.
-    assert.equal((await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'pain', areas: ['knee'], level: 'some' })).status, 204);
+    assert.equal((await call('ath1', 'POST', '/teams/health', { day, kind: 'pain', areas: ['knee'], level: 'some' })).status, 204);
     assert.equal(prisma._db.healthNote.length, 0, 'nothing kept without consent');
 
     assert.equal((await call('ath1', 'PATCH', `/teams/${team.id}/membership`, { shareHealth: true })).status, 200);
-    assert.equal((await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'pain', areas: ['knee', 'nonsense'], level: 'some' })).status, 201);
-    assert.equal((await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'diagnosis' })).status, 400);
+    assert.equal((await call('ath1', 'POST', '/teams/health', { day, kind: 'pain', areas: ['knee', 'nonsense'], level: 'some' })).status, 201);
+    assert.equal((await call('ath1', 'POST', '/teams/health', { day, kind: 'diagnosis' })).status, 400);
     assert.deepEqual(prisma._db.healthNote[0].areas, ['knee'], 'only known areas');
 
     const coachView = await (await call('coach', 'GET', `/teams/${team.id}/health`)).json();
     assert.equal(coachView.role, 'coach');
     assert.deepEqual(coachView.members.map((m) => m.nickname), ['Sam'], 'only members who share');
-    assert.deepEqual(coachView.members[0].pain, { day: '2026-09-30', areas: ['knee'], level: 'some' });
+    assert.deepEqual(coachView.members[0].pain, { day, areas: ['knee'], level: 'some' });
     assert.equal((await call('ath2', 'GET', `/teams/${team.id}/health`)).status, 404, 'teammates never see it');
 
     // The athletic trainer joins with the coach's trainer code.
