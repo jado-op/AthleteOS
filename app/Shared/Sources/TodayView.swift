@@ -60,8 +60,9 @@ struct CompactLabelStyle: LabelStyle {
     }
 }
 
-/// The "+" sheet: a grid of big tiles for everything that isn't the day's
-/// main action.
+/// The "+" sheet: the four things an athlete adds to their day. Places with
+/// a home of their own (skill plans in Workout, past workouts in Progress)
+/// are not repeated here (docs/CLARITY-PLAN.md).
 struct QuickActionsSheet: View {
     let onSelect: (QuickAction) -> Void
 
@@ -77,9 +78,7 @@ struct QuickActionsSheet: View {
         Tile(action: .logWorkout, title: "Log a workout", detail: "Something you did that isn't in your plan", icon: "figure.run"),
         Tile(action: .checkIn, title: "Check in", detail: "How you slept and feel today", icon: "sun.max.fill"),
         Tile(action: .addGame, title: "Add a game", detail: "Your plan builds up to it", icon: "sportscourt.fill"),
-        Tile(action: .improve, title: "Improve a skill", detail: "A plan for one skill, like shooting", icon: "chart.line.uptrend.xyaxis"),
         Tile(action: .fuel, title: "Food & water", detail: "What to eat and drink today", icon: "fork.knife"),
-        Tile(action: .history, title: "Past workouts", detail: "Everything you've done", icon: "clock.arrow.circlepath"),
     ]
 
     var body: some View {
@@ -88,7 +87,7 @@ struct QuickActionsSheet: View {
                 .fill(AppTheme.hairline)
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
-            Text("What do you want to do?")
+            Text("Add to today")
                 .font(.headline)
                 .foregroundStyle(AppTheme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)

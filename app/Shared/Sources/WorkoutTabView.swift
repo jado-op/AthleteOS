@@ -17,6 +17,7 @@ struct WorkoutTabView: View {
     @State private var showingImprove = false
     @State private var showingProgram = false
     @State private var showingTogether = false
+    @State private var showingLibrary = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
     @State private var sharing: ShareTarget?
@@ -444,6 +445,12 @@ struct WorkoutTabView: View {
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
+                Button { showingLibrary = true } label: {
+                    ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
+                            detail: "Every exercise and drill, with how it looks")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
                 Button { showingProgram = true } label: {
                     ListRow(systemImage: "calendar.badge.clock", color: AppTheme.ink, title: "Off-season program",
                             detail: ProgramStore.active.map { "\($0.goal.title) · week \($0.week() ?? 1) of \($0.weeks)" } ?? "One goal, 4–8 weeks, tested at both ends")
@@ -454,6 +461,9 @@ struct WorkoutTabView: View {
         }
         .sheet(isPresented: $showingProgram) {
             ProgramsView(onChanged: onPlanInputsChanged)
+        }
+        .sheet(isPresented: $showingLibrary) {
+            LibraryView(athlete: athlete)
         }
         .sheet(isPresented: $showingTogether) {
             TrainTogetherSheet(todays: recommendedSession) { session, code in

@@ -90,8 +90,8 @@ public struct LibraryView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
                     ScreenTitle("Library", subtitle: "\(allItems.count) exercises and drills, all offline.")
-                    TipCard(id: "library", icon: "play.rectangle.fill", title: "Every move, animated",
-                            message: "Tap an exercise to see how it's done.")
+                    TipCard(id: "library", icon: "play.rectangle.fill", title: "Every move, step by step",
+                            message: "Tap an exercise to see its key positions.")
                     searchRow
                     groupChips
                     if let region {

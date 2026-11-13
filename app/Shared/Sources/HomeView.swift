@@ -444,7 +444,7 @@ struct HomeView: View {
                         pendingAction = action
                         activeSheet = nil
                     }
-                    .presentationDetents([.height(560)])
+                    .presentationDetents([.height(420)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:

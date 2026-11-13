@@ -80,14 +80,30 @@ movement between them is never played. `content/src/stills.js`, `RigPoseView.swi
   Team & Family, Settings, Subscription, Your data, About, Account.
 - The "Training History" group moved to Progress.
 
-### 6 · Campus: what do I learn next?
-Already follows the rules (one recommended lesson, continue, the nine areas, your sport,
-progress last). Next: Leagues, badges and the library under one row each.
+### 6 · Campus: what do I learn next? — shipped
+- Order: today's lesson, continue, review when due, the nine areas, your sport, progress.
+- The three unnamed icons in the header are gone. **Leagues** and **Badges** are named
+  rows under "Your progress"; the **Exercise library** moved to Workout → More workouts,
+  where exercises live. Search still finds all three.
+- Texts no longer promise animations: the library and how-tos speak of key positions.
 
-### 7 · One home per feature
-Sweep for duplicate entry points (check-in, schedule, practice log, tests, history,
-fuel) and keep each only in its home plus the place where it is the next step. Home's
-search keeps finding everything.
+### 7 · One home per feature — shipped
+Each feature has one home, and other screens show it only where it is the next step;
+Home's search finds everything.
+
+| Feature | Home | Also shown only when it is the next step |
+|---|---|---|
+| Check-in | Home's plan | Home's "+" |
+| Practice log | Progress | Home's plan (after practice) |
+| Practice days, calendars | Me → Training Setup | Home and Progress while not set up |
+| Games | Progress → Games & events | Home's "+" |
+| Training history, tests, trends | Progress | — |
+| Food & water | Me | Home before practice, on game days, Home's "+" |
+| Exercise library | Workout | — |
+| Leagues, badges | Campus | — |
+
+Home's "+" now holds only the four things you add (a workout, a check-in, a game, food
+and water); skill plans and past workouts were duplicates there.
 
 ## What stays as it is
 Colours and the dark, glass design; the five tabs; every sport and every feature; the free

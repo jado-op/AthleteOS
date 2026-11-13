@@ -200,7 +200,6 @@ struct CampusView: View {
     @AppStorage(CampusProgress.xpKey) private var xp = 0
     @AppStorage(CampusProgress.streakKey) private var streak = 0
     @AppStorage(CampusProgress.lastDayKey) private var lastDay = ""
-    @State private var showingLibrary = false
     @State private var playing: CampusLesson?
     @State private var reviewing: ReviewSession?
     @State private var showingLeagues = false
@@ -275,9 +274,6 @@ struct CampusView: View {
             .navigationDestination(for: CampusTopic.self) { topic in
                 LearningAreaView(topic: topic, color: Self.color(for: topic)) { lesson in start(lesson) }
             }
-        }
-        .sheet(isPresented: $showingLibrary) {
-            LibraryView(athlete: athlete)
         }
         .fullScreenCover(item: $playing) { lesson in
             CampusLessonPlayer(lesson: lesson) { earned in finish(lesson, xp: earned) }
@@ -357,11 +353,6 @@ struct CampusView: View {
                 .foregroundStyle(AppTheme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
-            HStack(spacing: 6) {
-                iconButton("trophy", "Leagues with your teammates") { showingLeagues = true }
-                iconButton("medal", "Your badges") { showingBadges = true }
-                iconButton("books.vertical", "Exercise library") { showingLibrary = true }
-            }
         }
         .padding(.top, 8)
     }
@@ -392,20 +383,21 @@ struct CampusView: View {
             .foregroundStyle(AppTheme.secondaryText)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            VStack(spacing: 0) {
+                Button { showingLeagues = true } label: {
+                    ListRow(systemImage: "trophy", color: AppTheme.ink, title: "Leagues", detail: "Learn alongside your teammates")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { showingBadges = true } label: {
+                    ListRow(systemImage: "medal", color: AppTheme.ink, title: "Badges", detail: "What you have earned so far")
+                }
+                .buttonStyle(.plain)
+            }
+            .cardStyle(padding: 12)
+            .padding(.top, 6)
         }
         .padding(.top, 12)
-    }
-
-    private func iconButton(_ systemImage: String, _ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .frame(width: 44, height: 44)
-                .glassCapsule()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     // MARK: Recommended lesson

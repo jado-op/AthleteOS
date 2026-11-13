@@ -261,7 +261,7 @@ struct GettingStartedCard: View {
                  done: hasLoggedSession, action: onStartSession),
             Step(id: "skill", title: "Build a skill plan", detail: "Workout → Skill plans", icon: "target",
                  done: !athlete.skillBlocks.isEmpty, action: onImprove),
-            Step(id: "library", title: "Watch how an exercise is done", detail: "Library → tap any exercise", icon: "play.rectangle.fill",
+            Step(id: "library", title: "Watch how an exercise is done", detail: "Workout → Exercise library → tap any exercise", icon: "play.rectangle.fill",
                  done: libraryOpened, action: onLibrary),
         ]
     }
@@ -412,7 +412,7 @@ struct HelpCenterView: View {
         ("How do I start a workout?",
          "Home → TODAY → Start, or the Workout tab: the recommended workout is on top, the other modes below. You can also start any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
         ("What happens during a workout?",
-         "You see one exercise at a time with its animation. Set the reps or weight with the big buttons, tap Log set, and a rest timer starts on its own. Swipe or tap Next when you're done with an exercise. Tap × to finish."),
+         "You see one exercise at a time with its key positions. Set the reps or weight with the big buttons, tap Log set, and a rest timer starts on its own. Swipe or tap Next when you're done with an exercise. Tap × to finish."),
         ("Why did my workout change?",
          "If your morning check-in shows poor sleep or high soreness, workouts get lighter. You can always switch back to the full ones."),
         ("How do games change my week?",
@@ -426,7 +426,7 @@ struct HelpCenterView: View {
         ("How do I make workouts more personal?",
          "Me → My Development Goals: choose up to three, like acceleration, strength or conditioning. Your training leans towards them."),
         ("What do the red muscles mean?",
-         "Solid red is what an exercise mainly works, lighter red is what helps. The same colours glow on the animated athlete."),
+         "Solid red is what an exercise mainly works, lighter red is what helps. The same colours glow on the athlete in the pictures."),
         ("Does it work without internet?",
          "Yes. Every exercise, drill and plan is on your phone. Internet is only used to back up your history."),
         ("How do I change my sport or equipment?",

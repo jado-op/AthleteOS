@@ -83,7 +83,7 @@ public struct OnboardingView: View {
                     .buttonStyle(.secondary)
                     VStack(alignment: .leading, spacing: 18) {
                         feature("calendar", AppTheme.blue, "A weekly plan that knows your season", "Build in the off-season, stay sharp in-season, peak for game day.")
-                        feature("figure.run", AppTheme.orange, "1 tap to start, every set logged", "Animated how-tos with the muscles each exercise trains.")
+                        feature("figure.run", AppTheme.orange, "1 tap to start, every set logged", "Step-by-step pictures with the muscles each exercise trains.")
                         feature("sparkles", AppTheme.purple, "A coach that notices", "Readiness, muscle balance and what to train next — every week.")
                         feature("lock.fill", AppTheme.green, "Private by design", "Sign in with Apple only. No email, no ads, no tracking.")
                     }
@@ -158,7 +158,7 @@ public struct OnboardingView: View {
             Text("Getting your library ready")
                 .font(.title2.bold())
                 .foregroundStyle(AppTheme.ink)
-            Text("Exercises, drills and animations — downloaded once, then everything works offline.")
+            Text("Exercises, drills and their pictures — downloaded once, then everything works offline.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
