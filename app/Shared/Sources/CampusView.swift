@@ -347,7 +347,8 @@ struct CampusView: View {
 
     /// V6: Campus opens with learning, not XP — the title and quiet tools.
     private var header: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .center, spacing: 12) {
+            ProfileButton(name: athlete.displayName)
             Text("Athlete Campus")
                 .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(AppTheme.ink)

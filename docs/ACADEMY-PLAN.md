@@ -10,14 +10,15 @@ Owner's brief 2026-11-17, decisions the same day:
 - Pro: **free in the beta**, behind a feature flag so a limit can be switched on later.
   Does not count toward Campus's 3 lessons a day.
 
-Status: plan, waiting for the owner's OK on navigation (§1).
+Status: approved 2026-11-17 with the recommended navigation and four additions (events,
+real server delete, support line per country, GDPR note). Step 1 shipped first.
 
 ## 1. Navigation
 
 On iPhone a `TabView` with six tabs shows four of them plus a system "More" tab — the
 sixth tab would be hidden behind a list. So a plain sixth tab is not clean.
 
-**Proposal (recommended): Academy becomes a tab, Me moves to a profile button.**
+**Decided (owner, 2026-11-17): Academy becomes a tab, Me moves to a profile button.**
 
 - Tabs: Home · Campus · **Academy** · Workout · Progress. Academy sits in the middle
   (icon: a figure in a ring).
@@ -103,8 +104,9 @@ No SwiftData models, so **no migration** of the existing store.
   under a `settings.*` group (those are plain JSON).
 - Parent summary, coach and team routes never read it (they read only `competitions`
   and `summary`; a test keeps Academy data out of `summary`).
-- **Delete twin**: clears the phone, writes an empty, newer `academy` document to the
-  server (replaces the backup), and deletes the key. "Delete all data" in Me does the
+- **Delete twin** (owner: really delete, not overwrite): clears the phone and calls a new
+  `DELETE /sync/state/academy` that removes the server row. This needs a backend redeploy
+  on the owner's server; until then the app retries the delete at the next backup. "Delete all data" in Me does the
   same. Without iCloud Keychain the backup cannot be restored on a new phone — said
   plainly in Twin privacy.
 
@@ -137,13 +139,17 @@ No SwiftData models, so **no migration** of the existing store.
 
 - Minors: the twin and every answer are the athlete's alone — no coaches, scouts,
   parents or other users in the beta.
-- Events (twin viewed, body area tapped, lesson completed, reflection submitted) are
-  counted with `UsageCounts`: counts on the phone only, never uploaded, never answers.
+- Events `twin_viewed`, `body_zone_tapped`, `lesson_completed`, `reflection_submitted`,
+  `twin_born` (`AcademyEvent`) are counted with `UsageCounts`: counts on the phone only,
+  never uploaded, no identifiers, never answers or reflection text.
 - Mind lessons are mental-skills education, not therapy. "Need to talk to someone?"
-  is always on Academy home and in Mind lessons; the resource is configurable in
-  `AppConfig` (default: the existing 988 / trusted-adult text from `Safety.swift`).
+  is always on Academy home and in Mind lessons; the helpline is configured per country
+  in `SupportResources.swift` and picked by the phone's region — Germany: Nummer gegen
+  Kummer 116 111; also AT 147, CH 147, US 988, UK Childline; elsewhere a trusted adult and
+  the local emergency number.
 - Parental consent: the app has no parental-consent flow (13+ only, under 13 is a hard
-  stop). TODO recorded in `ACADEMY_README.md`.
+  stop). TODO recorded in `ACADEMY_README.md`, with the note that for EU users under 16
+  (GDPR Art. 8; Germany uses 16) consent must be checked before the public launch.
 
 ## 9. Files
 

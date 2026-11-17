@@ -723,6 +723,7 @@ struct HomeView: View {
     /// Small floating glass controls: the kind of day, search, "+".
     private var topBar: some View {
         HStack(spacing: 8) {
+            ProfileButton(name: athlete.displayName)
             Button { activeSheet = .dayStatus } label: {
                 HStack(spacing: 7) {
                     Image(systemName: status.systemImage)

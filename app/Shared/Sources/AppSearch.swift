@@ -97,6 +97,8 @@ enum AppSearch {
         function("Tests", "Sprint, jump and other benchmarks", "stopwatch.fill", ["test", "benchmark", "sprint", "jump", "speed", "measure", "personal best", "pb"], .tests),
         function("Home", "Today at a glance", "house.fill", ["home", "today", "overview"], .tab(.today)),
         function("Campus", "Lessons about training, food, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
+        function("Academy", "Your digital twin and its lessons", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "avatar", "pillars", "legends", "sport iq"], .tab(.academy)),
+        function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .tab(.academy)),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),
         function("Progress", "Calendar, practice log and events", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
         function("Me", "Profile and settings", "person.fill", ["me", "profile", "settings", "account"], .tab(.me)),

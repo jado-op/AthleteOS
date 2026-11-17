@@ -7,10 +7,13 @@ import UIKit
 import WidgetKit
 #endif
 
-/// The five sections: Home (an overview), Campus (learning), Workout
-/// (the three kinds of workout), Progress (calendar, practice, events) and Me.
+/// The tabs: Home (an overview), Campus (learning), Academy (the Digital
+/// Twin), Workout (the three kinds of workout) and Progress (calendar,
+/// practice, events). Me is not a tab (iPhone shows five before "More"):
+/// it opens from the profile button at the top left of every tab, and
+/// anything that routes to `.me` opens it there.
 enum AppTab: Hashable {
-    case today, campus, workout, progress, me
+    case today, campus, academy, workout, progress, me
 }
 
 /// §15's five tabs. Owns the one generated week so Today and Plan can never
@@ -25,6 +28,7 @@ public struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var week: GeneratedWeek?
     @State private var selectedTab: AppTab = DemoData.initialTab
+    @State private var showingMe = false
     @AppStorage("healthPermissionAsked") private var healthPermissionAsked = false
     @State private var showingHealthPermission = false
     @AppStorage("appTourSeen") private var appTourSeen = false
@@ -55,6 +59,11 @@ public struct MainTabView: View {
                 .tint(AppTheme.accent)
                 .tag(AppTab.campus)
 
+            AcademyHomeView(athlete: athlete)
+                .tabItem { Label("Academy", systemImage: "figure.stand.line.dotted.figure.stand") }
+                .tint(AppTheme.accent)
+                .tag(AppTab.academy)
+
             WorkoutTabView(athlete: athlete, apiClient: apiClient, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
                 .tint(AppTheme.accent)
@@ -64,19 +73,27 @@ public struct MainTabView: View {
                 .tabItem { Label("Progress", systemImage: "calendar") }
                 .tint(AppTheme.accent)
                 .tag(AppTab.progress)
-
-            MeView(athlete: athlete, onPlanInputsChanged: regenerate)
-                .tabItem { Label("Me", systemImage: "person.fill") }
-                .tint(AppTheme.accent)
-                .tag(AppTab.me)
         }
+        .environment(\.openMe, OpenMeAction { showingMe = true })
         // V5: the selected tab is lit red; each screen keeps the white tint.
         .tint(AppTheme.brightRed)
         // Counted after the switch, never inside the tab bar's own binding
         // (a hand-made binding there sent lesson taps to the Me tab).
-        .onChange(of: selectedTab) { _, tab in UsageCounts.count("tab.\(tab)") }
+        .onChange(of: selectedTab) { previous, tab in
+            // Me opens over the current tab instead of being one.
+            if tab == .me {
+                selectedTab = previous == .me ? .today : previous
+                showingMe = true
+                return
+            }
+            UsageCounts.count("tab.\(tab)")
+        }
         // A cold start from Siri / Shortcuts.
         .onAppear {
+            if selectedTab == .me {
+                selectedTab = .today
+                showingMe = true
+            }
             switch IntentRoute.pending {
             case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
             case .logPractice?: selectedTab = .progress
@@ -91,6 +108,10 @@ public struct MainTabView: View {
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
             HealthPermissionView()
+        }
+        .sheet(isPresented: $showingMe) {
+            MeView(athlete: athlete, onPlanInputsChanged: regenerate, onClose: { showingMe = false })
+                .environment(\.workoutContext, workoutContext)
         }
         .fullScreenCover(isPresented: $showingTour, onDismiss: askForHealthIfNeeded) {
             AppTourView {

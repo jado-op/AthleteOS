@@ -97,6 +97,7 @@ struct WorkoutTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    ProfileButtonBar(name: athlete.displayName)
                     recommendedCard
                         .padding(.bottom, 24)
                     weekSection

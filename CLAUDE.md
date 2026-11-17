@@ -57,11 +57,19 @@ Reading files, CI logs or the GitHub API needs no lock.
   (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`), **Academy**, Workout,
   Progress, Me. The Academy is its own area, not part of Campus: the Digital Twin is its
   centre, it has its own lessons by six pillars (Body, Fuel, Recovery, Mind, Legends,
-  Sport IQ), and Campus stays unchanged (never move Campus lessons into it). Navigation:
-  see `docs/ACADEMY-PLAN.md` §1 (iPhone shows at most five tabs before "More").
+  Sport IQ), and Campus stays unchanged (never move Campus lessons into it).
+- Navigation (owner, 2026-11-17): tabs Home · Campus · **Academy** (middle) · Workout ·
+  Progress; **Me is not a tab** — it opens as a sheet from the round `ProfileButton` at the
+  top left of every tab (iPhone shows only five tabs before "More"). Anything routed to
+  `AppTab.me` opens that sheet (`MainTabView`).
 - Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
   parents, scouts or other users; backed up only to their own account, encrypted on the
-  phone; "Delete twin" always available; usage counted only on the phone, never answers.
+  phone; "Delete twin" deletes the server backup for real (not an overwrite). Events
+  (`AcademyEvent`: twin_viewed, body_zone_tapped, lesson_completed, reflection_submitted,
+  twin_born) are on-phone counts only — never answers or reflection text. "Need to talk to
+  someone?" is configured per country in `SupportResources.swift` (Germany: Nummer gegen
+  Kummer 116 111). Parental consent: TODO for the beta; EU under-16 (GDPR Art. 8, Germany)
+  must be checked before a public launch.
 - Under-18 safety: no calorie counting as primary UI, readiness never a score, pain =
   "stop and get checked", never a diagnosis.
 - Pricing: Pro Monthly $2.99 with an intro offer $0.99/mo for 3 months, Pro Yearly

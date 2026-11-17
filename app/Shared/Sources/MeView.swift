@@ -11,6 +11,8 @@ import SwiftUI
 struct MeView: View {
     let athlete: Athlete
     let onPlanInputsChanged: () -> Void
+    /// Me opens as a sheet from the profile button; this closes it.
+    var onClose: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
@@ -349,6 +351,17 @@ struct MeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit sport and position")
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .frame(width: 44, height: 44)
+                            .glassCapsule()
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                }
             }
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {

@@ -208,6 +208,7 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    ProfileButtonBar(name: athlete.displayName)
                     summaryCard
                     HabitBadgesSection(athlete: athlete, sessions: sessions)
                         .padding(.bottom, 20)

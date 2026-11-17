@@ -93,8 +93,8 @@ struct StartWorkoutButton: View {
 
 // MARK: - First-run tour
 
-/// Five cards, one per tab, shown once after setup (and any time from
-/// Me → Help). Says what each tab is for and the one thing to do there.
+/// One card per tab, plus Me (the profile button), shown once after setup
+/// (and any time from Me → Help). Says what each tab is for and the one thing to do there.
 struct AppTourView: View {
     let onFinish: () -> Void
     @State private var page = 0
@@ -106,6 +106,9 @@ struct AppTourView: View {
         let title: String
         let body: String
         let steps: [String]
+
+        /// Where it lives: "Home tab", or the profile button for Me.
+        var place: String { tab == "Me" ? "Top left" : "\(tab) tab" }
     }
 
     static let pages: [Page] = [
@@ -117,6 +120,10 @@ struct AppTourView: View {
              title: "Learn in a few minutes a day",
              body: "Short lessons on training, food, sleep, injuries, mindset and more, plus a guide to your own sport. Earn XP, keep a streak, collect badges and race your teammates in a league.",
              steps: ["Tap the next lesson on the path", "Know your sport: what wins, and a quiz", "Trophy: leagues · Medal: badges"]),
+        Page(icon: "figure.stand.line.dotted.figure.stand", color: AppTheme.brightRed, tab: "Academy",
+             title: "Meet your digital twin",
+             body: "The Academy teaches the why behind your sport in six pillars: body, fuel, recovery, mind, legends and sport IQ. Every lesson and honest answer shapes your twin. Only you can see it.",
+             steps: ["Tap your twin to see each area", "Start the lesson under it — 3 to 5 minutes", "Watch your twin change at the end"]),
         Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",
              title: "Three kinds of workout",
              body: "After practice: short and smart. Gym day: your full session on days without practice. Stretching & mobility: good every day. Each one is built for your sport, your schedule and your goals.",
@@ -127,7 +134,7 @@ struct AppTourView: View {
              steps: ["Tap a day to see or log it", "Log team practice — easy or exact", "Set practice times, games and trainings"]),
         Page(icon: "person.fill", color: AppTheme.purple, tab: "Me",
              title: "You, your goals and settings",
-             body: "Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, tests, team & family, reminders and your account live here too.",
+             body: "Me opens from the round button at the top left of every tab. Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, tests, team & family, reminders and your account live here too.",
              steps: ["Me → My Development Goals", "Progress → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
     ]
 
@@ -192,7 +199,7 @@ struct AppTourView: View {
                 .padding(.top, 20)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Tag("\(page.tab) tab", color: page.color == AppTheme.ink ? AppTheme.secondaryText : page.color)
+                    Tag(page.place, color: page.color == AppTheme.ink ? AppTheme.secondaryText : page.color)
                     Text(page.title)
                         .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(AppTheme.ink)

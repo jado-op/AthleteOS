@@ -16,7 +16,7 @@ public enum DemoData {
         isEnabled && ProcessInfo.processInfo.arguments.contains("-paywall")
     }
 
-    /// `-tab workout|progress|campus|me` picks the starting tab for a screenshot.
+    /// `-tab workout|progress|campus|academy|me` picks the starting tab for a screenshot.
     static var initialTab: AppTab {
         let args = ProcessInfo.processInfo.arguments
         guard let index = args.firstIndex(of: "-tab"), args.indices.contains(index + 1) else { return .today }
@@ -24,6 +24,7 @@ public enum DemoData {
         case "workout", "improve": return .workout
         case "progress", "plan": return .progress
         case "campus", "library": return .campus
+        case "academy", "twin": return .academy
         case "me": return .me
         default: return .today
         }

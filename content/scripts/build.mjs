@@ -34,6 +34,8 @@ import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
 import { GUIDES, SOURCES, validateGuides } from '../src/guides/index.js';
+import { LESSONS as ACADEMY_LESSONS } from '../src/academy/lessons.js';
+import { academyPayload, validateAcademy } from '../src/academy/validate.js';
 import {
   generatedHeader, swiftArray, swiftDict, swiftDoubleLiteral,
   swiftStringArrayLiteral, swiftStringLiteral,
@@ -688,6 +690,23 @@ function buildPacks() {
   console.log(`total pack size: ${(totalBytes / 1024).toFixed(1)} KB`);
 }
 
+/** The Academy's lessons, body-area tables and legend traits (docs/ACADEMY-PLAN.md). */
+function genAcademySwift() {
+  const problems = validateAcademy(ACADEMY_LESSONS);
+  if (problems.length) {
+    throw new Error(`academy lessons are invalid:\n  ${problems.join('\n  ')}`);
+  }
+  const json = JSON.stringify(academyPayload(ACADEMY_LESSONS));
+  if (json.includes('"#')) throw new Error('academy lessons contain "#, which would end the raw Swift string');
+  return `${generatedHeader('content/src/academy')}import Foundation
+
+/// Decoded by AcademyContent.swift.
+public let academyContentJSON = #"""
+${json}
+"""#
+`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 function main() {
@@ -698,6 +717,7 @@ function main() {
   writeFile(path.join(SWIFT_OUT, 'Equipment.swift'), genEquipmentSwift());
   writeFile(path.join(SWIFT_OUT, 'AllSports.swift'), genAllSportsSwift());
   writeFile(path.join(SWIFT_OUT, 'SportGuides.swift'), genSportGuidesSwift());
+  writeFile(path.join(SWIFT_OUT, 'AcademyContent.swift'), genAcademySwift());
   writeFile(path.join(SWIFT_OUT, 'Muscles.swift'), genMusclesSwift());
   writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genAnatomySwift(buildAnatomy()));
   writeFile(path.join(SWIFT_OUT, 'PosePatterns.swift'), genPosePatternsSwift());
