@@ -3,5 +3,7 @@
 Only one Claude session changes master at a time. Read CLAUDE.md, "Working
 together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
-- status: free
-- since: 2026-11-17T21:51:30Z
+- status: in-use
+- by: claude-fb3e2636
+- since: 2026-11-17T22:34:06Z
+- task: Academy: pause twin animation off screen (CI hang)
