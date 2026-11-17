@@ -138,13 +138,17 @@ struct DigitalTwinView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sweep: CGFloat = 1.2
+    /// The motion runs only while the twin is on screen: a twin in a tab
+    /// that isn't showing must not keep the app busy (battery, and UI tests
+    /// wait for the app to go idle).
+    @State private var onScreen = false
 
     var body: some View {
         GeometryReader { proxy in
             if let figure = TwinRig.figure() {
                 let geometry = TwinGeometry(frame: figure.frame, size: proxy.size, width: state.appearance.build.width)
-                TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { timeline in
-                    let time = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { timeline in
+                    let time = reduceMotion || !onScreen ? 0 : timeline.date.timeIntervalSinceReferenceDate
                     scene(figure, geometry, time: time)
                 }
                 .contentShape(Rectangle())
@@ -161,7 +165,9 @@ struct DigitalTwinView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Your digital twin")
         .accessibilityValue(TwinPillar.allCases.map { "\($0.title) \(state.snapshot.score($0).total)" }.joined(separator: ", "))
+        .onDisappear { onScreen = false }
         .onAppear {
+            onScreen = true
             guard state.mode == .levelUp, !reduceMotion else { return }
             sweep = 1.2
             withAnimation(.easeInOut(duration: 1.6).delay(0.3)) { sweep = -0.2 }
