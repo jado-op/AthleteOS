@@ -53,14 +53,22 @@ Reading files, CI logs or the GitHub API needs no lock.
   loop prepare → perform → reflect → adapt. Priority: workout quality, schedule
   adaptation, reflection, Campus, progress, gamification last. Copy sounds like a calm
   performance coach (no "unlock your potential"); never guilt about streaks or rest.
-- Five sections: Home, Campus (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`),
-  Workout, Progress, Me.
+- Six areas (owner, 2026-11-17 — was five; a deliberate exception): Home, Campus
+  (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`), **Academy**, Workout,
+  Progress, Me. The Academy is its own area, not part of Campus: the Digital Twin is its
+  centre, it has its own lessons by six pillars (Body, Fuel, Recovery, Mind, Legends,
+  Sport IQ), and Campus stays unchanged (never move Campus lessons into it). Navigation:
+  see `docs/ACADEMY-PLAN.md` §1 (iPhone shows at most five tabs before "More").
+- Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
+  parents, scouts or other users; backed up only to their own account, encrypted on the
+  phone; "Delete twin" always available; usage counted only on the phone, never answers.
 - Under-18 safety: no calorie counting as primary UI, readiness never a score, pain =
   "stop and get checked", never a diagnosis.
 - Pricing: Pro Monthly $2.99 with an intro offer $0.99/mo for 3 months, Pro Yearly
   $24.99. Change prices only with the owner's say-so (`asc-pricing.yml`). The paywall
   lists only features that really are gated. The daily habit stays free (check-in, plan,
   all workout modes, logging, Watch, safety, Campus 3 lessons/day, sport guides, teams).
+  Academy: free in the beta behind a flag (`AcademyAccess`), never counts toward Campus's limit.
   Coach notes: free coaches one private note per athlete a week, Pro unlimited (owner, 2026-10-10;
   enforced server-side from `proUntil`).
 
@@ -85,7 +93,7 @@ Reading files, CI logs or the GitHub API needs no lock.
 - Activity colours: gym violet (`AppTheme.red`), practice orange, after-practice yellow, mobility cyan, game
   green; a day with several splits the dot (`PieDot`). Campus categories have their own
   accent (`CampusView.color(for:)`). Readiness is a word + `ReadinessScale`, never a %.
-- Strongest treatment only on Home, Workout hero, Campus hero, Progress overview, Me header;
+- Strongest treatment only on Home, Workout hero, Campus hero, Academy twin, Progress overview, Me header;
   settings, logging, lists and safety stay calm and readable. Motion smooth, never bouncy.
 - Tokens: `app/Shared/Sources/DesignSystem.swift`; Home pieces in `HomeDay.swift`.
 - ~30–40% less text; each block answers one question. No lock icons: Pro features explain
