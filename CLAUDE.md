@@ -87,8 +87,9 @@ The repo is public: no secrets, key IDs or server internals go in this file.
 ## Working rules
 - Every milestone ships with real, reachable UI — no headless engine code, no
   placeholder or debug text.
-- **Code goes to master** (owner, 2026-09-27): push finished work to `master`, not only a
-  feature branch or an open PR. `testflight.yml` also builds master by itself every day at
+- **Code goes to master** (owner, 2026-09-27; again 2026-11-17: "always put everything on
+  main"): commit and push everything straight to `master`, even when the session was handed
+  another branch — no feature branches, no PRs. `testflight.yml` also builds master by itself every day at
   06:00 UTC, and TestFlight installs the highest build number — so anything not on master
   gets replaced on the owner's phone by an older app the next morning.
 - **Always build TestFlight** (owner, 2026-09-27): after every push that goes green in
