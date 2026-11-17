@@ -3,6 +3,27 @@
 Carried over from the long-running build session's memory (2026-09-22 → 09-26).
 The repo is public: no secrets, key IDs or server internals go in this file.
 
+## Working together — READ FIRST, every session (owner, 2026-11-17)
+Two people work on this repo with Claude at the same time (one Claude Team
+account), all on `master`. Only one Claude session may change master at a time.
+The lock is `WORK-LOCK.md` on the remote master; `tools/work-lock.sh` reads and
+writes it (never edit it by hand).
+1. **Before changing any file**: `tools/work-lock.sh take "short task"`.
+   - exit 0: you hold the lock — go ahead.
+   - exit 1 (busy: someone else is working): **pause, don't edit**. Tell the user
+     who holds it and since when, then run `tools/work-lock.sh wait "short task"`
+     in the background (Bash `run_in_background`); it polls every minute and takes
+     the lock the moment it is free. Carry on only after it exits 0.
+2. Before every push: `git pull --rebase origin master`, then push. Never force-push
+   master. If a rebase conflicts, keep both sides' work — never drop the other
+   person's changes; ask the user if unsure.
+3. **When done** (pushed, or abandoning the task): `tools/work-lock.sh release`.
+   Also release before ending a turn that waits on the user or a long CI run, so
+   the other person isn't blocked; take it again before the next edit.
+4. Working longer than ~2 hours: `take` again to refresh the time. A lock older
+   than 3 hours counts as abandoned (a crashed session) and can be taken over.
+Reading files, CI logs or the GitHub API needs no lock.
+
 ## What this is
 - iOS + watchOS training companion for high-school and college athletes (13+),
   built end to end from the owner's own spec, `docs/BUILD-PLAN.md` (§22 milestones,
