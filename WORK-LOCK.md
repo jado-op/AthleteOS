@@ -3,7 +3,5 @@
 Only one Claude session changes master at a time. Read CLAUDE.md, "Working
 together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
-- status: in-use
-- by: claude-fb3e2636
-- since: 2026-11-17T21:23:03Z
-- task: Academy step 1: tab, twin, lessons, validator
+- status: free
+- since: 2026-11-17T21:43:45Z
