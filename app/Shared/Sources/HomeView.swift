@@ -1045,7 +1045,7 @@ struct HomeView: View {
                     heroTitle(focusTitle(session, mode: workout.mode))
                 }
                 .buttonStyle(.plain)
-                bigNumber("\(session.estimatedMinutes)", unit: "MIN")
+                bigNumber("\(session.estimatedMinutes)", unit: "min")
                 if let qualities = qualityLine(session) {
                     heroMeta(qualities)
                 }
@@ -1079,7 +1079,7 @@ struct HomeView: View {
                 NextStepEyebrow("Next step · learn", accent: phase.red)
                 Button { openLesson() } label: { heroTitle(next.lesson.title) }
                     .buttonStyle(.plain)
-                bigNumber("\(next.lesson.minutes)", unit: "MIN")
+                bigNumber("\(next.lesson.minutes)", unit: "min")
                 heroMeta(next.topic.title)
                 Button { openLesson() } label: { HeroCTALabel("Start lesson") }
                     .buttonStyle(.primary)

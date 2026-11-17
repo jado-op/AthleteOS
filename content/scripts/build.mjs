@@ -265,7 +265,7 @@ public enum MuscleRole {
 }
 
 /// §9: the fixed primary-muscle accent colour.
-public let muscleMapPrimaryColorHex = "#E5383B"
+public let muscleMapPrimaryColorHex = "#8B5CF6"
 `;
 }
 

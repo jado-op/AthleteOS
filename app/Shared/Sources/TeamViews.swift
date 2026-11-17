@@ -806,6 +806,8 @@ struct ParentSummaryView: View {
     @State private var email: APIClient.ParentEmail?
     @State private var emailDraft = ""
     @State private var emailMessage: String?
+    /// No account on this phone: the page lives on the server, so it needs one.
+    @State private var signedOut = false
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -816,6 +818,11 @@ struct ParentSummaryView: View {
                     ScreenTitle("Parent summary", subtitle: "A private page for a parent: training, sleep, games and Campus. Never what you write.")
                     if loading {
                         ProgressView().frame(maxWidth: .infinity)
+                    } else if signedOut {
+                        Text("The parent page needs an account — sign in with Apple in Me → Account.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.red)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else if let link {
                         VStack(alignment: .leading, spacing: 12) {
                             Label("Your link is on", systemImage: "checkmark.circle.fill")
@@ -845,8 +852,8 @@ struct ParentSummaryView: View {
                         Button { Task { await make() } } label: { Label("Create the link", systemImage: "link") }
                             .buttonStyle(.primary)
                     }
-                    if !loading { emailSection }
-                    if failed {
+                    if !loading && !signedOut { emailSection }
+                    if failed && !signedOut {
                         Text("Couldn't reach the server — check your connection.").foregroundStyle(AppTheme.red)
                     }
                 }
@@ -929,7 +936,7 @@ struct ParentSummaryView: View {
 
     private func load() async {
         defer { loading = false }
-        guard let token = try? KeychainTokenStore().read() else { failed = true; return }
+        guard let token = try? KeychainTokenStore().read() else { signedOut = true; return }
         do { link = try await apiClient.parentLink(sessionToken: token) } catch { failed = true }
         email = try? await apiClient.parentEmail(sessionToken: token)
     }

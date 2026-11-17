@@ -3,7 +3,7 @@ import SwiftUI
 /// §9 job 1 — the muscle map, drawn as a full anatomical mannequin: a shaded
 /// athletic body with every muscle outlined as its own organic shape (the
 /// look of a professional anatomy chart), and the muscles an item works
-/// lit up in red on top — primary solid, secondary and stabilisers fainter
+/// lit up in violet on top — primary solid, secondary and stabilisers fainter
 /// (`MuscleRole`). Highlighted muscles always draw last, so a deep muscle
 /// (rhomboids under the trapezius) is still visible when it is the target.
 /// Colour is never the only channel: the accessibility label names them.
@@ -113,9 +113,9 @@ public struct MuscleMapView: View {
             }
 
             // Worked muscles, on top.
-            let hot = Color(hex: "#F2554F")
+            let hot = Color(hex: "#A78BFA")
             let deep = Color(hex: muscleMapPrimaryColorHex)
-            let rim = Color(hex: "#A61E22")
+            let rim = Color(hex: "#6D28D9")
             for key in keys {
                 let slug = String(key.split(separator: ".").first ?? "")
                 guard let weight = highlighted[slug], let d = muscleMapPaths[key] else { continue }

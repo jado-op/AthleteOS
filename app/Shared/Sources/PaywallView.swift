@@ -72,6 +72,7 @@ public struct PaywallView: View {
             footer
         }
         .appScreen()
+        .pageSizedSheet()
         .task {
             // Fresh every time: a price or offer changed in App Store Connect
             // shows here without restarting the app.
@@ -531,6 +532,20 @@ public struct SubscriptionRow: View {
             return "Active"
         }
         return "Unlimited skill plans and muscle workouts, several sports, every progress chart"
+    }
+}
+
+extension View {
+    /// On iPad a plain sheet is a small form sheet that squeezes the plans
+    /// and the feature list; page size shows the whole paywall. iPhone
+    /// sheets are unchanged.
+    @ViewBuilder
+    func pageSizedSheet() -> some View {
+        if #available(iOS 18.0, *) {
+            presentationSizing(.page)
+        } else {
+            self
+        }
     }
 }
 

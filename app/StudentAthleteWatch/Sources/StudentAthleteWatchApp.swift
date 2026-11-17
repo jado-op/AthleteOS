@@ -145,7 +145,9 @@ struct WatchRootView: View {
                     .foregroundStyle(.white)
                 }
 
-                if Calendar.current.component(.hour, from: .now) >= 18, !reflectedToday {
+                // Screenshots run at whatever time the runner's clock says; an
+                // evening button there would push today's session off screen.
+                if Calendar.current.component(.hour, from: .now) >= 18, !reflectedToday, !DemoData.isEnabled {
                     Button {
                         showingReflection = true
                     } label: {

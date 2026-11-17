@@ -1082,7 +1082,8 @@ struct ExerciseProgressListView: View {
         let name: String
         let sessionCount: Int
         let totalSets: Int
-        let best: String
+        /// nil when the sets carry no number (done, nothing measured).
+        let best: String?
         var id: String { slug }
     }
 
@@ -1132,13 +1133,15 @@ struct ExerciseProgressListView: View {
                                         .foregroundStyle(AppTheme.secondaryText)
                                 }
                                 Spacer(minLength: 0)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(summary.best)
-                                        .font(.subheadline.bold())
-                                        .foregroundStyle(AppTheme.ink)
-                                    Text("best")
-                                        .font(.caption2)
-                                        .foregroundStyle(AppTheme.secondaryText)
+                                if let best = summary.best {
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(best)
+                                            .font(.subheadline.bold())
+                                            .foregroundStyle(AppTheme.ink)
+                                        Text("best")
+                                            .font(.caption2)
+                                            .foregroundStyle(AppTheme.secondaryText)
+                                    }
                                 }
                             }
                             .cardStyle(padding: 12)
@@ -1174,8 +1177,10 @@ enum ExerciseProgress {
         return "contacts"
     }
 
-    static func bestLabel(_ sets: [SetLog]) -> String {
+    /// nil when no set has a number above zero — "0 contacts best" says nothing.
+    static func bestLabel(_ sets: [SetLog]) -> String? {
         let best = sets.map(value).max() ?? 0
+        guard best > 0 else { return nil }
         return "\(best.formatted(.number.precision(.fractionLength(0...1)))) \(unit(sets))"
     }
 }
@@ -1217,7 +1222,7 @@ struct ExerciseProgressDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ScreenTitle(name, subtitle: "\(points.count) sessions · best \(ExerciseProgress.bestLabel(sets))")
+                ScreenTitle(name, subtitle: "\(countedNoun(points.count, "session"))\(ExerciseProgress.bestLabel(sets).map { " · best \($0)" } ?? "")")
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {

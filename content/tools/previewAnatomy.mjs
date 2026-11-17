@@ -35,7 +35,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 200" width
 <defs>
 <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${pal.skin1}"/><stop offset="1" stop-color="${pal.skin2}"/></linearGradient>
 <linearGradient id="muscle" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${pal.skin1}"/><stop offset="1" stop-color="${pal.muscle2}"/></linearGradient>
-<linearGradient id="hot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F2554F"/><stop offset="1" stop-color="#C4262A"/></linearGradient>
+<linearGradient id="hot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#6D28D9"/></linearGradient>
 <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0.3" stop-color="#000" stop-opacity="0.07"/><stop offset="0.5" stop-color="#000" stop-opacity="0"/><stop offset="0.7" stop-color="#000" stop-opacity="0.07"/></linearGradient>
 </defs>
 <rect width="210" height="200" fill="${pal.bg}"/>

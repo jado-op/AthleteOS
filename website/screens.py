@@ -33,7 +33,7 @@ def one(pattern: str) -> pathlib.Path:
 
 
 for tab, name in [("today", "home"), ("workout", "workout"), ("campus", "campus")]:
-    save(one(f"iPhone*-dark-{tab}.png"), name, 660)
+    save(one(f"iPhone*-{tab}.png"), name, 660)
 save(one("all/iPhone*-home-schedule.png"), "schedule", 660)
 save(one("Watch-1-today.png"), "watch", 420)
 if len(sys.argv) > 2:

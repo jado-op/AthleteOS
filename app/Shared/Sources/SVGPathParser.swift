@@ -50,7 +50,7 @@ public enum SVGPathParser {
 
 extension Color {
     /// A `#RRGGBB` hex string to Color — the muscle map's fixed palette
-    /// (§9's `#E5383B` primary accent, the silhouette's skin tone) is stored
+    /// (§9's `#8B5CF6` primary accent, the silhouette's skin tone) is stored
     /// as plain hex strings in generated Swift, not asset-catalog colors,
     /// since it must render identically on watchOS with no catalog to share.
     init(hex: String) {
