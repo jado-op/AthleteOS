@@ -978,9 +978,8 @@ struct HomeView: View {
                     .font(.system(size: 82, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.ink)
-                Text("SEC")
+                Text("sec")
                     .font(.title3.weight(.semibold))
-                    .tracking(1.5)
                     .foregroundStyle(AppTheme.secondaryText)
             }
             .background(HeroBloom(color: phase.red))
@@ -1110,9 +1109,8 @@ struct HomeView: View {
                     .font(.system(size: 60, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.ink)
-                Text("SEC")
+                Text("sec")
                     .font(.headline)
-                    .tracking(1.5)
                     .foregroundStyle(AppTheme.secondaryText)
             }
             .accessibilityElement(children: .combine)
@@ -1183,7 +1181,6 @@ struct HomeView: View {
             if !unit.isEmpty {
                 Text(unit)
                     .font(.title3.weight(.semibold))
-                    .tracking(1.5)
                     .foregroundStyle(AppTheme.secondaryText)
             }
         }
