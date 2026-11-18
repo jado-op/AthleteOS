@@ -12,7 +12,6 @@ function fakePrisma() {
   const sessionsByClientId = new Map();
   const setsById = new Map();
   const setsByClientId = new Map();
-  const plannedSessions = new Map();
   let nextSessionId = 1;
   let nextSetId = 1;
 
@@ -41,14 +40,8 @@ function fakePrisma() {
         return row;
       },
     },
-    plannedSession: {
-      async findUnique({ where: { id } }) {
-        return plannedSessions.get(id) ?? null;
-      },
-    },
     _sessionsByClientId: sessionsByClientId,
     _setsByClientId: setsByClientId,
-    _plannedSessions: plannedSessions,
   };
 }
 
@@ -211,15 +204,16 @@ test('invalid session payloads are rejected 400 without ever calling prisma', as
   }
 });
 
-test('a plannedSessionId that does not belong to this athlete is rejected', async () => {
+test('a plannedSessionId from an older app is ignored, not stored', async () => {
   const prisma = fakePrisma();
-  prisma._plannedSessions.set('planned-1', { id: 'planned-1', plan: { athleteId: 'someone-else' } });
   const { url, close } = await serve(buildApp(prisma));
   try {
     const session = { ...validSession, plannedSessionId: 'planned-1' };
     const res = await post(url, '/sync/sessions', { session, sets: [] }, authHeader('athlete-1'));
-    assert.equal(res.status, 400);
-    assert.deepEqual(await res.json(), { error: 'unknown_planned_session' });
+    assert.equal(res.status, 200);
+    const stored = prisma._sessionsByClientId.get(validSession.clientId);
+    assert.ok(stored);
+    assert.equal('plannedSessionId' in stored, false);
   } finally {
     await close();
   }

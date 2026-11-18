@@ -45,17 +45,6 @@ export function syncRouter({ prisma, sessionSecret }) {
       res.status(409).json({ error: 'client_id_conflict' });
       return;
     }
-    if (session.plannedSessionId) {
-      const plannedSession = await prisma.plannedSession.findUnique({
-        where: { id: session.plannedSessionId },
-        include: { plan: true },
-      });
-      if (!plannedSession || plannedSession.plan.athleteId !== req.athleteId) {
-        res.status(400).json({ error: 'unknown_planned_session' });
-        return;
-      }
-    }
-
     const sessionFields = {
       startedAt: new Date(session.startedAt),
       endedAt: session.endedAt ? new Date(session.endedAt) : null,
@@ -64,7 +53,6 @@ export function syncRouter({ prisma, sessionSecret }) {
       source: session.source,
       healthKitWorkoutId: session.healthKitWorkoutId ?? null,
       notes: session.notes ?? null,
-      plannedSessionId: session.plannedSessionId ?? null,
     };
     const savedSession = await prisma.session.upsert({
       where: { clientId: session.clientId },

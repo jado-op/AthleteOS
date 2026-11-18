@@ -2,19 +2,6 @@ import SwiftUI
 
 /// Head knocks and concussion: what to do right away, the emergency signs,
 /// and the step-by-step return to sport. Explains — never clears anyone.
-struct ConcussionGuideView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ConcussionGuideContent()
-                .toolbar {
-                    CloseToolbarItem { dismiss() }
-                }
-        }
-    }
-}
-
 struct ConcussionGuideContent: View {
     @State private var step = ConcussionGuide.currentStep
     @State private var status = DayStatusStore.status()

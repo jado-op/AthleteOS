@@ -48,10 +48,10 @@ function nameLookup(packsDir) {
  *
  *   GET /.well-known/apple-app-site-association
  *       Apple's list of the app's links, so https://api.lejacob.dev/fitness/
- *       team|league|workout|c/<code> opens the app when it's installed.
+ *       team|workout|c/<code> opens the app when it's installed.
  *       Apache serves it at the domain root (deploy/apache/aasa-location.conf).
- *   GET /codes/:code          → { kind: team|league|workout, name }
- *   GET /team|league|workout|c/:code
+ *   GET /codes/:code          → { kind: team|workout, name }
+ *   GET /team|workout|c/:code
  *       The page a link opens when the app isn't installed (or the link was
  *       typed into Safari): the code, "Open in AthleteOS" and the App Store.
  */
@@ -68,7 +68,7 @@ export function linksRouter({
     applinks: {
       details: [{
         appIDs,
-        components: ['team', 'league', 'workout', 'c', 'login'].map((kind) => ({ '/': `/fitness/${kind}/*`, comment: kind === 'login' ? 'coach dashboard sign-in' : `${kind} codes` })),
+        components: ['team', 'workout', 'c', 'login'].map((kind) => ({ '/': `/fitness/${kind}/*`, comment: kind === 'login' ? 'coach dashboard sign-in' : `${kind} codes` })),
       }],
     },
   };
@@ -85,8 +85,6 @@ export function linksRouter({
     if (workout) return { kind: 'workout', name: workout.title, workout };
     const team = await prisma.team.findUnique({ where: { code } });
     if (team) return { kind: 'team', name: team.name };
-    const league = await prisma.league.findUnique({ where: { code } });
-    if (league) return { kind: 'league', name: league.name };
     return null;
   }
 
@@ -99,7 +97,7 @@ export function linksRouter({
     res.json({ kind: found.kind, name: found.name });
   });
 
-  for (const kind of ['team', 'league', 'workout', 'c']) {
+  for (const kind of ['team', 'workout', 'c']) {
     router.get(`/${kind}/:code`, async (req, res) => {
       res.set('Cache-Control', 'no-store');
       res.set('X-Robots-Tag', 'noindex, nofollow');
@@ -108,7 +106,7 @@ export function linksRouter({
       if (!found || (kind !== 'c' && found.kind !== kind)) {
         res.status(404).type('html').send(page({
           title: 'Code not found',
-          body: '<section><p>No team, league or workout has this code. Check it with whoever sent it — codes are 6 letters and numbers.</p></section>',
+          body: '<section><p>No team or workout has this code. Check it with whoever sent it — codes are 6 letters and numbers.</p></section>',
           appStoreId,
         }));
         return;
@@ -116,12 +114,10 @@ export function linksRouter({
       const appLink = `aos://${found.kind}/${code}`;
       const heading = {
         team: `Join the team “${escape(found.name)}”`,
-        league: `Join the league “${escape(found.name)}”`,
         workout: `Workout: “${escape(found.name)}”`,
       }[found.kind];
       const how = {
         team: 'In the app: Me → My team → enter the code.',
-        league: 'In the app: Campus → trophy → Join → enter the code.',
         workout: 'In the app: Workout → My workouts → Add with a code.',
       }[found.kind];
       const exercises = found.kind === 'workout'

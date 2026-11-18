@@ -2,7 +2,7 @@ import express from 'express';
 
 import { verifySessionToken } from '../lib/sessionToken.js';
 
-const KINDS = new Set(['workout', 'leagueMember', 'league', 'team', 'assignment']);
+const KINDS = new Set(['workout', 'team', 'assignment']);
 const TARGET = /^[\p{L}\p{N} ._:@-]{1,80}$/u;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,20}$/;
 /** A shared workout this many people reported stops being shared. */

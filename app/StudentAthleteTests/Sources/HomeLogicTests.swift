@@ -157,9 +157,4 @@ final class HomeLogicTests: XCTestCase {
         XCTAssertEqual(PlanSettings(minutesPerSession: 45).effectiveMinutesPerSession, 45, "older settings still work")
     }
 
-    func testTheDailyQuoteIsStableForADay() {
-        let morning = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 7))!
-        let evening = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 22))!
-        XCTAssertEqual(DailyQuotes.quote(for: morning), DailyQuotes.quote(for: evening))
-    }
 }

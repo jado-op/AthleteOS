@@ -3,7 +3,7 @@ import express from 'express';
 import { requireAuth } from '../lib/requireAuth.js';
 import { uniqueCode } from '../lib/codes.js';
 import { isObjectionable } from '../lib/moderation.js';
-import { cleanName, cleanNickname } from './leagues.js';
+import { cleanName, cleanNickname } from '../lib/names.js';
 
 const CODE = /^[A-HJ-KM-NP-Z2-9]{6}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

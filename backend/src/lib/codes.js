@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 
 /**
- * Codes for teams, leagues and shared workouts: 6 characters without
- * look-alikes (no 0/O, 1/I/L). All three share one code space, so a bare
+ * Codes for teams, shared workouts and partner sessions: 6 characters without
+ * look-alikes (no 0/O, 1/I/L). They all share one code space, so a bare
  * code (aos://ABC234, GET /codes/:code) always means exactly one thing.
  */
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -13,18 +13,17 @@ export function makeCode() {
   return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-/** A new code that no team, league or shared workout uses yet. */
+/** A new code that no team, shared workout or partner session uses yet. */
 export async function uniqueCode(prisma) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const code = makeCode();
-    const [workout, team, trainerTeam, league, partner] = await Promise.all([
+    const [workout, team, trainerTeam, partner] = await Promise.all([
       prisma.sharedWorkout.findUnique({ where: { code } }),
       prisma.team.findUnique({ where: { code } }),
       prisma.team.findUnique({ where: { trainerCode: code } }),
-      prisma.league.findUnique({ where: { code } }),
       prisma.partnerSession ? prisma.partnerSession.findUnique({ where: { code } }) : null,
     ]);
-    if (!workout && !team && !trainerTeam && !league && !partner) return code;
+    if (!workout && !team && !trainerTeam && !partner) return code;
   }
   throw new Error('could not find a free code');
 }

@@ -381,17 +381,16 @@ struct ProgressTabView: View {
                     figure("\(summary.minutes / 60)h \(summary.minutes % 60)m", "in workouts")
                     figure(summary.averageSleep.map { String(format: "%.1f h", $0) } ?? "–", "avg sleep")
                 }
-                if !summary.insights.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(summary.insights, id: \.self) { insight in
-                            Label(insight, systemImage: "circle.fill")
-                                .labelStyle(InsightLabelStyle())
-                        }
+                // What the numbers mean is the twin's job (one analyst, not two).
+                Button { withAnimation { AcademyNavigation.shared.page = .twin } } label: {
+                    HStack(spacing: 6) {
+                        Text("What your twin sees in them")
+                        Image(systemName: "arrow.right")
                     }
-                    Text("Patterns, not causes.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.brightRed)
                 }
+                .buttonStyle(.plain)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardStyle(padding: 20)

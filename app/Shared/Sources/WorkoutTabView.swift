@@ -16,6 +16,7 @@ struct WorkoutTabView: View {
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var preview: PreviewBox?
     @State private var showingImprove = false
+    @State private var showingMuscles = false
     @State private var showingProgram = false
     @State private var showingTogether = false
     @State private var showingLibrary = false
@@ -99,13 +100,15 @@ struct WorkoutTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ProfileButtonBar(name: athlete.displayName)
-                    // What the athlete's training has done to their body so far.
-                    MuscleTrainingSection(athlete: athlete, catalogue: catalogue)
-                        .padding(.bottom, 12)
+                    // Sport first: today's training, then the drills of the athlete's skill plans.
                     recommendedCard
-                        .padding(.bottom, 24)
+                        .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
+                    skillDrillsToday
                     weekSection
                     moreWorkouts
+                    // What the athlete's training has done to their body so far (gym second).
+                    MuscleTrainingSection(athlete: athlete, catalogue: catalogue)
+                        .padding(.top, 12)
                     myWorkoutsSection
                     customizeSection
                 }
@@ -175,6 +178,9 @@ struct WorkoutTabView: View {
                 }, onStart: { workout in
                     startAfterImport = workout
                 })
+            }
+            .sheet(isPresented: $showingMuscles) {
+                ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialMode: .muscles)
             }
             .sheet(isPresented: $showingImprove) {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
@@ -413,12 +419,37 @@ struct WorkoutTabView: View {
 
     /// Everything that isn't today's session, in one list: the other modes,
     /// a skill or chosen muscles, training together, an off-season program.
+    /// Today's drills from saved skill plans.
+    private var skillPlanDays: [SkillPlanDay] {
+        guard !catalogue.itemsBySlug.isEmpty, status != .sick, status != .concussion else { return [] }
+        return SavedSkillPlans.days(on: .now, athlete: athlete, catalogue: catalogue)
+    }
+
+    @ViewBuilder
+    private var skillDrillsToday: some View {
+        let days = skillPlanDays
+        if !days.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(days, id: \.block.id) { day in
+                    Button { preview = PreviewBox(session: day.session) } label: {
+                        ListRow(systemImage: "target", color: AppTheme.orange, title: "\(day.skillName) drills",
+                                detail: "\(day.session.items.count) drills · \(day.session.estimatedMinutes) min · skill plan")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(12)
+            .glassSurface()
+            .padding(.bottom, 20)
+        }
+    }
+
     private var moreWorkouts: some View {
         let recommended = recommendation.mode
         let all: [WorkoutMode] = [.afterPractice, .gymDay, .mobility, .travel]
         let others: [WorkoutMode] = all.filter { mode in mode != recommended }
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("More workouts")
+            SectionHeader("Other workouts")
             VStack(spacing: 0) {
                 ForEach(others, id: \.self) { mode in
                     let modeSession = session(for: mode)
@@ -429,11 +460,22 @@ struct WorkoutTabView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(modeSession == nil)
-                    Divider().padding(.leading, 54)
+                    if mode != others.last { Divider().padding(.leading, 54) }
                 }
+            }
+            .padding(12)
+            .glassSurface()
+            SectionHeader("Build and explore")
+            VStack(spacing: 0) {
                 Button { showingImprove = true } label: {
-                    ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans & muscle workouts",
-                            detail: "One skill before a game, or chosen muscles")
+                    ListRow(systemImage: "target", color: AppTheme.orange, title: "Skill plans",
+                            detail: skillPlanDays.isEmpty ? "Get better at one skill of your sport before a game" : "Your drills show up here and on Home")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { showingMuscles = true } label: {
+                    ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts",
+                            detail: "Pick the muscles, get a workout")
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)

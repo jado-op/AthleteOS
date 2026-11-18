@@ -1,5 +1,5 @@
 /**
- * Names and short texts other people see — nicknames, league, team and
+ * Names and short texts other people see — nicknames, team and
  * workout names, a coach's notes — are checked before they are saved
  * (App Store guideline 1.2: filter objectionable content). Deliberately a
  * short list of unambiguous words in English and German, matched as whole

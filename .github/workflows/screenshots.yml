@@ -132,13 +132,13 @@ jobs:
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
-              for sheet in checkIn quickActions addGame fuel dayStatus schedule reflection today search safety mindset tests; do
+              for sheet in checkIn quickActions addGame fuel dayStatus schedule reflection search safety mindset tests; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab today -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
-              for sheet in sport season equipment experience name history checkIns exercises dataExport reminders downloads health sports help team coach parent struggles trends; do
+              for sheet in sport season equipment experience name checkIns dataExport reminders downloads health sports help team coach parent struggles; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab me -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-me-${sheet}.png"

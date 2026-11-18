@@ -37,7 +37,7 @@ public struct MainTabView: View {
     @State private var workoutContext: WorkoutContext?
     @State private var backingUp = false
     @State private var demoPaywall = false
-    // Opened with a link or QR code: the team, league or workout it points to.
+    // Opened with a link or QR code: the team or workout it points to.
     @State private var linkSheet: DeepLink?
     @State private var linkMessage: String?
     @State private var startFromLink: CustomWorkout?
@@ -150,8 +150,6 @@ public struct MainTabView: View {
             switch link {
             case .team(let code):
                 MyTeamView(initialCode: code)
-            case .league(let code):
-                LeaguesView(stats: CampusProgress.stats(), initialCode: code)
             case .workout(let code):
                 SharedWorkoutSheet(initialCode: code, onSaved: { workout in
                     MyWorkoutsStore.upsert(workout)
@@ -267,11 +265,10 @@ public struct MainTabView: View {
         if !athlete.isDeleted, scenePhase != .background {
             await CalendarSync.refresh(athlete: athlete, context: modelContext)
         }
-        // Workouts from the coach, and this week's Campus XP for the leagues.
+        // Workouts and announcements from the coach.
         await CoachAssignments.refresh(apiClient: apiClient)
         await TeamAnnouncements.refresh(apiClient: apiClient)
         await PushSettings.syncIfNeeded(apiClient: apiClient)
-        await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
     }
 
@@ -291,7 +288,7 @@ public struct MainTabView: View {
     }
 
     /// Shows what a link or QR code points to. A bare code (aos://ABC234)
-    /// is looked up first: is it a team, a league or a workout?
+    /// is looked up first: is it a team or a workout?
     private func openPendingLink() async {
         guard let link = DeepLinkCenter.shared.pending, !DemoData.isEnabled else { return }
         DeepLinkCenter.shared.handled()
@@ -307,7 +304,7 @@ public struct MainTabView: View {
                 linkMessage = "This version of the app doesn't know what \(code) is — update AthleteOS."
             }
         } catch APIClient.APIError.http(status: 404, _) {
-            linkMessage = "No team, league or workout has the code \(code)."
+            linkMessage = "No team or workout has the code \(code)."
         } catch {
             linkMessage = "Couldn't reach AthleteOS to open \(code) — check your connection and open the link again."
         }

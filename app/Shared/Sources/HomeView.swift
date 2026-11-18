@@ -31,7 +31,6 @@ struct HomeView: View {
     @State private var showingTell = false
     @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
-    @State private var pendingToDo: DayCompletion.Kind?
     /// Picked in search: opens once the search has closed.
     @State private var pendingSearch: AppSearchTarget?
     @State private var searchDestination: SearchBox?
@@ -53,16 +52,11 @@ struct HomeView: View {
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
     #if os(iOS)
-    @Environment(\.requestReview) private var requestReview
     #endif
-    @State private var layout = HomeLayout.load()
-    @State private var editingLayout = false
-    @State private var wiggle = false
     /// The widget being held while arranging, and where the board is in reordering it.
-    @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests, windDown, seasonReview, tournament
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, search, safety, mindset, tests, windDown, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -222,36 +216,6 @@ struct HomeView: View {
         .cardStyle()
     }
 
-    /// Sundays: the week in review (what you did, one highlight, next week's focus).
-    private var weeklyReview: WeeklyReview? {
-        guard calendar.component(.weekday, from: .now) == 1 else { return nil }
-        let weekAgo = calendar.date(byAdding: .day, value: -7, to: .now) ?? .now
-        let results = BenchmarkStore.results
-        let newBests = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).compactMap { test -> String? in
-            guard let latest = results.filter({ $0.testID == test.id && $0.date > weekAgo }).last,
-                  BenchmarkMath.isPersonalBest(latest.value, test: test, before: results.filter { $0.testID == test.id && $0.date < latest.date })
-            else { return nil }
-            return "\(test.name) \(test.unit.format(latest.value))"
-        }
-        let nextWeekEnd = calendar.date(byAdding: .day, value: 8, to: calendar.startOfDay(for: .now)) ?? .now
-        let games = athlete.competitions.filter { $0.date > .now && $0.date < nextWeekEnd }.count
-        let nextMonday = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now)) ?? .now
-        let phase = athlete.activeSport.map { PhaseCalculator.phase(today: nextMonday, seasonStart: $0.seasonStart, seasonEnd: $0.seasonEnd) }
-        let nextWeekStart = calendar.dateInterval(of: .weekOfYear, for: nextMonday)?.start ?? nextMonday
-        let goal = BenchmarkGoals.all.first.flatMap { goal -> String? in
-            guard let test = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).first(where: { $0.id == goal.testID }) else { return nil }
-            return "\(test.name) \(test.unit.format(goal.target))"
-        }
-        return WeeklyReview.make(WeeklyReview.Input(
-            sessionDates: allSessions.map(\.startedAt), sessionMinutes: allSessions.map(\.minutes),
-            checkInDates: athlete.checkIns.map(\.date),
-            lessonsThisWeek: CampusProgress.newLessonDates().filter { $0 > weekAgo }.count,
-            newBests: newBests, streak: streak, gamesNextWeek: games,
-            deloadNextWeek: phase.map { Deload.isDeloadWeek(weekStart: nextWeekStart, anchor: athlete.createdAt, phase: $0) } ?? false,
-            phase: phase, goal: goal
-        ), now: .now)
-    }
-
     /// From 6 pm: tonight's bedtime for 9 hours before tomorrow's start, and
     /// last week's sleep when it's been short.
     private var bedtimeTonight: (minutes: Int, detail: String)? {
@@ -377,7 +341,6 @@ struct HomeView: View {
                     if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
                     if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red, plan: weekPlan) }
-                    widgetsSection
                 }
                 .animation(.easeInOut(duration: 0.45), value: contentKey)
                 .padding(.horizontal, 20)
@@ -444,7 +407,6 @@ struct HomeView: View {
                 status = DayStatusStore.status()
                 revision += 1
                 runPendingAction()
-                runPendingToDo()
                 runPendingSearch()
             }) { sheet in
                 switch sheet {
@@ -488,13 +450,6 @@ struct HomeView: View {
                 case .reflection:
                     ReflectionSheet(completion: completion, practiceToday: practiceToday,
                                     restDay: !loggedToday && !practiceToday && gameToday == nil) { revision += 1 }
-                case .today:
-                    TodayChecklistSheet(completion: completion,
-                                        details: Dictionary(uniqueKeysWithValues: completion.items.map { ($0.kind, toDoDetail($0)) })) { kind in
-                        pendingToDo = kind
-                        activeSheet = nil
-                    }
-                    .presentationDetents([.medium, .large])
                 case .search:
                     AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
                         pendingSearch = target
@@ -569,7 +524,6 @@ struct HomeView: View {
         case .dayStatus: activeSheet = .dayStatus
         case .schedule: activeSheet = .schedule
         case .reflection: activeSheet = .reflection
-        case .today: activeSheet = .today
         case .safety: activeSheet = .safety
         case .mindset: activeSheet = .mindset
         case .tests: activeSheet = .tests
@@ -599,9 +553,6 @@ struct HomeView: View {
             if ProAccess.isPro { searchDestination = SearchBox(target: target) } else { proFeature = .exerciseProgress }
         case .upgrade: showingUpgrade = true
         case .link(let path): openURL(AppConfig.backendBaseURL.appending(path: path))
-        case .editHome:
-            editingLayout = true
-            wiggle = true
         case .newWorkout:
             if ProGate.canKeepAnotherWorkout(isPro: ProAccess.isPro, myWorkoutCount: MyWorkoutsStore.load().count) {
                 searchDestination = SearchBox(target: target)
@@ -654,8 +605,6 @@ struct HomeView: View {
             }, catalogue: catalogue))
         case .library: LibraryView(athlete: athlete)
         case .sportGuide: SportGuideView(athlete: athlete)
-        case .leagues: LeaguesView(stats: CampusProgress.stats())
-        case .badges: BadgesView()
         case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
         case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
         case .skill(let slug):
@@ -684,46 +633,8 @@ struct HomeView: View {
         pendingAction = nil
         switch action {
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
-        case .checkIn: activeSheet = .checkIn
         case .addGame: activeSheet = .addGame
-        case .improve: searchDestination = SearchBox(target: .skillPlans)
-        case .history: activeSheet = .history
         case .fuel: activeSheet = .fuel
-        }
-    }
-
-    /// "Today completed": finish what's open, or change what's done.
-    private func runPendingToDo() {
-        guard let kind = pendingToDo else { return }
-        pendingToDo = nil
-        switch kind {
-        case .checkIn: activeSheet = .checkIn
-        case .reflection: activeSheet = .reflection
-        case .lesson: selectedTab = .campus
-        case .training:
-            if loggedToday {
-                activeSheet = .history
-            } else if let workout = todaysWorkout {
-                preview = PreviewBox(session: workout.session, kind: workoutKind(workout.mode))
-            } else {
-                selectedTab = .workout
-            }
-        }
-    }
-
-    /// One line under each item in "Today completed".
-    private func toDoDetail(_ item: DayCompletion.Item) -> String {
-        switch item.kind {
-        case .checkIn:
-            return item.done ? readiness.map { "Readiness: \($0.level.title)" } ?? "Done" : "30 seconds"
-        case .training:
-            if item.done { return "Logged · see or change it" }
-            return todaysWorkout.map { "\($0.mode.title) · \($0.session.estimatedMinutes) min" } ?? "Pick a workout"
-        case .lesson:
-            if item.done { return "Learned today · open Campus" }
-            return nextLesson.map { "\($0.lesson.title) · \($0.lesson.minutes) min" } ?? "Open Campus"
-        case .reflection:
-            return item.done ? "Done" : "1 minute"
         }
     }
 
@@ -763,7 +674,7 @@ struct HomeView: View {
                     .glassCapsule()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
+            .accessibilityLabel("Add: log a workout, add a game, or food and water")
         }
     }
 
@@ -1361,6 +1272,12 @@ struct HomeView: View {
         }
     }
 
+    /// Today's drills from the athlete's saved skill plans.
+    private var skillPlanDays: [SkillPlanDay] {
+        guard !catalogue.itemsBySlug.isEmpty else { return [] }
+        return SavedSkillPlans.days(on: .now, athlete: athlete, catalogue: catalogue)
+    }
+
     private var alsoRows: [AnyView] {
         var rows: [AnyView] = []
         if isTrainingDay {
@@ -1368,6 +1285,16 @@ struct HomeView: View {
                 rows.append(AnyView(HomeDetailRow(systemImage: "megaphone.fill", color: AppTheme.brand, title: assignment.title) {
                     startButton { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue), kind: .coach) }
                 }))
+            }
+        }
+        // Saved skill plans: today's drills (the sport-first part of the day).
+        if isTrainingDay {
+            for day in skillPlanDays {
+                rows.append(AnyView(Button { preview = PreviewBox(session: day.session) } label: {
+                    HomeDetailRow(systemImage: "target", color: AppTheme.orange, title: "\(day.skillName) drills") {
+                        Text("\(day.session.items.count) drills · \(day.session.estimatedMinutes) min")
+                    }
+                }.buttonStyle(.plain)))
             }
         }
         if let movementPrep = movementPrep {
@@ -1653,239 +1580,6 @@ struct HomeView: View {
         .cardStyle(padding: 20)
     }
 
-    // MARK: - Widgets (Edit Home)
-
-    /// The widgets the athlete added, and Edit Home.
-    @ViewBuilder
-    private var widgetsSection: some View {
-        if !layout.widgets.isEmpty {
-            // One container for every widget, so while arranging they glide
-            // to their new places instead of jumping.
-            WidgetGridLayout {
-                ForEach(layout.widgets) { widget in
-                    editableWidget(widget)
-                }
-            }
-            #if os(iOS)
-            // Letting go anywhere on the board keeps the order it shows.
-            .contentShape(Rectangle())
-            .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: nil, drag: $drag, layout: $layout))
-            #endif
-        }
-        layoutControls
-    }
-
-    /// While arranging: hold a widget and drag it — the others make room as
-    /// it passes over them, so the new order shows before letting go. Tap –
-    /// to remove it.
-    @ViewBuilder
-    private func editableWidget(_ widget: HomeWidget) -> some View {
-        if editingLayout {
-            let held = drag.widget == widget
-            widgetContent(widget)
-                .allowsHitTesting(false)
-                .frame(maxWidth: .infinity)
-                // Where the held widget will land: its place stays, faded and outlined.
-                .opacity(held ? 0.3 : 1)
-                .overlay {
-                    if held {
-                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                            .strokeBorder(AppTheme.ink.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
-                    }
-                }
-                // The widget itself ignores taps while arranging; this layer
-                // catches the long-press for dragging.
-                .overlay { Color.clear.contentShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)) }
-                .rotationEffect(.degrees(wiggle ? 0.8 : -0.8))
-                .animation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true), value: wiggle)
-                #if os(iOS)
-                .onDrag {
-                    // Marked as held on the next turn, after the lifted copy
-                    // under the finger has been captured at full strength.
-                    Task { @MainActor in drag = HomeDragState(widget: widget) }
-                    return NSItemProvider(object: widget.rawValue as NSString)
-                }
-                .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: widget, drag: $drag, layout: $layout))
-                #endif
-                .overlay(alignment: .topLeading) {
-                    Button {
-                        withAnimation { layout.remove(widget); layout.save() }
-                    } label: {
-                        Image(systemName: "minus")
-                            .font(.headline.weight(.heavy))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(AppTheme.red, in: Circle())
-                            .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: -8, y: -8)
-                    .accessibilityLabel("Remove \(widget.title)")
-                }
-                .padding(.top, 8)
-        } else {
-            widgetContent(widget)
-                .frame(maxWidth: .infinity)
-        }
-    }
-
-    @ViewBuilder
-    private var layoutControls: some View {
-        if editingLayout {
-            VStack(alignment: .leading, spacing: 12) {
-                if !layout.widgets.isEmpty {
-                    Text("Hold a widget and drag it to move it. Tap – to remove it.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                if !layout.available.isEmpty {
-                    SectionHeader("Add widgets")
-                    VStack(spacing: 0) {
-                        ForEach(layout.available) { widget in
-                            Button {
-                                withAnimation { layout.add(widget); layout.save() }
-                            } label: {
-                                ListRow(systemImage: widget.systemImage, color: AppTheme.ink, title: widget.title, detail: widget.detail) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.title2)
-                                        .foregroundStyle(AppTheme.green)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Add \(widget.title)")
-                            if widget != layout.available.last {
-                                Divider().padding(.leading, 54)
-                            }
-                        }
-                    }
-                    .cardStyle(padding: 12)
-                }
-                Button {
-                    editingLayout = false
-                    wiggle = false
-                    drag = HomeDragState()
-                    layout.save()
-                } label: {
-                    Label("Save Home", systemImage: "checkmark")
-                }
-                .buttonStyle(.primary)
-            }
-            .padding(.top, 4)
-        } else {
-            Button {
-                editingLayout = true
-                wiggle = true
-            } label: {
-                Label("Edit Home", systemImage: "square.grid.2x2")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(AppTheme.fill, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-        }
-    }
-
-    private var loggedThisWeek: Int {
-        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-        return allSessions.filter { interval.contains($0.startedAt) }.count
-    }
-
-    private var mindsetProgress: (done: Int, target: Int) {
-        _ = revision
-        return MindsetStore.weekProgress()
-    }
-
-    private var testStatus: BenchmarkSchedule.Status {
-        _ = revision
-        return BenchmarkSchedule.status(lastTest: BenchmarkStore.lastTestDate())
-    }
-
-    private func nextGameCaption(_ game: Competition) -> String {
-        let hasTime = calendar.component(.hour, from: game.date) != 0 || calendar.component(.minute, from: game.date) != 0
-        let when = hasTime ? game.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) : game.date.formatted(.dateTime.weekday(.abbreviated).month().day())
-        return "\(game.isHome ? "Home" : "Away") · \(when)"
-    }
-
-    private var testsValue: (value: String, due: Bool) {
-        switch testStatus {
-        case .firstTime: ("First tests", true)
-        case .notYet(let days): ("In \(days) days", false)
-        case .due: ("Test week", true)
-        case .overdue: ("Overdue", true)
-        }
-    }
-
-    /// The square widgets: one number, what it means, one tap to act on it.
-    @ViewBuilder
-    private func widgetContent(_ widget: HomeWidget) -> some View {
-        switch widget {
-        case .body:
-            let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
-            let gain = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.body)
-            Button { selectedTab = .progress } label: {
-                WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
-                           color: AppTheme.accent, systemImage: widget.systemImage, caption: gain ?? "Workouts this week")
-            }
-            .buttonStyle(.plain)
-        case .sport:
-            let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
-            let gain = athlete.activeSport.flatMap { BenchmarkMath.headline(BenchmarkStore.results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
-            Button { selectedTab = .workout } label: {
-                WidgetTile(value: skillPlans == 0 ? "No plan" : "\(skillPlans) active", label: "Sport",
-                           progress: skillPlans == 0 ? 0 : 1, color: AppTheme.brand, systemImage: widget.systemImage,
-                           caption: gain ?? (skillPlans == 0 ? "Skill plans in Workout" : "Skill plans in progress"))
-            }
-            .buttonStyle(.plain)
-        case .knowledge:
-            let learned = CampusProgress.learned(campusLearnedRaw)
-            let total = campusTopics.reduce(0) { $0 + $1.lessons.count }
-            Button { selectedTab = .campus } label: {
-                WidgetTile(value: "\(learned.count) of \(total)", label: "Knowledge", progress: Double(learned.count) / Double(max(1, total)),
-                           color: AppTheme.green, systemImage: widget.systemImage, caption: "Campus lessons")
-            }
-            .buttonStyle(.plain)
-        case .mindset:
-            let progress = mindsetProgress
-            Button { activeSheet = .mindset } label: {
-                WidgetTile(value: "\(progress.done) of \(progress.target)", label: "Mindset", progress: Double(progress.done) / Double(max(1, progress.target)),
-                           color: AppTheme.purple, systemImage: widget.systemImage, caption: "This week")
-            }
-            .buttonStyle(.plain)
-        case .nextGame:
-            let nextGame = AthleteStats.upcomingCompetitions(athlete).first
-            let days = nextGame.map { AthleteStats.daysUntil($0.date) }
-            Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .progress } } label: {
-                WidgetTile(value: days.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
-                           label: "Next game", progress: days.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
-                           color: ProgressColors.game, systemImage: widget.systemImage,
-                           caption: nextGame.map { nextGameCaption($0) } ?? "Tap to add one")
-            }
-            .buttonStyle(.plain)
-        case .food:
-            Button { activeSheet = .fuel } label: {
-                WidgetTile(value: gameToday != nil ? "Game day" : (todaysWorkout != nil ? "Training day" : "Rest day"),
-                           label: "Food & water", progress: 0.5, color: AppTheme.green, systemImage: widget.systemImage,
-                           caption: "What to eat today")
-            }
-            .buttonStyle(.plain)
-        case .streak:
-            Button { selectedTab = .progress } label: {
-                WidgetTile(value: "\(streak) \(streak == 1 ? "day" : "days")", label: "Streak", progress: min(1, Double(streak) / 7),
-                           color: AppTheme.orange, systemImage: widget.systemImage, caption: "Checked in or trained")
-            }
-            .buttonStyle(.plain)
-        case .tests:
-            let tests = testsValue
-            let headline = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug))
-            Button { activeSheet = .tests } label: {
-                WidgetTile(value: tests.value, label: "Tests", progress: tests.due ? 1 : 0.3, color: AppTheme.coral,
-                           systemImage: widget.systemImage, caption: headline ?? "Every 6–8 weeks")
-            }
-            .buttonStyle(.plain)
-        }
-    }
 }
 
 /// `GeneratedSession` isn't Identifiable; this wraps one for `.sheet(item:)`.
@@ -1899,25 +1593,6 @@ struct PreviewBox: Identifiable {
     var myWorkoutID: UUID? = nil
 }
 
-/// Today's quote: small, two lines, never the headline.
-struct QuoteCard: View {
-    let quote: DailyQuote
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("“\(quote.text)”")
-                .font(.callout.italic())
-                .foregroundStyle(AppTheme.ink.opacity(0.85))
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(quote.author)
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
 
 /// "What kind of day is it?" — each option says what the app does about it.
 struct DayStatusSheet: View {
@@ -2083,97 +1758,6 @@ struct SessionPreviewSheet: View {
     }
 }
 
-// MARK: - Arranging the widgets
-
-/// Home's widgets: two to a row, in the athlete's order. One layout for all
-/// of them, so while arranging they glide to their new places.
-struct WidgetGridLayout: Layout {
-    var columnSpacing: CGFloat = 12
-    var rowSpacing: CGFloat = 12
-
-    private func columnWidth(_ total: CGFloat) -> CGFloat { (total - columnSpacing) / 2 }
-
-    private func rowHeights(_ subviews: Subviews, width: CGFloat) -> [CGFloat] {
-        stride(from: 0, to: subviews.count, by: 2).map { start in
-            (start..<min(start + 2, subviews.count)).map {
-                subviews[$0].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
-            }.max() ?? 0
-        }
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let total = proposal.width ?? 360
-        let heights = rowHeights(subviews, width: columnWidth(total))
-        return CGSize(width: total, height: heights.reduce(0, +) + rowSpacing * CGFloat(max(0, heights.count - 1)))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let width = columnWidth(bounds.width)
-        let heights = rowHeights(subviews, width: width)
-        var y = bounds.minY
-        for (row, height) in heights.enumerated() {
-            for column in 0..<2 {
-                let index = row * 2 + column
-                guard index < subviews.count else { break }
-                let x = bounds.minX + CGFloat(column) * (width + columnSpacing)
-                subviews[index].place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(width: width, height: height))
-            }
-            y += height + rowSpacing
-        }
-    }
-}
-
-/// The widget held while arranging Home.
-struct HomeDragState: Equatable {
-    var widget: HomeWidget?
-    /// The widget the held one just moved over, until the board has made room.
-    var pending: HomeWidget?
-    var lastMove = Date.distantPast
-}
-
-#if os(iOS)
-/// Live rearranging: as the held widget passes over another, the board makes
-/// room straight away (animated), so the new order is visible while still
-/// holding. A short pause between moves keeps widgets from trading places
-/// back and forth under the finger. `target` nil is the board itself, which
-/// only ends the drag.
-struct HomeWidgetDropDelegate: DropDelegate {
-    let target: HomeWidget?
-    @Binding var drag: HomeDragState
-    @Binding var layout: HomeLayout
-
-    func dropEntered(info: DropInfo) {
-        guard let target else { return }
-        drag.pending = target
-        makeRoom()
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        makeRoom()
-        return DropProposal(operation: .move)
-    }
-
-    func dropExited(info: DropInfo) {
-        if let target, drag.pending == target { drag.pending = nil }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        drag = HomeDragState()
-        layout.save()
-        return true
-    }
-
-    private func makeRoom() {
-        guard let target, drag.pending == target, let held = drag.widget, held != target,
-              Date.now.timeIntervalSince(drag.lastMove) > 0.2 else { return }
-        drag.pending = nil
-        drag.lastMove = .now
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-            layout.move(held, to: target)
-        }
-    }
-}
-#endif
 
 
 /// A one-way message from the coach, until the athlete closes it.

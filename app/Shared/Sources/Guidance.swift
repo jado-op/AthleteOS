@@ -225,114 +225,6 @@ struct AppTourView: View {
     }
 }
 
-// MARK: - Getting started checklist
-
-/// Today's first-week checklist: the five things that make the app click,
-/// each one tappable, ticked off from real data, gone once all are done.
-struct GettingStartedCard: View {
-    let athlete: Athlete
-    let hasLoggedSession: Bool
-    let onCheckIn: () -> Void
-    let onAddGame: () -> Void
-    let onStartSession: () -> Void
-    let onImprove: () -> Void
-    let onLibrary: () -> Void
-
-    @AppStorage("gettingStartedHidden") private var hidden = false
-    @AppStorage("libraryOpened") private var libraryOpened = false
-
-    private struct Step: Identifiable {
-        let id: String
-        let title: String
-        let detail: String
-        let icon: String
-        let done: Bool
-        let action: () -> Void
-    }
-
-    private var steps: [Step] {
-        [
-            Step(id: "checkin", title: "Do your first check-in", detail: "10 seconds: sleep, soreness, energy", icon: "sun.max.fill",
-                 done: !athlete.checkIns.isEmpty, action: onCheckIn),
-            Step(id: "game", title: "Add your next game", detail: "Your week peaks for it", icon: "sportscourt.fill",
-                 done: !athlete.competitions.isEmpty, action: onAddGame),
-            Step(id: "session", title: "Finish your first workout", detail: "Press Start and follow along", icon: "play.fill",
-                 done: hasLoggedSession, action: onStartSession),
-            Step(id: "skill", title: "Build a skill plan", detail: "Workout → Skill plans", icon: "target",
-                 done: !athlete.skillBlocks.isEmpty, action: onImprove),
-            Step(id: "library", title: "Watch how an exercise is done", detail: "Workout → Exercise library → tap any exercise", icon: "play.rectangle.fill",
-                 done: libraryOpened, action: onLibrary),
-        ]
-    }
-
-    var body: some View {
-        let steps = self.steps
-        let done = steps.filter(\.done).count
-        if !hidden, done < steps.count {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 14) {
-                    RingView(progress: Double(done) / Double(steps.count), color: AppTheme.ink, lineWidth: 6) {
-                        Text("\(done)/\(steps.count)")
-                            .font(.caption.bold())
-                            .foregroundStyle(AppTheme.ink)
-                    }
-                    .frame(width: 52, height: 52)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your next steps")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.ink)
-                        Text("\(done) of \(steps.count) done · tap one to do it now")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
-                    Spacer()
-                    Button {
-                        withAnimation { hidden = true }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .frame(width: 28, height: 28)
-                            .background(AppTheme.fill, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Hide getting started")
-                }
-                ForEach(steps.filter { !$0.done }) { step in
-                    Button(action: step.action) {
-                        HStack(spacing: 12) {
-                            Image(systemName: step.done ? "checkmark" : step.icon)
-                                .font(.footnote.weight(.bold))
-                                .foregroundStyle(step.done ? AppTheme.onAccent : AppTheme.ink)
-                                .frame(width: 32, height: 32)
-                                .background(step.done ? AppTheme.green : AppTheme.fill, in: Circle())
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(step.title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(step.done ? AppTheme.secondaryText : AppTheme.ink)
-                                    .strikethrough(step.done)
-                                Text(step.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.secondaryText)
-                            }
-                            Spacer(minLength: 0)
-                            if !step.done {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.secondaryText)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(step.done)
-                }
-            }
-            .cardStyle(padding: 18)
-        }
-    }
-}
-
 // MARK: - Contextual tips
 
 /// A one-time hint at the top of a screen: what this screen is for and
@@ -357,7 +249,6 @@ struct TipCard: View {
 
     static func resetAll() {
         for id in allIDs { UserDefaults.standard.removeObject(forKey: "tip.\(id)") }
-        UserDefaults.standard.removeObject(forKey: "gettingStartedHidden")
     }
 
     var body: some View {

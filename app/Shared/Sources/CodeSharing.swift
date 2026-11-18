@@ -29,7 +29,7 @@ enum QRCode {
 
 /// Everything needed to pass a code on: the code itself, big; a QR code to
 /// scan; and buttons to send the web link, the QR image or the direct app
-/// link. Used for teams, leagues and shared workouts.
+/// link. Used for teams and shared workouts.
 struct CodeShareView: View {
     let link: DeepLink
     /// "Join our team “Varsity”" — what the receiver reads with the link.

@@ -66,11 +66,9 @@ final class SportGuideTests: XCTestCase {
         XCTAssertEqual(guide.seasonAdvice(for: .postSeason), guide.season.off, "after the season is the off-season")
     }
 
-    func testPassingAQuizIsRememberedOnceAndEarnsTheBadge() {
+    func testPassingAQuizIsRememberedOnce() {
         XCTAssertTrue(SportGuideProgress.markPassed("soccer", defaults: defaults))
         XCTAssertFalse(SportGuideProgress.markPassed("soccer", defaults: defaults), "the second pass isn't new")
         XCTAssertEqual(SportGuideProgress.passed(defaults), ["soccer"])
-        XCTAssertEqual(CampusProgress.stats(defaults).guidesPassed, 1)
-        XCTAssertTrue(CampusBadges.deserved(CampusProgress.stats(defaults)).contains("sport-guide"))
     }
 }

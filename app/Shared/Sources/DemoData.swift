@@ -170,12 +170,8 @@ public enum DemoData {
 
         let lessons = campusTopics.prefix(2).flatMap(\.lessons).prefix(5).map(\.id)
         defaults.set(lessons.sorted().joined(separator: ","), forKey: CampusProgress.learnedKey)
-        defaults.set(85, forKey: CampusProgress.xpKey)
-        defaults.set(6, forKey: CampusProgress.streakKey)
-        defaults.set(CampusProgress.dayString(now), forKey: CampusProgress.lastDayKey)
-        CampusLog.record(xp: 40, lesson: true, perfect: true, review: false, streak: 6, on: now)
+        CampusLog.recordLesson(on: now)
         for id in lessons { CampusReview.schedule(id, today: calendar.date(byAdding: .day, value: -4, to: now) ?? now) }
-        CampusBadges.award(CampusStats(learned: Set(lessons), xp: 85, bestStreak: 6, perfectLessons: 1, reviews: 0), today: now)
 
         seedAcademy(now: now, calendar: calendar)
 

@@ -20,12 +20,6 @@ enum UnitSystem {
   IMPERIAL
 }
 
-enum CompetitionKind {
-  GAME
-  TOURNAMENT
-  MEET
-}
-
 enum SessionSource {
   PHONE
   WATCH
@@ -60,17 +54,10 @@ model Athlete {
 
   createdAt DateTime @default(now())
 
-  sports       AthleteSport[]
-  competitions Competition[]
   checkIns     CheckIn[]
-  plans        Plan[]
   sessions     Session[]
-  skillBlocks  SkillBlock[]
-  coachReports CoachReport[]
   states       SyncedState[]
 
-  leagueMemberships LeagueMember[]
-  weeklyXP          WeeklyXP[]
   coachedTeams      Team[]         @relation("TeamCoach")
   teamMemberships   TeamMember[]
   teamStaff         TeamStaff[]
@@ -97,35 +84,6 @@ model SyncedState {
   @@id([athleteId, key])
 }
 
-model AthleteSport {
-  id           String   @id @default(uuid())
-  athleteId    String
-  sportSlug    String
-  positionSlug String?
-  seasonStart  DateTime
-  seasonEnd    DateTime
-  isPrimary    Boolean  @default(false)
-
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@index([athleteId])
-}
-
-/// Drives the taper in §10.
-model Competition {
-  id        String          @id @default(uuid())
-  athleteId String
-  sportSlug String
-  date      DateTime
-  kind      CompetitionKind
-  isHome    Boolean         @default(true)
-  notes     String?
-
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@index([athleteId, date])
-}
-
 model CheckIn {
   id           String         @id @default(uuid())
   athleteId    String
@@ -150,54 +108,9 @@ model CheckIn {
   @@index([athleteId, date])
 }
 
-model Plan {
-  id          String   @id @default(uuid())
-  athleteId   String
-  weekStart   DateTime @db.Date
-  phase       String
-  seed        String
-  generatedAt DateTime @default(now())
-
-  athlete  Athlete          @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-  sessions PlannedSession[]
-
-  @@unique([athleteId, weekStart])
-  @@index([athleteId])
-}
-
-model PlannedSession {
-  id               String   @id @default(uuid())
-  planId           String
-  date             DateTime @db.Date
-  title            String
-  focusQualities   String[] @default([])
-  estimatedMinutes Int
-
-  plan  Plan          @relation(fields: [planId], references: [id], onDelete: Cascade)
-  items PlannedItem[]
-  sessions Session[]
-
-  @@index([planId, date])
-}
-
-model PlannedItem {
-  id                String @id @default(uuid())
-  plannedSessionId  String
-  itemSlug          String
-  order             Int
-  dose              Json
-  restSec           Int
-  rationale         String
-
-  plannedSession PlannedSession @relation(fields: [plannedSessionId], references: [id], onDelete: Cascade)
-
-  @@index([plannedSessionId, order])
-}
-
 model Session {
   id                String        @id @default(uuid())
   athleteId         String
-  plannedSessionId  String?
   startedAt         DateTime
   endedAt           DateTime?
   sessionRPE        Int?
@@ -208,7 +121,6 @@ model Session {
   clientId          String
 
   athlete        Athlete         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-  plannedSession PlannedSession? @relation(fields: [plannedSessionId], references: [id], onDelete: SetNull)
   sets           SetLog[]
 
   /// The idempotency key that makes the offline queue safe to retry (§14). Without
@@ -237,74 +149,6 @@ model SetLog {
 
   @@unique([clientId])
   @@index([sessionId, setIndex])
-}
-
-/// The §8 output, kept so it can be revisited.
-model SkillBlock {
-  id          String   @id @default(uuid())
-  athleteId   String
-  sportSlug   String
-  skillSlug   String
-  targetDate  DateTime @db.Date
-  generatedAt DateTime @default(now())
-  seed        String
-
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@index([athleteId, generatedAt])
-}
-
-model CoachReport {
-  id                 String   @id @default(uuid())
-  athleteId          String
-  weekStart          DateTime @db.Date
-  templateSetVersion Int
-  headline           String
-  observations       Json
-  recommendations    Json
-  encouragement      String
-  templateIndexes    Json
-  createdAt          DateTime @default(now())
-
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@unique([athleteId, weekStart])
-  @@index([athleteId])
-}
-
-/// Campus leagues: a private group of teammates, joined with a short code,
-/// ranked by Campus XP each week. Members only see nicknames.
-model League {
-  id        String         @id @default(uuid())
-  code      String         @unique
-  name      String
-  createdAt DateTime       @default(now())
-  members   LeagueMember[]
-}
-
-model LeagueMember {
-  leagueId  String
-  athleteId String
-  nickname  String
-  joinedAt  DateTime @default(now())
-
-  league  League  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@id([leagueId, athleteId])
-  @@index([athleteId])
-}
-
-/// Campus XP per athlete per week (the week's Monday, YYYY-MM-DD).
-model WeeklyXP {
-  athleteId String
-  week      String
-  xp        Int
-  updatedAt DateTime @updatedAt
-
-  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-
-  @@id([athleteId, week])
 }
 
 /// A coach's team: athletes join with a code and share their readiness
@@ -445,7 +289,7 @@ model SharedWorkout {
 }
 
 /// Someone reported content they saw (guideline 1.2): a shared workout, a
-/// league member's nickname, a league or a team. Reviewed within 24 hours
+/// team or a coach's assignment. Reviewed within 24 hours
 /// (scripts/inbox.mjs); a workout reported by three people stops being shared.
 model Report {
   id         String   @id @default(uuid())

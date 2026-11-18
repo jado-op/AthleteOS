@@ -11,7 +11,6 @@ struct SportGuideView: View {
     @State private var catalogue = Catalogue()
     @State private var detailItem: CatalogueItem?
     @State private var quizzing: SportGuide?
-    @State private var newBadges: BadgeCelebration?
     @State private var passed = SportGuideProgress.passed()
     @State private var showingOtherPositions = false
 
@@ -78,16 +77,10 @@ struct SportGuideView: View {
                 CampusLessonPlayer(
                     lesson: CampusLesson(id: "guide-\(guide.slug)", title: "Know your sport", minutes: 3, sections: [], takeaways: []),
                     customSteps: guide.quizSteps
-                ) { earned in
+                ) {
                     SportGuideProgress.markPassed(guide.slug)
                     passed = SportGuideProgress.passed()
-                    let badges = CampusProgress.earn(earned, lesson: true)
-                    if !badges.isEmpty { newBadges = BadgeCelebration(badges: badges) }
                 }
-            }
-            .sheet(item: $newBadges) { celebration in
-                BadgeCelebrationView(badges: celebration.badges)
-                    .presentationDetents([.medium])
             }
         }
     }

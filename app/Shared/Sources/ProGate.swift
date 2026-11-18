@@ -13,8 +13,6 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case additionalSportDownloads
     case fullHistory
     case fullSeasonCalendar
-    case positionProfiles
-    case coachReportOnDemand
     case dataExport
     case multipleSports
     case muscleWorkouts
@@ -52,8 +50,6 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .additionalSportDownloads: "Every sport downloaded for offline use"
         case .fullHistory: "Your whole history and every trend"
         case .fullSeasonCalendar: "Full season calendar, tournaments and multi-game weeks"
-        case .positionProfiles: "Every position profile, switchable"
-        case .coachReportOnDemand: "A coach report after every session"
         case .dataExport: "Export all your data"
         case .multipleSports: "Play several sports — switch between them any time"
         case .muscleWorkouts: "Unlimited muscle-group workouts"

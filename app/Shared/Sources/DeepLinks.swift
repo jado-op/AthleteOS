@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Every code in the app — a coach's team, a Campus league, a shared
+/// Every code in the app — a coach's team, a shared
 /// workout — also works as a link that opens the app on the right screen:
 ///
 ///   https://api.lejacob.dev/fitness/team/ABC234   (web link: opens the app
@@ -11,10 +11,9 @@ import Observation
 ///   athleteos://… (the same, long form)
 ///
 /// A bare code (`aos://ABC234`) doesn't say what it is; the app asks the
-/// server (`GET /codes/:code`) and then opens the team, league or workout.
+/// server (`GET /codes/:code`) and then opens the team or workout.
 public enum DeepLink: Hashable, Sendable {
     case team(String)
-    case league(String)
     case workout(String)
     /// A code whose kind still has to be looked up.
     case code(String)
@@ -30,14 +29,13 @@ public enum DeepLink: Hashable, Sendable {
 
     public var code: String {
         switch self {
-        case .team(let c), .league(let c), .workout(let c), .code(let c), .webLogin(let c): c
+        case .team(let c), .workout(let c), .code(let c), .webLogin(let c): c
         }
     }
 
     var kindPath: String? {
         switch self {
         case .team: "team"
-        case .league: "league"
         case .workout: "workout"
         case .code: nil
         case .webLogin: "login"
@@ -103,7 +101,6 @@ public enum DeepLink: Hashable, Sendable {
             guard let code = Self.normalize(parts[1]) else { return nil }
             switch parts[0].lowercased() {
             case "team", "t": self = .team(code)
-            case "league", "l": self = .league(code)
             case "workout", "w": self = .workout(code)
             case "c", "code", "join": self = .code(code)
             default: return nil
@@ -117,7 +114,6 @@ public enum DeepLink: Hashable, Sendable {
     public static func resolved(code: String, kind: String) -> DeepLink? {
         switch kind {
         case "team": .team(code)
-        case "league": .league(code)
         case "workout": .workout(code)
         default: nil
         }

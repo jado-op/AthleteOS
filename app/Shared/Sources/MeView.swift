@@ -57,13 +57,12 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case athleteScore, sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule, decisions, emergency
+        case sport, season, equipment, experience, name, reports, checkIns, dataExport, reminders, downloads, fuel, health, sports, help, team, coach, parent, safety, struggles, mindset, schedule, decisions, emergency
         var id: String { rawValue }
     }
 
     private var athleteSport: AthleteSport? { athlete.activeSport }
     @State private var showingPaywall = false
-    @State private var athleteScore: AthleteScoreSnapshot?
     private var sportInfo: SportInfo? { athleteSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var positionName: String? {
         athleteSport?.positionSlug.flatMap { slug in sportInfo?.positions.first { $0.slug == slug }?.name }
@@ -249,8 +248,6 @@ struct MeView: View {
             .onChange(of: PushRoute.shared.meSheet) { takePushRoute() }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
-                case .athleteScore:
-                    if let athleteScore { AthleteScoreSheet(snapshot: athleteScore) }
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
@@ -262,9 +259,7 @@ struct MeView: View {
                     #else
                     EmptyView()
                     #endif
-                case .history: SessionHistoryView()
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
-                case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
                 case .dataExport: DataExportView(athlete: athlete, sessions: sessions)
                 case .reminders: RemindersSheet(athlete: athlete)
                 case .downloads: DownloadsSheet(athlete: athlete)
@@ -272,7 +267,6 @@ struct MeView: View {
                 case .health: HealthPermissionView()
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()
-                case .tests: BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .team: MyTeamView()
                 case .coach: CoachView()
                 case .parent: ParentSummaryView()
@@ -280,7 +274,6 @@ struct MeView: View {
                 case .struggles: StrugglesSheet(onSaved: onPlanInputsChanged)
                 case .decisions: DecisionsView()
                 case .emergency: EmergencyCardView()
-                case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
                 case .mindset: MindsetView(sportName: AthleteStats.sportName(athlete)) {}
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 }
@@ -384,7 +377,6 @@ struct MeView: View {
                         .foregroundStyle(AppTheme.brightRed)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                if athleteScore != nil { scoreButton }
             }
             HStack(alignment: .bottom, spacing: 10) {
                 // V6 §21: training first; the streak is there, quietly.
@@ -394,30 +386,6 @@ struct MeView: View {
             }
         }
         .padding(.top, 8)
-        .onAppear(perform: refreshAthleteScore)
-        .onChange(of: sessions.count) { refreshAthleteScore() }
-        .onChange(of: athlete.checkIns.count) { refreshAthleteScore() }
-        .onChange(of: activeSheet) { _, sheet in if sheet == nil { refreshAthleteScore() } }
-    }
-
-    /// The Athlete Score beside the name: only for the athlete, tap for why.
-    private var scoreButton: some View {
-        Button { activeSheet = .athleteScore } label: {
-            VStack(spacing: 6) {
-                AthleteScoreRing(snapshot: athleteScore, size: 76)
-                Text("Athlete Score")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(athleteScore?.shown.map { "Athlete Score \($0) of 100, \(athleteScore?.score.word ?? "")" } ?? "Athlete Score, still getting to know you")
-        .accessibilityHint("Shows what it means and what it is made of")
-    }
-
-    private func refreshAthleteScore() {
-        athleteScore = AthleteScoreStore.snapshot(athlete: athlete, sessions: sessions)
     }
 
     /// My Development Goals: what the plan leans towards.
@@ -541,7 +509,7 @@ struct MeView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Account", subtitle: "You're using AthleteOS without an account — everything is on this phone only.")
             VStack(alignment: .leading, spacing: 10) {
-                Text("Sign in to back up everything, use it on a new phone, join your coach's team and leagues, send a parent summary and share workouts.")
+                Text("Sign in to back up everything, use it on a new phone, join your coach's team, send a parent summary and share workouts.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)

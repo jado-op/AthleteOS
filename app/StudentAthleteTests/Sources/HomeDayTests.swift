@@ -53,11 +53,4 @@ final class HomeDayTests: XCTestCase {
         XCTAssertEqual(week.active, [true, true, true, true, false, false, false])
     }
 
-    func testQuotesFitThePartOfTheDay() {
-        let morning = DailyQuotes.short(for: .morning)
-        let evening = DailyQuotes.short(for: .evening)
-        XCTAssertLessThanOrEqual(morning.text.count, 100)
-        XCTAssertLessThanOrEqual(evening.text.count, 100)
-        XCTAssertNotEqual(morning.text, evening.text)
-    }
 }

@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [], pushDevice: [], athlete: [] };
+  const db = { team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [], pushDevice: [], athlete: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -17,7 +17,7 @@ function fakePrisma() {
       if ('gte' in cond || 'lt' in cond) {
         return (cond.gte === undefined || row[field] >= cond.gte) && (cond.lt === undefined || row[field] < cond.lt);
       }
-      // A compound key: { leagueId_athleteId: { leagueId, athleteId } }.
+      // A compound key: { teamId_athleteId: { teamId, athleteId } }.
       return Object.entries(cond).every(([k, v]) => row[k] === v);
     }
     if (cond instanceof Date) return row[field] instanceof Date && row[field].getTime() === cond.getTime();
@@ -25,9 +25,7 @@ function fakePrisma() {
   });
 
   const relations = {
-    league: { members: ['leagueMember', 'leagueId'] },
     team: { members: ['teamMember', 'teamId'] },
-    leagueMember: { league: ['league', 'leagueId', true] },
     teamMember: { team: ['team', 'teamId', true] },
     teamStaff: { team: ['team', 'teamId', true] },
     shoutout: { team: ['team', 'teamId', true] },
@@ -64,10 +62,8 @@ function fakePrisma() {
       },
       async count({ where } = {}) { return db[model].filter((r) => matches(r, where)).length; },
       async create({ data }) {
-        const { members, ...rest } = data;
-        const row = { id: crypto.randomUUID(), createdAt: new Date(), ...rest };
+        const row = { id: crypto.randomUUID(), createdAt: new Date(), ...data };
         db[model].push(row);
-        if (members?.create) db.leagueMember.push({ leagueId: row.id, ...members.create });
         return row;
       },
       async update({ where, data }) {
@@ -86,7 +82,6 @@ function fakePrisma() {
         const index = db[model].findIndex((r) => matches(r, where));
         const [row] = db[model].splice(index, 1);
         // Cascades the routes rely on.
-        if (model === 'league') db.leagueMember = db.leagueMember.filter((m) => m.leagueId !== row.id);
         if (model === 'team') {
           db.teamMember = db.teamMember.filter((m) => m.teamId !== row.id);
           db.assignment = db.assignment.filter((a) => a.teamId !== row.id);
@@ -113,31 +108,6 @@ async function serve(prisma, extra = {}) {
   });
   return { url, call, close: () => new Promise((r) => server.close(r)) };
 }
-
-test('leagues: create, join by code, weekly XP table, leave', async () => {
-  const prisma = fakePrisma();
-  const { call, close } = await serve(prisma);
-  try {
-    const created = await (await call('a1', 'POST', '/leagues', { name: 'U17 Girls', nickname: 'Mia' })).json();
-    assert.match(created.league.code, /^[A-HJ-KM-NP-Z2-9]{6}$/);
-    assert.equal((await call('a2', 'POST', '/leagues/join', { code: created.league.code.toLowerCase(), nickname: 'Jo' })).status, 201);
-    assert.equal((await call('a3', 'POST', '/leagues/join', { code: 'ZZZZZZ', nickname: 'X9' })).status, 404);
-    assert.equal((await call('a3', 'POST', '/leagues/join', { code: created.league.code, nickname: '<script>' })).status, 400);
-
-    const week = '2026-09-21';
-    await call('a1', 'PUT', '/leagues/xp', { week, xp: 40 });
-    await call('a2', 'PUT', '/leagues/xp', { week, xp: 65 });
-    await call('a2', 'PUT', '/leagues/xp', { week, xp: 10 }); // never goes down
-    const table = await (await call('a1', 'GET', `/leagues?week=${week}`)).json();
-    assert.deepEqual(table.leagues[0].members.map((m) => [m.nickname, m.xp, m.isMe]), [['Jo', 65, false], ['Mia', 40, true]]);
-
-    assert.equal((await call('a1', 'DELETE', `/leagues/${created.league.id}`)).status, 204);
-    assert.equal((await call('a2', 'DELETE', `/leagues/${created.league.id}`)).status, 204);
-    assert.equal(prisma._db.league.length, 0, 'the last one out deletes the league');
-  } finally {
-    await close();
-  }
-});
 
 test('teams: the coach sees readiness and training, never more; members get assignments', async () => {
   const prisma = fakePrisma();

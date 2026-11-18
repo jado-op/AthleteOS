@@ -10,7 +10,7 @@ struct LiveSessionLaunch: Identifiable {
 }
 
 enum QuickAction: String, Identifiable, CaseIterable {
-    case logWorkout, checkIn, addGame, improve, history, fuel
+    case logWorkout, addGame, fuel
     var id: String { rawValue }
 }
 
@@ -76,7 +76,6 @@ struct QuickActionsSheet: View {
 
     private let tiles: [Tile] = [
         Tile(action: .logWorkout, title: "Log a workout", detail: "Something you did that isn't in your plan", icon: "figure.run"),
-        Tile(action: .checkIn, title: "Check in", detail: "How you slept and feel today", icon: "sun.max.fill"),
         Tile(action: .addGame, title: "Add a game", detail: "Your plan builds up to it", icon: "sportscourt.fill"),
         Tile(action: .fuel, title: "Food & water", detail: "What to eat and drink today", icon: "fork.knife"),
     ]

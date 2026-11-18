@@ -8,7 +8,7 @@ import { signSessionToken } from '../src/lib/sessionToken.js';
 const SESSION_SECRET = 'test-session-secret';
 
 function fakePrisma() {
-  const db = { report: [], supportMessage: [], sharedWorkout: [], team: [], league: [] };
+  const db = { report: [], supportMessage: [], sharedWorkout: [], team: [] };
   const matches = (row, where = {}) => Object.entries(where).every(([k, v]) => row[k] === v);
   const client = { _db: db };
   for (const model of Object.keys(db)) {
@@ -81,7 +81,9 @@ test('reports are stored; a workout three people report stops being shared', asy
     await call('a2', 'POST', '/reports', { kind: 'workout', target: 'ABC234' });
     await call('a3', 'POST', '/reports', { kind: 'workout', target: 'ABC234' });
     assert.equal(prisma._db.sharedWorkout.length, 0, 'three people: no longer shared');
-    assert.equal((await call('a1', 'POST', '/reports', { kind: 'leagueMember', target: 'league-1:Mia' })).status, 201);
+    assert.equal((await call('a1', 'POST', '/reports', { kind: 'team', target: 'TEAM22' })).status, 201);
+    assert.equal((await call('a1', 'POST', '/reports', { kind: 'league', target: 'GRPS22' })).status, 400, 'leagues are gone');
+    assert.equal((await call('a1', 'POST', '/reports', { kind: 'leagueMember', target: 'league-1:Mia' })).status, 400, 'leagues are gone');
     assert.equal(prisma._db.report.length, 8);
   } finally {
     await close();

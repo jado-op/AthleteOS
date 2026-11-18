@@ -1,24 +1,8 @@
 import Foundation
 
-/// Campus leagues, coach teams and the parent summary link
-/// (backend/src/routes/leagues.js, teams.js, parent.js).
+/// Coach teams and the parent summary link
+/// (backend/src/routes/teams.js, parent.js).
 public extension APIClient {
-    struct LeagueTable: Decodable, Sendable, Equatable {
-        public struct Member: Decodable, Sendable, Equatable {
-            public let nickname: String
-            public let xp: Int
-            public let isMe: Bool
-        }
-        public struct League: Decodable, Sendable, Equatable, Identifiable {
-            public let id: String
-            public let name: String
-            public let code: String
-            public let members: [Member]
-        }
-        public let week: String
-        public let leagues: [League]
-    }
-
     struct Teams: Decodable, Sendable, Equatable {
         public struct Coached: Decodable, Sendable, Equatable, Identifiable {
             public let id: String
@@ -159,29 +143,6 @@ public extension APIClient {
         public let title: String
         public let note: String?
         public let items: [Item]
-    }
-
-    // MARK: Leagues
-
-    func leagues(week: String, sessionToken: String) async throws -> LeagueTable {
-        try await social("GET", "leagues", query: [URLQueryItem(name: "week", value: week)], sessionToken: sessionToken)
-    }
-
-    func createLeague(name: String, nickname: String, sessionToken: String) async throws {
-        let _: Ignored = try await social("POST", "leagues", body: ["name": name, "nickname": nickname], sessionToken: sessionToken)
-    }
-
-    func joinLeague(code: String, nickname: String, sessionToken: String) async throws {
-        let _: Ignored = try await social("POST", "leagues/join", body: ["code": code, "nickname": nickname], sessionToken: sessionToken)
-    }
-
-    func leaveLeague(id: String, sessionToken: String) async throws {
-        let _: Ignored = try await social("DELETE", "leagues/\(id)", sessionToken: sessionToken)
-    }
-
-    func reportWeeklyXP(week: String, xp: Int, sessionToken: String) async throws {
-        struct Body: Encodable, Sendable { let week: String; let xp: Int }
-        let _: Ignored = try await social("PUT", "leagues/xp", json: try JSONEncoder().encode(Body(week: week, xp: xp)), sessionToken: sessionToken)
     }
 
     // MARK: Teams
@@ -428,7 +389,7 @@ public extension APIClient {
         let _: Ignored = try await social("DELETE", "workouts/shared/\(code)", sessionToken: sessionToken)
     }
 
-    /// What a code is — "team", "league" or "workout" — and its name.
+    /// What a code is — "team" or "workout" — and its name.
     struct CodeInfo: Decodable, Sendable, Equatable {
         public let kind: String
         public let name: String?
@@ -440,8 +401,7 @@ public extension APIClient {
 
     // MARK: Reporting (guideline 1.2)
 
-    /// Reports a shared workout ("workout", its code), a league member
-    /// ("leagueMember", "leagueId:nickname"), a league or a team (their id).
+    /// Reports a shared workout ("workout", its code) or a team (its id).
     func report(kind: String, target: String, reason: String? = nil, sessionToken: String?) async throws {
         struct Body: Encodable, Sendable { let kind: String; let target: String; let reason: String? }
         var request = URLRequest(url: baseURL.appending(path: "reports"))

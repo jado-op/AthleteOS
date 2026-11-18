@@ -10,7 +10,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** Just the tables shared workouts and codes touch. */
 function fakePrisma() {
-  const db = { sharedWorkout: [], team: [], league: [] };
+  const db = { sharedWorkout: [], team: [] };
   const matches = (row, where = {}) => Object.entries(where).every(([k, v]) => row[k] === v);
   const client = { _db: db };
   for (const model of Object.keys(db)) {
@@ -102,15 +102,18 @@ test('cleanItems keeps only known dose fields', () => {
   assert.equal(cleanItems([{ itemSlug: 'push-up', dose: { kind: 'swim', sets: 1 }, restSec: 60 }]), null);
 });
 
-test('codes: one lookup for teams, leagues and workouts', async () => {
+test('codes: one lookup for teams and workouts (leagues are gone)', async () => {
   const prisma = fakePrisma();
   prisma._db.team.push({ id: 't1', code: 'TEAM22', name: 'Varsity' });
-  prisma._db.league.push({ id: 'l1', code: 'GRPS22', name: 'U17 Girls' });
+  // A leftover league row must never be found by a code any more.
+  prisma.league = { async findUnique() { return { id: 'l1', code: 'GRPS22', name: 'U17 Girls' }; } };
   const { call, close } = await serve(prisma);
   try {
     const { code } = await (await call('a1', 'POST', '/workouts/shared', legDay)).json();
     assert.deepEqual(await (await call(null, 'GET', '/codes/team22')).json(), { kind: 'team', name: 'Varsity' });
-    assert.deepEqual(await (await call(null, 'GET', '/codes/GRPS22')).json(), { kind: 'league', name: 'U17 Girls' });
+    const league = await call(null, 'GET', '/codes/GRPS22');
+    assert.equal(league.status, 404, 'leagues are no longer a kind of code');
+    assert.deepEqual(await league.json(), { error: 'not_found' });
     assert.deepEqual(await (await call(null, 'GET', `/codes/${code}`)).json(), { kind: 'workout', name: 'Leg day' });
     assert.equal((await call(null, 'GET', '/codes/NOPE22')).status, 404);
     assert.equal((await call(null, 'GET', '/codes/0O1IL0')).status, 404, 'look-alike characters are never codes');
@@ -139,7 +142,8 @@ test('links: the page a link opens, and Apple\'s app-links file', async () => {
 
     // A bare code link (…/c/CODE) opens whatever it is; a wrong kind is a 404.
     assert.equal((await call(null, 'GET', `/c/${code}`)).status, 200);
-    assert.equal((await call(null, 'GET', `/league/${code}`)).status, 404);
+    assert.equal((await call(null, 'GET', `/team/${code}`)).status, 404);
+    assert.equal((await call(null, 'GET', '/league/GRPS22')).status, 404, 'no league pages any more');
 
     const aasa = await call(null, 'GET', '/.well-known/apple-app-site-association');
     assert.equal(aasa.status, 200);
@@ -147,7 +151,7 @@ test('links: the page a link opens, and Apple\'s app-links file', async () => {
     const body = await aasa.json();
     assert.deepEqual(body.applinks.details[0].appIDs, ['Y6QW849HK2.com.studentathlete.app']);
     assert.deepEqual(body.applinks.details[0].components.map((c) => c['/']),
-      ['/fitness/team/*', '/fitness/league/*', '/fitness/workout/*', '/fitness/c/*', '/fitness/login/*']);
+      ['/fitness/team/*', '/fitness/workout/*', '/fitness/c/*', '/fitness/login/*']);
   } finally {
     await close();
   }

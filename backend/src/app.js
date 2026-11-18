@@ -9,7 +9,6 @@ import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
 import { communityRouter } from './routes/community.js';
-import { leaguesRouter } from './routes/leagues.js';
 import { legalRouter } from './routes/legal.js';
 import { linksRouter } from './routes/links.js';
 import { parentRouter } from './routes/parent.js';
@@ -91,7 +90,6 @@ export function createApp({
     app.use('/sync', syncRouter({ prisma, sessionSecret }));
     app.use('/sync', stateRouter({ prisma, sessionSecret }));
     app.use('/athlete', athleteRouter({ prisma, sessionSecret, appleRevoker }));
-    app.use('/leagues', leaguesRouter({ prisma, sessionSecret }));
     app.use('/teams', teamsRouter({ prisma, sessionSecret, notifier }));
     app.use('/push', pushRouter({ prisma, sessionSecret }));
     app.use('/workouts', workoutsRouter({ prisma, sessionSecret }));

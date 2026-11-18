@@ -3,7 +3,7 @@ import express from 'express';
 import { requireAuth } from '../lib/requireAuth.js';
 import { uniqueCode, CODE } from '../lib/codes.js';
 import { isObjectionable } from '../lib/moderation.js';
-import { cleanName, cleanNickname } from './leagues.js';
+import { cleanName, cleanNickname } from '../lib/names.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 const MAX_PEOPLE = 8;

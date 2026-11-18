@@ -33,16 +33,16 @@ enum SportVisibility {
 /// Where a search result goes.
 enum AppSearchTarget: Hashable {
     // Home
-    case checkIn, logWorkout, addGame, history, fuel, dayStatus, schedule, reflection, today, safety, mindset, tests
+    case checkIn, logWorkout, addGame, history, fuel, dayStatus, schedule, reflection, safety, mindset, tests
     case breathing, visualization, practiceLog
     // Sections
     case tab(AppTab)
     // Settings and tools (Me, Workout, Campus)
     case sports, season, equipment, experience, name, reports, checkIns, exerciseProgress, dataExport
     case reminders, downloads, health, help, team, coach, parent, goals, trends, library, sportGuide
-    case leagues, badges, newGymPlan, upgrade
+    case newGymPlan, upgrade
     case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
-    case sportPosition, editHome
+    case sportPosition
     case skill(String)
     case link(String)
     // Content
@@ -89,7 +89,6 @@ enum AppSearch {
         function("Kind of day", "Normal, sick, travel, holiday", "calendar.day.timeline.left", ["sick", "ill", "travel", "holiday", "vacation", "rest", "status", "day"], .dayStatus),
         function("Practice schedule", "Practice days and times", "calendar.badge.clock", ["schedule", "practice", "times", "days", "calendar", "team"], .schedule),
         function("Evening reflection", "How today went", "moon.stars.fill", ["reflect", "reflection", "evening", "journal", "diary", "went well"], .reflection),
-        function("Today's checklist", "What's done today and what's left", "checklist", ["today", "done", "completed", "checklist", "progress"], .today),
         function("Safety Center", "Pain, head injury, illness", "cross.case.fill", ["safety", "injury", "hurt", "pain", "concussion", "head", "doctor", "sick"], .safety),
         function("Mindset", "Goals, confidence and routines", "brain.head.profile", ["mindset", "mental", "confidence", "nerves", "focus", "pressure"], .mindset),
         function("Breathing", "2 minutes to calm down", "wind", ["breathing", "breathe", "calm", "relax", "nerves", "anxiety", "stress"], .breathing),
@@ -111,8 +110,7 @@ enum AppSearch {
         function("New gym plan", "Generate one or build your own", "arrow.clockwise", ["new plan", "gym plan", "generate", "randomize", "build", "change plan"], .newGymPlan),
         function("Exercise library", "Every exercise and drill, with how it looks", "books.vertical.fill", ["library", "exercises", "drills", "catalogue", "browse", "how to"], .library),
         function("Sport guide", "Know your sport and position", "book.fill", ["guide", "rules", "position", "sport", "know"], .sportGuide),
-        function("Leagues", "Weekly Campus leagues with friends", "trophy.fill", ["league", "leagues", "friends", "compete", "xp", "leaderboard"], .leagues),
-        function("Badges", "What you've earned", "rosette", ["badges", "awards", "achievements"], .badges),
+        function("Habit badges", "Rest, honest check-ins, speaking up — in Progress", "rosette", ["badges", "awards", "achievements"], .tab(.progress)),
         function("Trends", "Sleep, load and balance over time", "chart.xyaxis.line", ["trends", "charts", "sleep", "load", "balance", "graph"], .trends),
         function("Exercise progress", "Charts for every exercise", "chart.line.uptrend.xyaxis", ["progress", "charts", "strength", "weights", "exercise"], .exerciseProgress),
         function("Past check-ins", "Every morning check-in", "sun.max.fill", ["check-ins", "history", "sleep", "readiness"], .checkIns),
@@ -135,7 +133,6 @@ enum AppSearch {
         function("Add a training", "An extra team session", "plus.circle", ["extra", "training", "session", "team", "add"], .addTraining),
         function("Team & school calendars", "Connect TeamSnap, Google or Apple", "link", ["calendar", "teamsnap", "google", "apple", "school", "sync", "import", "exams"], .calendars),
         function("Sport & position", "Your sport, position and format", "sportscourt.fill", ["position", "role", "format", "sport", "goalkeeper"], .sportPosition),
-        function("Edit Home", "Add, move or remove Home widgets", "square.grid.2x2", ["widgets", "edit home", "customize", "layout", "rearrange"], .editHome),
         function("Weight units", "kg or lb, set in a workout", "scalemass", ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial"], .logWorkout),
         function("Review lessons", "Questions from lessons that are due", "arrow.triangle.2.circlepath", ["review", "quiz", "questions", "repeat", "remember"], .tab(.campus)),
         function("Know your position", "Your job on the field", "person.fill.viewfinder", ["position", "role", "job", "tactics"], .tab(.campus)),

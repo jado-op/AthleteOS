@@ -5,8 +5,7 @@ import { requireAuth } from '../lib/requireAuth.js';
 /**
  * §20/§4: "Account deletion must never sit behind the paywall" and must be
  * real, not cosmetic. A single authenticated delete of the athlete's own
- * row — every child table (AthleteSport, Competition, CheckIn, Plan,
- * Session, SkillBlock, CoachReport, SyncedState) is `onDelete: Cascade` in schema.prisma,
+ * row — every child table (CheckIn, Session, SyncedState, …) is `onDelete: Cascade` in schema.prisma,
  * so this one query is a genuine, complete account deletion server-side,
  * not a partial one that leaves rows behind.
  */

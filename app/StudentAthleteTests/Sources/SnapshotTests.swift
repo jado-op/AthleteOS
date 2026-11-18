@@ -28,21 +28,6 @@ final class SnapshotTests: XCTestCase {
         return image
     }
 
-    private var review: WeeklyReview {
-        WeeklyReview(workouts: 3, minutes: 125, checkIns: 6, lessons: 2,
-                     highlight: "A new personal best: Vertical jump 48 cm.", focus: "A game next week: sleep well and arrive fresh.")
-    }
-
-    func testWeeklyReviewCardFitsAtEveryTextSize() throws {
-        for scheme in [ColorScheme.light, .dark] {
-            for size in [DynamicTypeSize.large, .accessibility2] {
-                let image = try XCTUnwrap(render("weekly-review", WeeklyReviewCard(review: review).padding(20), scheme: scheme, size: size))
-                XCTAssertEqual(image.size.width, width, accuracy: 1, "no horizontal overflow")
-                XCTAssertGreaterThan(image.size.height, 150, "the card didn't collapse")
-            }
-        }
-    }
-
     func testSeasonCardAndReportPageRender() throws {
         let report = AthleteReport(name: "Sam", sport: "Soccer", position: "Midfielder", age: 16, from: .now.addingTimeInterval(-90 * 86_400),
                                    to: .now, workouts: 34, minutes: 1_210, practices: 40, checkIns: 80, averageSleep: 8.1, lessons: 12,

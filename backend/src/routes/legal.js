@@ -84,9 +84,9 @@ export const TERMS_BODY = `
 <section><h2>Training information, not medical advice</h2>
 <p>Plans, readiness suggestions, coaching messages and fuelling guidance are general information. They are not medical advice and do not replace your coach, athletic trainer, doctor or a registered dietitian. Stop exercising and tell an adult if something hurts. You train at your own discretion.</p></section>
 <section><h2>Subscriptions</h2>
-<p>Some features require AthleteOS Pro (monthly or yearly). Prices are shown in the app in your currency before you buy. Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in your App Store account settings. An introductory price, when offered, applies once to new subscribers and is followed by the regular price. The daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety features, daily Campus lessons, sport guides, leagues and teams are free.</p></section>
+<p>Some features require AthleteOS Pro (monthly or yearly). Prices are shown in the app in your currency before you buy. Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in your App Store account settings. An introductory price, when offered, applies once to new subscribers and is followed by the regular price. The daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety features, daily Campus lessons, sport guides and teams are free.</p></section>
 <section><h2>Community rules</h2>
-<p>Nicknames, league, team and workout names and coach notes can be seen by other people. There is no tolerance for objectionable content or abusive users: no insults, hate, harassment, sexual content, or anything you wouldn't say in front of your team. Names are checked when you save them. You can report a name, league, team or shared workout and block a player; reports are reviewed within 24 hours, objectionable content is removed and accounts that break these rules are closed.</p></section>
+<p>Nicknames, team and workout names and coach notes can be seen by other people. There is no tolerance for objectionable content or abusive users: no insults, hate, harassment, sexual content, or anything you wouldn't say in front of your team. Names are checked when you save them. You can report a name, team or shared workout, and leave a team at any time; reports are reviewed within 24 hours, objectionable content is removed and accounts that break these rules are closed.</p></section>
 <section><h2>Your content</h2><p>Your training data belongs to you. You can export it from Me → Export my data, and delete it at any time.</p></section>
 <section><h2>Acceptable use</h2><p>Don't attempt to access other people's data, interfere with the service, or reverse-engineer it for that purpose. Follow the community rules above.</p></section>
 <section><h2>Contact</h2><p>Questions or problems: use the form on the <a href="support">Support page</a>.</p></section>
@@ -99,12 +99,12 @@ export const SUPPORT_BODY = `
 <p>Pick your sport and position, set your season and practice days, and do the two-tap morning check-in. Your workouts are built around your practices, games and exams — and you can change any of them.</p></section>
 <section><h2>Common questions</h2>
 <ul>
-<li><strong>Do I need an account?</strong> No — tap "Continue without an account". Sign in with Apple any time in Me → Account to back up, join a team or league and share workouts.</li>
+<li><strong>Do I need an account?</strong> No — tap "Continue without an account". Sign in with Apple any time in Me → Account to back up, join a team and share workouts.</li>
 <li><strong>Where are my workouts?</strong> The Workout tab: after practice, gym day, and stretching &amp; mobility. "See it" shows a workout, "Change it" lets you swap exercises.</li>
 <li><strong>My workout is lighter today.</strong> Your check-in was below your normal, so it was eased. You can switch back to the full version on the Workout tab.</li>
 <li><strong>How do I add a game or practice?</strong> The Progress tab → Schedule &amp; events, or connect your team's calendar link.</li>
 <li><strong>How do I join my coach's team?</strong> Me → My team → enter the code, or open the link or QR code your coach sent.</li>
-<li><strong>How do I report or block someone?</strong> Long-press their name in a league to report or block them; shared workouts and teams have a Report button.</li>
+<li><strong>How do I report someone?</strong> Teams and shared workouts have a Report button, and you can leave a team at any time.</li>
 <li><strong>Does it work offline?</strong> Yes. Everything is saved on your phone and backs up next time you're online.</li>
 <li><strong>How do I delete my account?</strong> Me → Delete account. It deletes everything, immediately.</li>
 <li><strong>How do I cancel Pro?</strong> iPhone Settings → your name → Subscriptions.</li>

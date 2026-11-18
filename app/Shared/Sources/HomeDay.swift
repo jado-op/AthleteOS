@@ -208,33 +208,6 @@ struct ReadinessScale: View {
     }
 }
 
-// MARK: - Quotes for the hour
-
-public extension DailyQuotes {
-    /// A short quote that fits the hour: preparation in the morning,
-    /// performance in the day, reflection in the evening. Same all day
-    /// within a part of the day.
-    static func short(for phase: DayPhase, date: Date = .now, calendar: Calendar = .current) -> DailyQuote {
-        let starts: [String]
-        switch phase {
-        case .morning:
-            starts = ["The will to win is important", "Make each day your masterpiece", "What you do today can improve",
-                      "Don't count the days", "Set your goals high", "Some people want it to happen"]
-        case .day:
-            starts = ["Pressure is a privilege", "You miss 100%", "Hard work beats talent", "Champions keep playing",
-                      "Talent wins games", "Don't let what you cannot do"]
-        case .evening, .night:
-            starts = ["I've learned that something constructive", "It's not whether you get knocked down",
-                      "Excellence is the gradual result", "Just keep going", "Tough times don't last",
-                      "I really think a champion is defined"]
-        }
-        let pool = all.filter { quote in quote.text.count <= 100 && starts.contains { quote.text.hasPrefix($0) } }
-        guard !pool.isEmpty else { return short(for: date, calendar: calendar) }
-        let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
-        return pool[day % pool.count]
-    }
-}
-
 // MARK: - The week
 
 /// "Your week" on Home: one small block, not accounting software.
