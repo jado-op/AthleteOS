@@ -165,7 +165,12 @@ jobs:
           devs = [d for rt, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in rt for d in ds if d['name'].startswith('iPhone')]
           pref = [d for d in devs if d['name'] == 'iPhone 17'] or devs
           print(pref[-1]['udid'] if pref else '')")
-            if [ -n "$udid" ]; then echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"; exit 0; fi
+            if [ -n "$udid" ]; then
+              echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"
+              # Boot it now so it is warm by the time the build is done.
+              xcrun simctl boot "$udid" || true
+              exit 0
+            fi
             echo "no iPhone simulator yet ($i)"; sleep 10
           done
           xcrun simctl list devices; exit 1
@@ -249,7 +254,12 @@ jobs:
           devs = [d for rt, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in rt for d in ds if d['name'].startswith('iPhone')]
           pref = [d for d in devs if d['name'] == 'iPhone 17'] or devs
           print(pref[-1]['udid'] if pref else '')")
-            if [ -n "$udid" ]; then echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"; exit 0; fi
+            if [ -n "$udid" ]; then
+              echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"
+              # Boot it now so it is warm by the time the build is done.
+              xcrun simctl boot "$udid" || true
+              exit 0
+            fi
             echo "no iPhone simulator yet ($i)"; sleep 10
           done
           xcrun simctl list devices; exit 1

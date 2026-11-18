@@ -29,7 +29,9 @@ final class HomeSearchUITests: XCTestCase {
         add(found)
         result.tap()
 
-        let opened = app.staticTexts["When something doesn't feel right."].waitForExistence(timeout: 10)
+        // The search sheet closes before the Safety Center opens; a cold CI
+        // simulator can take well over 10 s for both.
+        let opened = app.staticTexts["When something doesn't feel right."].waitForExistence(timeout: 30)
         let landed = XCTAttachment(screenshot: app.screenshot())
         landed.name = "after-tap"
         landed.lifetime = .keepAlways
