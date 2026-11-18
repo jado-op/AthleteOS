@@ -169,9 +169,9 @@ struct FuelView: View {
         let carbs = meals.reduce(0) { $0 + $1.carbPortions }
         let colour = meals.reduce(0) { $0 + $1.colourPortions }
         return HStack(spacing: 12) {
-            RingStatCard(value: "\(protein)/\(targets.protein)", label: "Protein", progress: Double(protein) / Double(targets.protein), color: AppTheme.brand, systemImage: "fish.fill")
-            RingStatCard(value: "\(carbs)/\(targets.carbs)", label: "Carbs", progress: Double(carbs) / Double(targets.carbs), color: AppTheme.amber, systemImage: "leaf.fill")
-            RingStatCard(value: "\(colour)/\(targets.colour)", label: "Colour", progress: Double(colour) / Double(targets.colour), color: AppTheme.green, systemImage: "carrot.fill")
+            RingStatCard(value: "\(protein)", label: "Protein", progress: min(1, Double(protein) / Double(targets.protein)), color: AppTheme.brand, systemImage: "fish.fill", caption: "about \(targets.protein) palms")
+            RingStatCard(value: "\(carbs)", label: "Carbs", progress: min(1, Double(carbs) / Double(targets.carbs)), color: AppTheme.amber, systemImage: "leaf.fill", caption: "about \(targets.carbs) fists")
+            RingStatCard(value: "\(colour)", label: "Colour", progress: min(1, Double(colour) / Double(targets.colour)), color: AppTheme.green, systemImage: "carrot.fill", caption: "about \(targets.colour) handfuls")
         }
     }
 

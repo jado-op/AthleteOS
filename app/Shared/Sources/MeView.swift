@@ -57,12 +57,13 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, reports, checkIns, dataExport, reminders, downloads, fuel, health, sports, help, team, coach, parent, safety, struggles, mindset, schedule, decisions, emergency
+        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, downloads, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency
         var id: String { rawValue }
     }
 
     private var athleteSport: AthleteSport? { athlete.activeSport }
     @State private var showingPaywall = false
+    @AppStorage(WeightUnit.storageKey) private var weightUnitRaw = WeightUnit.current.rawValue
     private var sportInfo: SportInfo? { athleteSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var positionName: String? {
         athleteSport?.positionSlug.flatMap { slug in sportInfo?.positions.first { $0.slug == slug }?.name }
@@ -119,17 +120,11 @@ struct MeView: View {
                         coachToggleRow
                     }
 
-                    SectionHeader("Food, mind & health")
+                    SectionHeader("Health & safety")
                     menuCard {
-                        menuRow("Food & water", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
-                        menuDivider
-                        menuRow("Mindset", icon: "brain.head.profile", tint: AppTheme.purple, detail: "Goals & routines") { activeSheet = .mindset }
-                        menuDivider
                         menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
                                 detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
-                    }
-
-                    menuCard {
+                        menuDivider
                         menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.danger, detail: "Pain, head injury, illness") { activeSheet = .safety }
                         menuDivider
                         menuRow("Emergency card", icon: "staroflife.fill", tint: AppTheme.danger, detail: "Allergies, who to call") { activeSheet = .emergency }
@@ -153,6 +148,11 @@ struct MeView: View {
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
                                 detail: ReminderScheduler.settings.anyEnabled ? "On" : "Off") { activeSheet = .reminders }
                         menuDivider
+                        menuRow("Weight units", icon: "scalemass.fill", tint: AppTheme.ink,
+                                detail: weightUnitRaw == WeightUnit.lb.rawValue ? "lb · tap for kg" : "kg · tap for lb") {
+                            weightUnitRaw = weightUnitRaw == WeightUnit.lb.rawValue ? WeightUnit.kg.rawValue : WeightUnit.lb.rawValue
+                        }
+                        menuDivider
                         menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .downloads }
                     }
 
@@ -164,9 +164,9 @@ struct MeView: View {
 
                     SectionHeader("Your data", subtitle: "It's yours: export it any time.")
                     menuCard {
-                        menuRow("Reports", icon: "doc.richtext", tint: AppTheme.brand, detail: "Season, PDF, recruiting") { activeSheet = .reports }
-                        menuDivider
                         menuRow("Export my data", icon: "square.and.arrow.up", tint: AppTheme.green, detail: "JSON") { activeSheet = .dataExport }
+                        menuDivider
+                        menuRow("Shared workouts", icon: "qrcode", tint: AppTheme.ink, detail: "Stop sharing") { activeSheet = .shared }
                         menuDivider
                         HStack(spacing: 14) {
                             menuIcon("icloud.fill", tint: AppTheme.blue)
@@ -253,17 +253,11 @@ struct MeView: View {
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
                 case .name: NameEditorSheet(athlete: athlete)
-                case .reports:
-                    #if os(iOS)
-                    ReportsSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
-                    #else
-                    EmptyView()
-                    #endif
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .dataExport: DataExportView(athlete: athlete, sessions: sessions)
+                case .shared: SharedByMeView()
                 case .reminders: RemindersSheet(athlete: athlete)
                 case .downloads: DownloadsSheet(athlete: athlete)
-                case .fuel: FuelView(athlete: athlete, todaysSession: WeeklyPlan.generate(for: athlete)?.sessions.first { Calendar.current.isDateInToday($0.date) })
                 case .health: HealthPermissionView()
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()
@@ -274,7 +268,6 @@ struct MeView: View {
                 case .struggles: StrugglesSheet(onSaved: onPlanInputsChanged)
                 case .decisions: DecisionsView()
                 case .emergency: EmergencyCardView()
-                case .mindset: MindsetView(sportName: AthleteStats.sportName(athlete)) {}
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 }
             }

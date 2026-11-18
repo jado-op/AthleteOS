@@ -327,6 +327,12 @@ struct WatchMetricsPage: View {
                 Text(model.workout.heartRate > 0 ? "\(Int(model.workout.heartRate)) bpm" : "-- bpm")
                     .font(.headline)
             }
+            if let problem = model.workout.problem {
+                Text(problem)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             Text("\(model.loggedSets)/\(countedNoun(model.totalSets, "set")) · \(Int(model.workout.activeEnergy)) kcal")
                 .font(.caption2)
                 .foregroundStyle(.secondary)

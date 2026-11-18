@@ -22,6 +22,8 @@ final class AcademyNavigation: ObservableObject {
     @Published var page: AcademyPage = .twin
     /// Campus's short lessons, opened over the Academy.
     @Published var showingLessons = false
+    /// A briefing to open (Home's "Next step · read").
+    @Published var pendingBriefingID: String?
 }
 
 /// The top of both pages: the profile button and the Twin | Progress switch.

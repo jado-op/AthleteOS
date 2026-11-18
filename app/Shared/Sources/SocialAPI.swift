@@ -385,6 +385,20 @@ public extension APIClient {
         try await open("workouts/shared/\(code)")
     }
 
+    /// A workout this athlete shared: its code and name.
+    struct MySharedWorkout: Decodable, Sendable, Equatable, Identifiable {
+        public let code: String
+        public let title: String
+        public let itemCount: Int
+        public var id: String { code }
+    }
+
+    func mySharedWorkouts(sessionToken: String) async throws -> [MySharedWorkout] {
+        struct Wire: Decodable, Sendable { let workouts: [MySharedWorkout] }
+        let wire: Wire = try await social("GET", "workouts/shared", sessionToken: sessionToken)
+        return wire.workouts
+    }
+
     func stopSharing(code: String, sessionToken: String) async throws {
         let _: Ignored = try await social("DELETE", "workouts/shared/\(code)", sessionToken: sessionToken)
     }

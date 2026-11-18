@@ -40,7 +40,7 @@ enum AppSearchTarget: Hashable {
     // Settings and tools (Me, Workout, Campus)
     case sports, season, equipment, experience, name, reports, checkIns, exerciseProgress, dataExport
     case reminders, downloads, health, help, team, coach, parent, goals, trends, library, sportGuide
-    case newGymPlan, upgrade
+    case newGymPlan, upgrade, support
     case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
     case sportPosition
     case skill(String)
@@ -97,7 +97,7 @@ enum AppSearch {
         function("Home", "Today at a glance", "house.fill", ["home", "today", "overview"], .tab(.today)),
         function("Campus", "Lessons about training, food, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
         function("Academy", "Your digital twin, insights and briefings", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "insights", "briefings", "personal best", "pr", "performances"], .tab(.academy)),
-        function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .tab(.academy)),
+        function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .support),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),
         function("Progress", "Calendar, practice log and events", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
         function("Me", "Profile and settings", "person.fill", ["me", "profile", "settings", "account"], .tab(.me)),
@@ -133,9 +133,9 @@ enum AppSearch {
         function("Add a training", "An extra team session", "plus.circle", ["extra", "training", "session", "team", "add"], .addTraining),
         function("Team & school calendars", "Connect TeamSnap, Google or Apple", "link", ["calendar", "teamsnap", "google", "apple", "school", "sync", "import", "exams"], .calendars),
         function("Sport & position", "Your sport, position and format", "sportscourt.fill", ["position", "role", "format", "sport", "goalkeeper"], .sportPosition),
-        function("Weight units", "kg or lb, set in a workout", "scalemass", ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial"], .logWorkout),
+        function("Weight units", "kg or lb — in Me, Settings", "scalemass", ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial"], .tab(.me)),
         function("Review lessons", "Questions from lessons that are due", "arrow.triangle.2.circlepath", ["review", "quiz", "questions", "repeat", "remember"], .tab(.campus)),
-        function("Know your position", "Your job on the field", "person.fill.viewfinder", ["position", "role", "job", "tactics"], .tab(.campus)),
+        function("Know your position", "Your job on the field", "person.fill.viewfinder", ["position", "role", "job", "tactics"], .sportGuide),
         function("Coach supervision", "Whether you train with a coach", "person.2.fill", ["coach", "supervised", "supervision", "trainer"], .tab(.me)),
         function("Log out", "Back up and sign out", "rectangle.portrait.and.arrow.right", ["log out", "sign out", "logout"], .tab(.me)),
         function("Delete account", "Remove everything for good", "trash", ["delete", "account", "remove", "erase"], .tab(.me)),
@@ -300,7 +300,7 @@ struct AppSearchSheet: View {
 
     /// Before typing: the things people look for most.
     private var suggestions: some View {
-        let common: [AppSearchTarget] = [.checkIn, .logWorkout, .newGymPlan, .library, .fuel, .safety]
+        let common: [AppSearchTarget] = [.checkIn, .skillPlans, .sportGuide, .library, .fuel, .safety]
         let rows = common.compactMap { target in entries.first { $0.target == target } }
         return group("Popular") {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in

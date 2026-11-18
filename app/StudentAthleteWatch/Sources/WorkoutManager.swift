@@ -19,6 +19,8 @@ final class WorkoutManager: NSObject {
     private(set) var heartRate: Double = 0
     private(set) var activeEnergy: Double = 0
     private(set) var isRunning = false
+    /// Set when Health couldn't run the workout: the sets still save; heart rate stops.
+    private(set) var problem: String?
 
     static func activityType(forSport slug: String, hasSportDrills: Bool) -> HKWorkoutActivityType {
         guard hasSportDrills else { return .traditionalStrengthTraining }
@@ -66,6 +68,7 @@ final class WorkoutManager: NSObject {
             isRunning = true
         } catch {
             isRunning = false
+            problem = "Heart rate is off for this session — your sets still save."
         }
     }
 
@@ -86,6 +89,11 @@ final class WorkoutManager: NSObject {
         }
         self.session = nil
         self.builder = nil
+    }
+
+    fileprivate func failed() {
+        isRunning = false
+        problem = "Heart rate stopped — your sets still save."
     }
 
     fileprivate func update(heartRate: Double?, energy: Double?) {
@@ -111,5 +119,7 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
         from fromState: HKWorkoutSessionState, date: Date
     ) {}
 
-    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {}
+    nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        Task { @MainActor in self.failed() }
+    }
 }

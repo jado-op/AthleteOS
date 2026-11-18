@@ -24,7 +24,16 @@ struct HomeView: View {
     @State private var status: DayStatus = DayStatusStore.status()
     @State private var practiceDays: Set<Int> = PracticeSchedule.weekdays
     @State private var scheduleIsSet = PracticeSchedule.isSet
-    @State private var readinessOverridden = false
+    /// The briefing the twin's coach assigned and the athlete hasn't read:
+    /// the day's reading comes from the twin first (one recommender).
+    @State private var twinBriefing: Briefing?
+    @State private var briefingReadToday = false
+    /// "Train as planned instead": one choice for today, shared by Home and Workout.
+    @AppStorage(ReadinessOverride.key) private var readinessOverrideDay = ""
+    private var readinessOverridden: Bool {
+        get { readinessOverrideDay == DayKey.of(.now) }
+        nonmutating set { readinessOverrideDay = newValue ? DayKey.of(.now) : "" }
+    }
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var activeSheet: HomeSheet?
     @State private var showingCompetitions = false
@@ -169,23 +178,6 @@ struct HomeView: View {
             .prefix(2))
     }
 
-    private func gameFuelCard(_ tips: [FuelTip]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Game-day fuel").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
-            ForEach(tips) { tip in
-                HStack(alignment: .top, spacing: 10) {
-                    Text(tip.time?.formatted(date: .omitted, time: .shortened) ?? "")
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(AppTheme.ink)
-                        .frame(width: 64, alignment: .leading)
-                    Text(tip.title).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
-    }
-
     /// In the three hours before practice: one question, not a food diary.
     private var askPrePracticeFuel: Bool {
         guard status == .active, practiceToday, prePracticeAnswer != true,
@@ -269,7 +261,14 @@ struct HomeView: View {
 
     private var learnedToday: Bool {
         _ = campusLearnedRaw
-        return CampusProgress.newLessonDates().contains { calendar.isDateInToday($0) }
+        return briefingReadToday || CampusProgress.newLessonDates().contains { calendar.isDateInToday($0) }
+    }
+
+    private func refreshTwinBriefing() {
+        let state = AcademyStore.load()
+        briefingReadToday = state.read.values.contains { calendar.isDateInToday($0) }
+        let report = TwinAnalysis.report(TwinInputBuilder.input(athlete: athlete, state: state))
+        twinBriefing = report.insights.compactMap(\.briefing).first { state.read[$0.id] == nil }
     }
 
     private var reflectedToday: Bool {
@@ -315,27 +314,7 @@ struct HomeView: View {
                     VStack(spacing: 56) { dayContent }
                         .id(contentKey)
                         .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
-                    if SeasonReviewStore.due(athlete) != nil {
-                        Button { activeSheet = .seasonReview } label: {
-                            ListRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Your season review",
-                                    detail: "What you learned, enjoyed, and want next · 3 min")
-                                .padding(.horizontal, 16)
-                                .glassSurface()
-                        }
-                        .buttonStyle(.plain)
-                    }
                     if !scheduleIsSet && status == .active { scheduleCard }
-                    if status == .travel {
-                        Button { activeSheet = .tournament } label: {
-                            ListRow(systemImage: "airplane", color: AppTheme.ink, title: "Tournament & travel",
-                                    detail: "Time difference, between games, sleep away")
-                                .padding(.horizontal, 16)
-                                .glassSurface()
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    if gameToday != nil && status == .active && phase != .night { gameRoutinesCard }
-                    if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
                     if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red, plan: weekPlan) }
                 }
@@ -357,10 +336,14 @@ struct HomeView: View {
                     clock = .now
                 }
             }
+            .onChange(of: selectedTab) { _, tab in
+                if tab == .today { refreshTwinBriefing() }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     clock = .now
                     revision += 1
+                    refreshTwinBriefing()
                     announcement = TeamAnnouncements.current
                     switch IntentRoute.take([.checkIn, .reflection]) {
                     case .checkIn?: activeSheet = .checkIn
@@ -397,6 +380,7 @@ struct HomeView: View {
                                           selected: todaysWorkout.map { "\($0.mode.title) · \($0.session.estimatedMinutes) min" }
                                               ?? (evaluation.decision.allowsAddedTraining ? "No workout planned" : "No added workout"))
                 status = DayStatusStore.status()
+                refreshTwinBriefing()
                 if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
                 loaded = true
             }
@@ -441,7 +425,7 @@ struct HomeView: View {
                 case .safety:
                     SafetyCenterView()
                 case .mindset:
-                    MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .campus }
+                    MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .academy }
                 case .tests:
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
@@ -602,6 +586,7 @@ struct HomeView: View {
             }, catalogue: catalogue))
         case .library: LibraryView(athlete: athlete)
         case .sportGuide: SportGuideView(athlete: athlete)
+        case .support: SupportSheet()
         case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
         case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
         case .skill(let slug):
@@ -802,7 +787,7 @@ struct HomeView: View {
     /// Today as a numbered plan and the one step that is next (TodayPlan.swift).
     private var todayPlan: TodayPlan {
         TodayPlan.make(.init(minute: minuteNow, checkedIn: todaysCheckIn != nil, reflected: reflectedToday, learned: learnedToday,
-                             lessonAvailable: nextLesson != nil, fixed: fixedPoint, workoutPlanned: todaysWorkout != nil,
+                             lessonAvailable: twinBriefing != nil || nextLesson != nil, fixed: fixedPoint, workoutPlanned: todaysWorkout != nil,
                              workoutDone: workoutDoneToday, practiceLogged: practiceLogToday != nil, sick: status == .sick))
     }
 
@@ -874,6 +859,7 @@ struct HomeView: View {
             switch plan.next {
             case .dayComplete:
                 dayCompleteView
+                alsoToday
             case .sleep:
                 nightView
             default:
@@ -1011,7 +997,20 @@ struct HomeView: View {
     /// Nothing to train right now: a few minutes of Campus are the next step.
     @ViewBuilder
     private var lessonHero: some View {
-        if let next = nextLesson {
+        if let briefing = twinBriefing {
+            VStack(spacing: 14) {
+                NextStepEyebrow("Next step · read", accent: phase.red)
+                Button { openLesson() } label: { heroTitle(briefing.title) }
+                    .buttonStyle(.plain)
+                bigNumber("\(briefing.minutes)", unit: "min")
+                heroMeta("Your coach assigned it from your twin")
+                Button { openLesson() } label: { HeroCTALabel("Read") }
+                    .buttonStyle(.primary)
+                    .padding(.top, 6)
+                    .frame(maxWidth: 300)
+            }
+            .frame(maxWidth: .infinity)
+        } else if let next = nextLesson {
             VStack(spacing: 14) {
                 NextStepEyebrow("Next step · learn", accent: phase.red)
                 Button { openLesson() } label: { heroTitle(next.lesson.title) }
@@ -1029,6 +1028,12 @@ struct HomeView: View {
 
     /// Today's lesson, opened in Campus (the tab alone once it is learned).
     private func openLesson() {
+        if let briefing = twinBriefing {
+            AcademyNavigation.shared.page = .twin
+            AcademyNavigation.shared.pendingBriefingID = briefing.id
+            selectedTab = .academy
+            return
+        }
         if !learnedToday, let next = nextLesson { CampusLaunch.shared.pendingLessonID = next.lesson.id }
         selectedTab = .campus
     }
@@ -1223,6 +1228,7 @@ struct HomeView: View {
         case .rest:
             return (status == .sick ? "Rest and recover" : "Rest day", nil)
         case .lesson:
+            if !done, let briefing = twinBriefing { return (briefing.title, "\(briefing.minutes) min read") }
             guard !done, let next = nextLesson else { return ("Lesson", nil) }
             return (next.lesson.title, "\(next.lesson.minutes) min")
         case .reflection:
@@ -1293,6 +1299,29 @@ struct HomeView: View {
                     }
                 }.buttonStyle(.plain)))
             }
+        }
+        // Game day: the head and the fuel, one row each.
+        if gameToday != nil && status == .active && phase != .night {
+            rows.append(AnyView(Button { routine = .breathing } label: {
+                HomeDetailRow(systemImage: "wind", color: AppTheme.purple, title: "Get your head ready") { Text("2 min") }
+            }.buttonStyle(.plain)))
+        }
+        if let tips = gameFuelTips, let next = tips.first(where: { ($0.time ?? .distantFuture) > .now }) ?? tips.first {
+            rows.append(AnyView(Button { activeSheet = .fuel } label: {
+                HomeDetailRow(systemImage: "fork.knife", color: AppTheme.green, title: next.title) {
+                    Text(next.time?.formatted(date: .omitted, time: .shortened) ?? "Game-day fuel")
+                }
+            }.buttonStyle(.plain)))
+        }
+        if status == .travel {
+            rows.append(AnyView(Button { activeSheet = .tournament } label: {
+                HomeDetailRow(systemImage: "airplane", color: AppTheme.ink, title: "Tournament & travel") { Text("Tips") }
+            }.buttonStyle(.plain)))
+        }
+        if SeasonReviewStore.due(athlete) != nil {
+            rows.append(AnyView(Button { activeSheet = .seasonReview } label: {
+                HomeDetailRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Your season review") { Text("3 min") }
+            }.buttonStyle(.plain)))
         }
         if let movementPrep = movementPrep {
             rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
@@ -1562,20 +1591,6 @@ struct HomeView: View {
     }
 
     /// Game day: get the head ready too.
-    private var gameRoutinesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Get your head ready")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-            ButtonRow {
-                Button { routine = .breathing } label: { Label("Breathing · 2 min", systemImage: "wind") }
-                    .buttonStyle(.secondary)
-                Button { routine = .visualization } label: { Label("Visualize · 5 min", systemImage: "eye.fill") }
-                    .buttonStyle(.secondary)
-            }
-        }
-        .cardStyle(padding: 20)
-    }
 
 }
 

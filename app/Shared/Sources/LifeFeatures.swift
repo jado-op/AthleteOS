@@ -257,7 +257,6 @@ public enum HabitBadges {
             HabitBadge(id: "rest", title: "Rest day", detail: "Took at least one day off this week.", systemImage: "bed.double.fill", earned: i.restDaysThisWeek >= 1),
             HabitBadge(id: "honest", title: "Honest check-ins", detail: "Checked in 5 of the last 7 mornings — including the tired ones.", systemImage: "checkmark.seal.fill", earned: i.checkInsLast7 >= 5),
             HabitBadge(id: "spoke-up", title: "Spoke up", detail: "Reported pain or illness instead of pushing through.", systemImage: "hand.raised.fill", earned: i.reportedHowItIs),
-            HabitBadge(id: "sleep", title: "Slept well", detail: "8 hours or more on 5 of the last 7 nights.", systemImage: "moon.zzz.fill", earned: i.nightsOf8HoursLast7 >= 5),
             HabitBadge(id: "reflect", title: "Looked back", detail: "Reflected on 3 evenings this week.", systemImage: "text.book.closed.fill", earned: i.reflectionsLast7 >= 3),
             HabitBadge(id: "skill", title: "Tried a mental skill", detail: "Practised a focus, self-talk or reset skill.", systemImage: "brain.head.profile", earned: i.mentalSkillTried),
             HabitBadge(id: "break", title: "Took a break", detail: "A planned break from your sport (holiday status).", systemImage: "beach.umbrella.fill", earned: i.plannedBreakTaken),

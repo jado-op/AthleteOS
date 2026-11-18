@@ -31,7 +31,12 @@ struct WorkoutTabView: View {
     @State private var custom = PlanCustomizationStore.load()
     @State private var showingWorkoutsPaywall = false
     @State private var confirmingNewPlan = false
-    @State private var readinessOverridden = false
+    /// "Train as planned instead": one choice for today, shared by Home and Workout.
+    @AppStorage(ReadinessOverride.key) private var readinessOverrideDay = ""
+    private var readinessOverridden: Bool {
+        get { readinessOverrideDay == DayKey.of(.now) }
+        nonmutating set { readinessOverrideDay = newValue ? DayKey.of(.now) : "" }
+    }
     @AppStorage(PlanVariant.key) private var planVariant = 0
 
     private var calendar: Calendar { .current }
@@ -105,6 +110,7 @@ struct WorkoutTabView: View {
                         .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
                     skillDrillsToday
                     weekSection
+                    GamesAndEventsSection(athlete: athlete, onPlanInputsChanged: onPlanInputsChanged)
                     moreWorkouts
                     // What the athlete's training has done to their body so far (gym second).
                     MuscleTrainingSection(athlete: athlete, catalogue: catalogue)

@@ -132,7 +132,7 @@ struct ProgressTabView: View {
     }
 
     enum ProgressSheet: String, Identifiable {
-        case schedule, calendars, addGame, addTraining, history, tests, trends, exercises, checkIns
+        case schedule, calendars, addGame, addTraining, history, tests, trends, exercises, checkIns, reports
         var id: String { rawValue }
     }
 
@@ -210,14 +210,14 @@ struct ProgressTabView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     AcademyPageSwitcher(name: athlete.displayName)
                     summaryCard
-                    HabitBadgesSection(athlete: athlete, sessions: sessions)
-                        .padding(.bottom, 20)
                     calendarCard
                     practiceSection
                     thirtyDaysSection
                     statsSection
                     workoutsSection
-                    scheduleSection
+                    // Habits, quietly, at the end (gamification comes last).
+                    HabitBadgesSection(athlete: athlete, sessions: sessions)
+                        .padding(.top, 20)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -256,6 +256,12 @@ struct ProgressTabView: View {
                 case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
                 case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
+                case .reports:
+                    #if os(iOS)
+                    ReportsSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
+                    #else
+                    EmptyView()
+                    #endif
                 }
             }
             .proFeature(item: $paywall, athlete: athlete)
@@ -755,54 +761,6 @@ struct ProgressTabView: View {
 
     // MARK: Schedule & events
 
-    private var scheduleSection: some View {
-        let upcomingGames = AthleteStats.upcomingCompetitions(athlete).prefix(4)
-        let extras = ExtraPractices.all.filter { $0.day >= DayKey.of(.now, calendar: calendar) }.prefix(4)
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Games & events")
-            // The schedule itself is set up in Me → Training Setup; here only while it is missing.
-            if !PracticeSchedule.isSet {
-                row("Set up your schedule", "Practice days and team calendars", icon: "calendar.badge.clock") { sheet = .calendars }
-            }
-            ButtonRow {
-                Button { sheet = .addGame } label: { Label("Add a game", systemImage: "sportscourt.fill") }
-                    .buttonStyle(.primary)
-                Button { sheet = .addTraining } label: { Label("Add a training", systemImage: "plus") }
-                    .buttonStyle(.secondary)
-            }
-            if !upcomingGames.isEmpty || !extras.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(upcomingGames), id: \.id) { game in
-                        Label("\(game.date.formatted(.dateTime.weekday(.abbreviated).month().day())) · \(game.kind.rawValue.capitalized) · \(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")",
-                              systemImage: "sportscourt.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.ink)
-                            .lineLimit(2)
-                    }
-                    ForEach(Array(extras)) { extra in
-                        HStack {
-                            Label("\(extra.day) · \(extra.title)\(extra.time.map { " · \($0.label)" } ?? "")", systemImage: "figure.run")
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.ink)
-                            Spacer()
-                            Button {
-                                ExtraPractices.all = ExtraPractices.all.filter { $0.id != extra.id }
-                                revision += 1
-                                onPlanInputsChanged()
-                            } label: {
-                                Image(systemName: "trash").foregroundStyle(AppTheme.secondaryText).frame(width: 40, height: 40)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Remove \(extra.title)")
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardStyle(padding: 16)
-            }
-        }
-    }
-
     private var practiceSummary: String {
         let symbols = calendar.shortWeekdaySymbols
         let times = PracticeTimes.all
@@ -877,6 +835,11 @@ struct ProgressTabView: View {
                 Divider().padding(.leading, 54)
                 Button { sheet = .checkIns } label: {
                     ListRow(systemImage: "sun.max.fill", color: AppTheme.ink, title: "Past check-ins", detail: "\(athlete.checkIns.count)")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { sheet = .reports } label: {
+                    ListRow(systemImage: "doc.richtext", color: AppTheme.ink, title: "Reports", detail: "Season card, PDF, recruiting profile")
                 }
                 .buttonStyle(.plain)
             }

@@ -216,6 +216,7 @@ struct BriefingReaderView: View {
                     }
                 }
             }
+            followUps
             Text("This briefing teaches; it doesn't diagnose. If something hurts, or something feels heavy for a while, talk to a parent, your coach or a doctor.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.mutedText)
@@ -232,5 +233,50 @@ struct BriefingReaderView: View {
             .buttonStyle(.primary)
         }
         .padding(.top, 48)
+    }
+}
+
+// MARK: - Short follow-ups
+
+extension BriefingReaderView {
+    /// The Campus area that goes with each briefing topic.
+    static func campusArea(for topic: BriefingTopic) -> String {
+        switch topic {
+        case .recovery: "sleep"
+        case .strength: "training-science"
+        case .mind: "psychology"
+        case .fuel: "nutrition"
+        }
+    }
+
+    /// Two short lessons from the matching Campus area, not yet learned:
+    /// the briefing is the main read, these are the quick follow-ups.
+    @ViewBuilder
+    var followUps: some View {
+        let learned = CampusProgress.learned(UserDefaults.standard.string(forKey: CampusProgress.learnedKey) ?? "")
+        let lessons = campusTopics.first { $0.id == Self.campusArea(for: briefing.topic) }?
+            .lessons.filter { !learned.contains($0.id) }.prefix(2) ?? []
+        if !lessons.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Short follow-ups")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.mutedText)
+                ForEach(Array(lessons)) { lesson in
+                    Button {
+                        CampusLaunch.shared.pendingLessonID = lesson.id
+                        dismiss()
+                        // Open the lessons once the reader has gone.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(600))
+                            AcademyNavigation.shared.showingLessons = true
+                        }
+                    } label: {
+                        ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: lesson.title,
+                                detail: "\(lesson.minutes) min lesson")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }

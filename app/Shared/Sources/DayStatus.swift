@@ -126,3 +126,8 @@ public enum StreakFreeze {
         if DayStatusStore.status(on: now, calendar: calendar) != .active { protect(now, calendar: calendar) }
     }
 }
+
+/// The athlete chose to train as planned on a low-readiness day (today only).
+public enum ReadinessOverride {
+    public static let key = "progress.readinessOverrideDay"
+}

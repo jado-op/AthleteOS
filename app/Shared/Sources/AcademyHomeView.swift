@@ -47,6 +47,9 @@ struct AcademyHomeView: View {
     @State private var interviewStart: String?
     @State private var showingSupport = false
     @State private var confirmingDelete = false
+    @State private var showingMindset = false
+    @State private var showingTests = false
+    @ObservedObject private var navigation = AcademyNavigation.shared
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
     /// Insights opened to show their numbers.
@@ -90,6 +93,7 @@ struct AcademyHomeView: View {
                     if state.intakeDoneAt != nil { whoYouAre.padding(.top, 48) }
                     library.padding(.top, 48)
                     lessonsRow.padding(.top, 8)
+                    mindsetRow.padding(.top, 4)
                     supportRow.padding(.top, 36)
                     if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
                         privacyRow.padding(.top, 28)
@@ -108,7 +112,9 @@ struct AcademyHomeView: View {
             AcademyEvent.log(.twinViewed)
             // Screenshots: `-tab academy -sheet intake` opens the interview.
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
+            openPendingBriefing()
         }
+        .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .fullScreenCover(item: $reading, onDismiss: reload) { target in
             BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil,
                                familyID: AcademyContent.familyID(forSport: sportSlug))
@@ -117,6 +123,12 @@ struct AcademyHomeView: View {
             IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug, startAt: interviewStart)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
+        .sheet(isPresented: $showingTests, onDismiss: reload) {
+            BenchmarksView(sportSlug: sportSlug)
+        }
+        .sheet(isPresented: $showingMindset, onDismiss: reload) {
+            MindsetView(sportName: AthleteStats.sportName(athlete)) {}
+        }
         .confirmationDialog("Delete your twin?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete twin", role: .destructive) {
                 Task {
@@ -129,6 +141,13 @@ struct AcademyHomeView: View {
         }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
         .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
+    }
+
+    /// Home's "Next step · read": open that briefing, with the insight behind it.
+    private func openPendingBriefing() {
+        guard let id = navigation.pendingBriefingID, let briefing = AcademyContent.briefing(id) else { return }
+        navigation.pendingBriefingID = nil
+        reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.briefing?.id == id })
     }
 
     private func reload() {
@@ -351,9 +370,12 @@ struct AcademyHomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 SpaceSection(3, "Performances") {
-                    Button("Add") { addingPerformance = true }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.brightRed)
+                    HStack(spacing: 16) {
+                        Button("Run a test") { showingTests = true }
+                        Button("Add") { addingPerformance = true }
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.brightRed)
                 }
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
@@ -474,6 +496,15 @@ struct AcademyHomeView: View {
         Button { AcademyNavigation.shared.showingLessons = true } label: {
             ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: "Short lessons",
                     detail: "100 quick lessons on training, food, sleep and mind")
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Reflection, goals, breathing and visualization: the mind tools.
+    private var mindsetRow: some View {
+        Button { showingMindset = true } label: {
+            ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mindset tools",
+                    detail: "Evening reflection, season goals, breathing, visualization")
         }
         .buttonStyle(.plain)
     }

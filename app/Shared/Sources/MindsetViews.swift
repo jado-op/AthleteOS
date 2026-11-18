@@ -31,7 +31,6 @@ struct MindsetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ScreenTitle("Mindset", subtitle: "Evening reflection, season goals and a game-day routine.")
-                    weekCard
                     reflectionSection
                     goalsSection
                     gameDaySection
@@ -72,31 +71,6 @@ struct MindsetView: View {
                 }
             }
         }
-    }
-
-    // MARK: - This week
-
-    private var weekCard: some View {
-        _ = revision
-        let progress = MindsetStore.weekProgress()
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("This week")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
-                Spacer()
-                Text("\(progress.done) of \(progress.target)")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.purple)
-            }
-            ProgressView(value: Double(progress.done), total: Double(max(1, progress.target)))
-                .tint(AppTheme.purple)
-            Text("Counts: 5 evening reflections, this week's focus for each goal, and one breathing or visualization routine.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .cardStyle()
     }
 
     // MARK: - Reflection
@@ -228,12 +202,12 @@ struct MindsetView: View {
 
     private var learnSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Learn", subtitle: "Short Campus lessons on confidence, pressure, focus and teamwork.")
+            SectionHeader("Go deeper", subtitle: "Your twin's mind briefings — pressure, mistakes, confidence — and short lessons, in the Academy.")
             Button {
                 dismiss()
                 onOpenCampus()
             } label: {
-                Label("Open the mindset lessons", systemImage: "graduationcap.fill")
+                Label("Open the Academy", systemImage: "graduationcap.fill")
             }
             .buttonStyle(.secondary)
         }
