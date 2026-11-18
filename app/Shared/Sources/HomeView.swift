@@ -383,7 +383,7 @@ struct HomeView: View {
             }
             .scrollIndicators(.hidden)
             // Home's own backdrop: the hour's light at the top (other tabs stay plain).
-            .background(HomeAmbientBackground(sportSlug: athlete.activeSport?.sportSlug))
+            .background(HomeAmbientBackground())
             .contentMargins(.bottom, 24, for: .scrollContent)
             .modifier(ReadableWidth())
             .task {
@@ -734,16 +734,16 @@ struct HomeView: View {
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(AppTheme.mutedText)
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
-                .padding(.horizontal, 14)
-                .frame(height: 40)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
                 .glassCapsule()
             }
             .buttonStyle(.plain)
-            // Always readable in full: search gives way (down to its icon).
             .fixedSize()
             .layoutPriority(1)
+            Spacer(minLength: 4)
             .accessibilityLabel("Today is: \(status.title). Change what kind of day it is.")
             searchButton
             Button { activeSheet = .quickActions } label: {
@@ -752,8 +752,6 @@ struct HomeView: View {
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .glassCapsule()
-                    .overlay { Circle().strokeBorder(phase.red.opacity(0.5), lineWidth: 1) }
-                    .shadow(color: phase.red.opacity(0.35), radius: 10)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
@@ -763,21 +761,12 @@ struct HomeView: View {
     /// Search everything: fills the space between the day and the "+".
     private var searchButton: some View {
         Button { activeSheet = .search } label: {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Search")
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                Image(systemName: "magnifyingglass")
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(AppTheme.secondaryText)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
-            .glassCapsule()
-            .contentShape(Capsule())
+            Image(systemName: "magnifyingglass")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.85))
+                .frame(width: 40, height: 40)
+                .glassCapsule()
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Search")
@@ -893,9 +882,9 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .accessibilityAddTraits(.isHeader)
-                Text(clock.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.mutedText)
+                Text(clock.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                    .font(.telemetry(12))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             // Streaks live on Progress and Me now (V6 §21: secondary).
             HStack(spacing: 10) {
@@ -906,20 +895,6 @@ struct HomeView: View {
                         .foregroundStyle(phase.red.opacity(0.9))
                 }
             }
-            let quote = DailyQuotes.short(for: phase, date: clock)
-            VStack(spacing: 4) {
-                Text("“\(quote.text)”")
-                    .font(.callout.italic())
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(quote.author)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.mutedText)
-            }
-            .padding(.top, 8)
-            .padding(.horizontal, 24)
-            .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
     }

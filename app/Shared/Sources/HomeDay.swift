@@ -117,22 +117,19 @@ public struct AmbientLight: Equatable, Sendable {
 /// a low crimson field on the side and the sport's geometry barely there.
 /// Checked once a minute; every change is tiny.
 struct HomeAmbientBackground: View {
-    var sportSlug: String?
+    var sportSlug: String? = nil
 
+    /// The starfield, with the hour's light faintly over the top.
     var body: some View {
         TimelineView(.everyMinute) { context in
             let light = AmbientLight.at(context.date)
             ZStack(alignment: .top) {
-                AppTheme.background
-                RadialGradient(colors: [light.color.opacity(light.strength), light.color.opacity(light.strength * 0.3), .clear],
-                               center: UnitPoint(x: 0.5, y: -0.05), startRadius: 0, endRadius: 520)
-                    .frame(height: 640)
+                AppBackground(.hero)
+                RadialGradient(colors: [light.color.opacity(light.strength * 0.45), .clear],
+                               center: UnitPoint(x: 0.5, y: -0.05), startRadius: 0, endRadius: 460)
+                    .frame(height: 560)
                     .animation(.easeInOut(duration: 2), value: light)
-                RadialGradient(colors: [AppTheme.crimson.opacity(0.16), AppTheme.atmosphere.opacity(0.10), .clear],
-                               center: UnitPoint(x: 1.0, y: 1.0), startRadius: 0, endRadius: 460)
-                if let sportSlug {
-                    SportAtmosphere(sportSlug: sportSlug)
-                }
+                    .allowsHitTesting(false)
             }
             .ignoresSafeArea()
         }
@@ -146,7 +143,7 @@ struct HeroBloom: View {
 
     var body: some View {
         Ellipse()
-            .fill(RadialGradient(colors: [color.opacity(0.32), color.opacity(0.08), .clear],
+            .fill(RadialGradient(colors: [color.opacity(0.16), color.opacity(0.04), .clear],
                                  center: .center, startRadius: 0, endRadius: 150))
             .frame(width: 320, height: 200)
             .blur(radius: 24)

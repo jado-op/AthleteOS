@@ -48,6 +48,8 @@ struct AcademyHomeView: View {
     @State private var showingSupport = false
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
+    /// Insights opened to show their numbers.
+    @State private var expanded: Set<String> = []
 
     struct ReadingTarget: Identifiable {
         let briefing: Briefing
@@ -127,8 +129,8 @@ struct AcademyHomeView: View {
             ProfileButton(name: athlete.displayName)
             Spacer()
             Text("Your twin")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(AppTheme.mutedText)
+                .font(.telemetry(12))
+                .foregroundStyle(AppTheme.secondaryText)
             Spacer()
             Color.clear.frame(width: 40, height: 40)
         }
@@ -161,7 +163,7 @@ struct AcademyHomeView: View {
 
     private func count(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(value).font(.system(size: 20, weight: .semibold).monospacedDigit()).foregroundStyle(AppTheme.ink)
+            Text(value).font(.telemetry(20, weight: .medium)).foregroundStyle(AppTheme.ink)
             Text(label).font(.caption).foregroundStyle(AppTheme.mutedText)
         }
         .accessibilityElement(children: .combine)
@@ -220,7 +222,7 @@ struct AcademyHomeView: View {
 
     private func insights(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            sectionTitle("Insights", "What your data says, and what to do about it.")
+            SpaceSection(1, "Insights") { Text("\(report.insights.count) found") }
             if report.insights.isEmpty {
                 Text(report.counts.checkIns + report.counts.sessions < 5
                      ? "Nothing yet — a couple of weeks of check-ins, sessions and \(family.events) and your twin starts to see patterns."
@@ -257,10 +259,20 @@ struct AcademyHomeView: View {
                     .padding(.vertical, 3)
                     .background(trendColor(trend).opacity(0.12), in: Capsule())
             }
-            Text(insight.detail)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            if expanded.contains(insight.id) {
+                Text(insight.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            } else {
+                Button { withAnimation(.easeInOut(duration: 0.25)) { _ = expanded.insert(insight.id) } } label: {
+                    Text("The numbers")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+            }
             if let evidence = insight.evidence {
                 TwinEvidenceChart(evidence: evidence).frame(height: 84)
             }
@@ -307,7 +319,7 @@ struct AcademyHomeView: View {
 
     private func working(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("What's working", nil)
+            SpaceSection(2, "What's working") { EmptyView() }
             ForEach(report.strengths) { strength in
                 HStack(alignment: .top, spacing: 12) {
                     Circle().fill(AppTheme.green).frame(width: 7, height: 7).padding(.top, 7)
@@ -331,11 +343,11 @@ struct AcademyHomeView: View {
     private var performances: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                sectionTitle("Performances", nil)
-                Spacer()
-                Button("Add") { addingPerformance = true }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
+                SpaceSection(3, "Performances") {
+                    Button("Add") { addingPerformance = true }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.brightRed)
+                }
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(records) { record in
@@ -371,11 +383,9 @@ struct AcademyHomeView: View {
 
     private var whoYouAre: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                sectionTitle("Who you are as an athlete", "From your interview.")
-                Spacer()
+            SpaceSection(4, "Who you are") {
                 Button("Edit") { openInterview() }
-                    .font(.subheadline.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.brightRed)
             }
             ForEach(AcademyContent.intake(forSport: sportSlug)) { question in
@@ -421,7 +431,7 @@ struct AcademyHomeView: View {
 
     private var library: some View {
         VStack(alignment: .leading, spacing: 4) {
-            sectionTitle("Briefings", "Long reads from your coach. The ones your twin needs come first.")
+            SpaceSection(5, "Briefings") { Text("\(AcademyContent.briefings.count) long reads") }
             let assigned = Set(report?.assigned.map(\.id) ?? [])
             let ordered = AcademyContent.briefings.sorted { (assigned.contains($0.id) ? 0 : 1) < (assigned.contains($1.id) ? 0 : 1) }
             ForEach(ordered) { briefing in

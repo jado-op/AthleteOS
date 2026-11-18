@@ -108,31 +108,143 @@ public enum Atmosphere: Sendable {
     var strength: Double { self == .hero ? 1 : 0.45 }
 }
 
-/// Never plain black: near-black space with large, soft crimson light fields
-/// — one warm bloom near the top centre, a darker one low on the side —
-/// like studio lighting. Black stays dominant.
+/// Deep space (owner, 2026-11-18): a quiet, real starfield on near-black —
+/// most stars faint, a few bright, a handful faintly blue or warm — and two
+/// very soft nebulae. No glow fields, no sport lines behind the content.
 public struct AppBackground: View {
     let atmosphere: Atmosphere
-    let sportSlug: String?
 
     public init(_ atmosphere: Atmosphere = .subtle, sportSlug: String? = nil) {
         self.atmosphere = atmosphere
-        self.sportSlug = sportSlug
     }
 
     public var body: some View {
         let k = atmosphere.strength
-        ZStack {
-            AppTheme.background
-            RadialGradient(colors: [AppTheme.brand.opacity(0.20 * k), AppTheme.crimson.opacity(0.07 * k), .clear],
-                           center: UnitPoint(x: 0.5, y: -0.08), startRadius: 0, endRadius: 520)
-            RadialGradient(colors: [AppTheme.crimson.opacity(0.17 * k), AppTheme.atmosphere.opacity(0.12 * k), .clear],
-                           center: UnitPoint(x: 1.0, y: 1.02), startRadius: 0, endRadius: 480)
-            if let sportSlug, atmosphere == .hero {
-                SportAtmosphere(sportSlug: sportSlug)
+        let stars = Starfield.stars
+        Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .radialGradient(
+                Gradient(colors: [Color(rgb: 0x080917), Color(rgb: 0x03040A)]),
+                center: CGPoint(x: size.width / 2, y: size.height * 0.3), startRadius: 0, endRadius: max(size.width, size.height) * 0.9))
+            // Nebulae: violet high on the right, indigo low on the left.
+            for (x, y, r, color, alpha) in [(0.88, 0.05, 0.62, AppTheme.crimson, 0.30 * k), (0.08, 0.72, 0.7, Color(rgb: 0x3730A3), 0.16 * k)] {
+                let centre = CGPoint(x: size.width * x, y: size.height * y)
+                let radius = size.width * r
+                context.fill(Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2)),
+                             with: .radialGradient(Gradient(colors: [color.opacity(alpha), .clear]), center: centre, startRadius: 0, endRadius: radius))
+            }
+            // Stars, scattered over a fixed 400 × 900 tile repeated down long screens.
+            var tileY: CGFloat = 0
+            for _ in 0..<12 where tileY < size.height {
+                for star in stars {
+                    let x = star.x * size.width, y = tileY + star.y * 900
+                    guard y < size.height else { continue }
+                    let rect = CGRect(x: x - star.size / 2, y: y - star.size / 2, width: star.size, height: star.size)
+                    context.fill(Path(ellipseIn: rect), with: .color(star.color.opacity(star.alpha)))
+                    if star.size > 1.4 {
+                        context.fill(Path(ellipseIn: rect.insetBy(dx: -2.5, dy: -2.5)), with: .color(Color(rgb: 0xC8BEFF).opacity(0.07)))
+                    }
+                }
+                tileY += 900
             }
         }
         .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
+/// The stars, placed once (a fixed seed, so every screen shows the same sky).
+enum Starfield {
+    struct Star: Sendable {
+        let x: CGFloat
+        let y: CGFloat
+        let size: CGFloat
+        let alpha: Double
+        let color: Color
+    }
+
+    static let stars: [Star] = {
+        var seed: UInt64 = 11
+        func next() -> Double {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed >> 33) / Double(UInt64(1) << 31)
+        }
+        var out: [Star] = []
+        for _ in 0..<380 {
+            let x = next(), y = next(), magnitude = next(), alpha = next(), hue = next()
+            let bright = magnitude > 0.985
+            let size: CGFloat = bright ? 1.6 : (magnitude > 0.9 ? 1.1 : 0.7)
+            let color: Color = hue < 0.12 ? Color(rgb: 0xBECDFF) : (hue < 0.18 ? Color(rgb: 0xFFE2C8) : .white)
+            out.append(Star(x: x, y: y, size: size, alpha: bright ? 0.85 : 0.16 + alpha * 0.42, color: color))
+        }
+        return out
+    }()
+}
+
+/// Mission-control type: telemetry lines and numbers in the monospaced face.
+public extension Font {
+    static func telemetry(_ size: CGFloat = 12, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
+}
+
+/// A number on the instrument panel: the value in the monospaced face, a
+/// small label under it. Words ("Normal") stay in the regular face.
+public struct TelemetryStat: View {
+    let value: String
+    let label: String
+    var accent: Color? = nil
+
+    public init(_ value: String, _ label: String, accent: Color? = nil) {
+        self.value = value
+        self.label = label
+        self.accent = accent
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(value.contains(where: \.isNumber) ? .telemetry(24, weight: .medium) : .system(size: 22, weight: .semibold))
+                .foregroundStyle(accent ?? AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryText)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A numbered section: "01  Today ……… 1 of 4 done", on a hairline.
+public struct SpaceSection<Trailing: View>: View {
+    let number: Int
+    let title: String
+    let trailing: Trailing
+
+    public init(_ number: Int, _ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+        self.number = number
+        self.title = title
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        VStack(spacing: 14) {
+            Rectangle().fill(AppTheme.hairline).frame(height: 1)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(String(format: "%02d", number))
+                    .font(.telemetry(11))
+                    .foregroundStyle(AppTheme.brightRed.opacity(0.9))
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                trailing
+                    .font(.telemetry(11.5))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
     }
 }
 
@@ -156,35 +268,33 @@ public extension View {
     /// catches the light at the top, a soft shadow. `tint` lights it from
     /// behind (a red bloom for the thing that matters).
     func glassSurface(cornerRadius: CGFloat = AppTheme.cardCornerRadius, tint: Color? = nil) -> some View {
+        // Space panels: a faint, nearly transparent plate with a hairline edge —
+        // the sky stays visible behind; `tint` lights the top edge for what matters.
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return background {
             ZStack {
-                shape.fill(.ultraThinMaterial)
-                shape.fill(Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255).opacity(0.45))
+                shape.fill(Color(rgb: 0x0A0B14).opacity(0.72))
+                shape.fill(Color.white.opacity(0.025))
                 if let tint {
-                    shape.fill(RadialGradient(colors: [tint.opacity(0.22), tint.opacity(0.04)],
-                                              center: .top, startRadius: 0, endRadius: 260))
+                    shape.fill(LinearGradient(colors: [tint.opacity(0.13), tint.opacity(0)], startPoint: .top, endPoint: .center))
                 }
             }
-            .environment(\.colorScheme, .dark)
         }
         .overlay {
-            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.16), .white.opacity(0.05)],
+            shape.strokeBorder(LinearGradient(colors: [(tint ?? .white).opacity(tint == nil ? 0.11 : 0.35), .white.opacity(0.05)],
                                               startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
     }
 
     /// A small floating glass capsule (top controls, chips on the hero).
     func glassCapsule() -> some View {
         background {
             ZStack {
-                Capsule().fill(.ultraThinMaterial)
-                Capsule().fill(Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255).opacity(0.4))
+                Capsule().fill(Color(rgb: 0x0A0B14).opacity(0.8))
+                Capsule().fill(Color.white.opacity(0.03))
             }
-            .environment(\.colorScheme, .dark)
         }
-        .overlay { Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1) }
+        .overlay { Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1) }
     }
 
     /// The standard screen canvas, full-bleed. The status bar gets its own
@@ -242,29 +352,19 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.headline.weight(.bold))
+                .font(.headline.weight(.semibold))
                 // One line, never wrapped: shrink a little first; a row of
                 // buttons that still doesn't fit stacks instead (ButtonRow).
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .tracking(0.4)
                 .padding(.horizontal, 18)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 56)
-                .background {
-                    ZStack {
-                        Capsule().fill(.ultraThinMaterial)
-                        Capsule().fill(Color.white.opacity(0.08))
-                        Capsule().fill(RadialGradient(colors: [AppTheme.brand.opacity(0.42), AppTheme.crimson.opacity(0.10)],
-                                                      center: .center, startRadius: 0, endRadius: 180))
-                    }
-                    .environment(\.colorScheme, .dark)
-                }
-                .overlay {
-                    Capsule().strokeBorder(LinearGradient(colors: [AppTheme.brightRed.opacity(0.75), AppTheme.brand.opacity(0.2)],
-                                                          startPoint: .top, endPoint: .bottom), lineWidth: 1)
-                }
-                .shadow(color: AppTheme.brand.opacity(isEnabled ? 0.35 : 0), radius: 18, x: 0, y: 6)
+                // Starlight: a bright plate with dark type — the one thing on
+                // the screen to press. Violet stays light, never a fill.
+                .foregroundStyle(Color(rgb: 0x0B0B14))
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(Capsule().fill(Color(rgb: 0xEEEAFE)))
+                .overlay { Capsule().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5) }
+                .shadow(color: Color(rgb: 0xC4B5FD).opacity(isEnabled ? 0.22 : 0), radius: 16, x: 0, y: 4)
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
                 .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
@@ -1024,23 +1124,28 @@ public struct SectionHeader<Trailing: View>: View {
     }
 
     public var body: some View {
-        HStack(alignment: .lastTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+        // Space: each section starts on a hairline, the title calm, the
+        // subtitle a quiet line — the content carries the screen.
+        VStack(alignment: .leading, spacing: 12) {
+            Rectangle().fill(AppTheme.hairline).frame(height: 1)
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(AppTheme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                Spacer(minLength: 8)
+                trailing
             }
-            Spacer(minLength: 8)
-            trailing
         }
-        .padding(.top, 6)
+        .padding(.top, 10)
     }
 }
 

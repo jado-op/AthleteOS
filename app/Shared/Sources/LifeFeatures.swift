@@ -301,30 +301,45 @@ struct HabitBadgesSection: View {
     var body: some View {
         let badges = HabitBadges.badges(HabitBadges.inputs(athlete, sessions: sessions))
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Healthy habits", subtitle: "For looking after yourself, not for training more.")
-            // V6 §2: flat rows, not a grid of identical cards.
-            VStack(spacing: 0) {
+            SectionHeader("Healthy habits") {
+                Text("\(badges.filter(\.earned).count) of \(badges.count) this week")
+                    .font(.telemetry(11.5))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            // At a glance: a dot and a name each; the explanation opens on a tap.
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                 ForEach(badges) { badge in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Circle()
-                            .fill(badge.earned ? AppTheme.green : AppTheme.fill)
-                            .frame(width: 8, height: 8)
-                            .shadow(color: badge.earned ? AppTheme.green.opacity(0.6) : .clear, radius: 4)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(badge.title).font(.body.weight(.semibold))
+                    Button { withAnimation(.easeInOut(duration: 0.2)) { open = open == badge.id ? nil : badge.id } } label: {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(badge.earned ? AppTheme.green : AppTheme.fill)
+                                .frame(width: 7, height: 7)
+                            Text(badge.title)
+                                .font(.footnote.weight(.semibold))
                                 .foregroundStyle(badge.earned ? AppTheme.ink : AppTheme.secondaryText)
-                            Text(badge.detail).font(.footnote).foregroundStyle(AppTheme.secondaryText)
-                                .fixedSize(horizontal: false, vertical: true)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            Spacer(minLength: 0)
                         }
-                        Spacer(minLength: 0)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 40)
+                        .glassSurface(cornerRadius: 12)
                     }
-                    .padding(.vertical, 10)
-                    .accessibilityElement(children: .combine)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("\(badge.title), \(badge.earned ? "earned" : "not yet"). \(badge.detail)")
                 }
             }
+            if let open, let badge = badges.first(where: { $0.id == open }) {
+                Text(badge.detail)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
         }
     }
+
+    @State private var open: String?
 }
 
 // MARK: - Season review

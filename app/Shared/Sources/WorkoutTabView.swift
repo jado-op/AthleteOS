@@ -6,6 +6,7 @@ import SwiftUI
 /// "More workouts" list, the athlete's own workouts and the plan's settings.
 struct WorkoutTabView: View {
     let athlete: Athlete
+    @State private var showingReason = false
     let apiClient: APIClient
     let week: GeneratedWeek?
     let onPlanInputsChanged: () -> Void
@@ -111,7 +112,7 @@ struct WorkoutTabView: View {
                 .containerRelativeFrame(.horizontal)
             }
             .scrollIndicators(.hidden)
-            .appScreen(.hero, sportSlug: athlete.activeSport?.sportSlug)
+            .appScreen(.hero)
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
@@ -245,83 +246,76 @@ struct WorkoutTabView: View {
         }
     }
 
-    /// V5: the cinematic top — the session's name and minutes huge, glass
-    /// numbers, one lit button. The list below stays practical.
-    @ViewBuilder
+    /// The session at a glance: its name, three numbers, Start. The reasoning
+    /// is one tap away. The list below stays practical.
     private var recommendedCard: some View {
         let rec = recommendation
-        VStack(spacing: 16) {
+        return VStack(alignment: .leading, spacing: 14) {
             Text("Today's training")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.brightRed)
                 .accessibilityAddTraits(.isHeader)
             Text(recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
                  : (rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
-                .font(.system(size: 40, weight: .bold))
+                .font(.system(size: 38, weight: .semibold))
+                .tracking(-1)
                 .foregroundStyle(AppTheme.ink)
-                .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
-                .background(HeroBloom(color: rec.mode.map(color) ?? AppTheme.brand))
             if let session = recommendedSession {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(session.estimatedMinutes)")
-                        .font(.system(size: 76, weight: .bold).monospacedDigit())
-                        .foregroundStyle(AppTheme.ink)
-                    Text("min")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
+                HStack(alignment: .top, spacing: 26) {
+                    TelemetryStat("\(session.estimatedMinutes)", "minutes")
+                    // V6 §7: the number of exercises isn't the point — but it's a useful glance.
+                    if session.decision == nil { TelemetryStat("\(session.items.count)", "exercises") }
+                    TelemetryStat(band == nil ? "Normal" : "Lighter", "load", accent: band == nil ? nil : AppTheme.brightRed)
                 }
-                .accessibilityElement(children: .combine)
-                HStack(alignment: .bottom, spacing: 10) {
-                    // V6 §7: the number of exercises isn't the point.
-                    if session.decision == nil {
-                        GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
-                    }
-                    GlassMetric(value: band == nil ? "Normal" : "Lighter", label: "Load", height: 70,
-                                accent: band == nil ? nil : AppTheme.brand)
-                }
-                .frame(maxWidth: 380)
+                .padding(.top, 4)
             } else {
                 Text(rec.mode.map(purpose) ?? "Recovery is part of the plan.")
                     .font(.body)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !focusTags.isEmpty {
                 Text(focusTags.joined(separator: " · "))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.telemetry(12))
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
             }
-            Text(recommendedSession?.explanation?.summary ?? reason)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 8)
+            // The reasoning is one tap away, not a paragraph at first sight.
+            Button { withAnimation(.easeInOut(duration: 0.25)) { showingReason.toggle() } } label: {
+                HStack(spacing: 5) {
+                    Text("Why this workout?")
+                    Image(systemName: showingReason ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
+                .frame(minHeight: 32)
+            }
+            .buttonStyle(.plain)
+            if showingReason {
+                Text(recommendedSession?.explanation?.summary ?? reason)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
             if let mode = rec.mode, let session = recommendedSession {
-                Button { liveLaunch = LiveSessionLaunch(planned: session, kind: kind(mode)) } label: {
-                    HeroCTALabel("Start")
+                ButtonRow {
+                    Button { liveLaunch = LiveSessionLaunch(planned: session, kind: kind(mode)) } label: {
+                        HeroCTALabel("Start")
+                    }
+                    .buttonStyle(.primary)
+                    Button("Preview") {
+                        preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session))
+                    }
+                    .buttonStyle(.secondary)
+                    .accessibilityLabel("View workout")
                 }
-                .buttonStyle(.primary)
-                .frame(maxWidth: 300)
                 .padding(.top, 4)
-                Button {
-                    preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session))
-                } label: {
-                    Text("View workout")
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .frame(minHeight: 44)
-                .accessibilityLabel("View workout")
             } else if rec.mode != nil {
                 Text(catalogue.itemsBySlug.isEmpty ? "Loading your exercises…" : "Nothing fits your equipment yet. Add some in Me → Equipment.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
             }
             if band != nil || readinessOverridden {
                 Button(readinessOverridden ? "Use the lighter version" : "Train as planned instead") {
@@ -332,8 +326,8 @@ struct WorkoutTabView: View {
                 .frame(minHeight: 44)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 20)
     }
 
     private func detail(_ mode: WorkoutMode, _ session: GeneratedSession?) -> String {

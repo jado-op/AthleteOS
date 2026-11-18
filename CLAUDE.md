@@ -87,6 +87,15 @@ Reading files, CI logs or the GitHub API needs no lock.
   Coach notes: free coaches one private note per athlete a week, Pro unlimited (owner, 2026-10-10;
   enforced server-side from `proUntil`).
 
+## Design (V7, owner 2026-11-18: "space", done smart — supersedes V5 where they differ)
+- Deep space, not decoration: `AppBackground` is a quiet seeded starfield (`Starfield`) with two
+  faint nebulae; no light-field glows, no sport geometry behind content (`SportAtmosphere` unused).
+  Surfaces are hairline plates (`glassSurface`), not frosted cards. Sections start on a hairline
+  (`SectionHeader`, numbered `SpaceSection(1, "Today")`). Numbers in the monospaced telemetry face
+  (`Font.telemetry`, `TelemetryStat`); words stay in the regular face. Primary button = "starlight"
+  (bright #EEEAFE plate, dark type); violet stays light, never a fill. Less text at first sight:
+  explanations open on a tap ("Why this workout?", "The numbers"). No planets, no glow everywhere.
+
 ## Design (V5: "cinematic premium sports performance")
 - Always dark (`.preferredColorScheme(.dark)`): near-black #050608 space with soft violet
   light fields (`AppBackground`, `.appScreen(.hero, sportSlug:)` on the main tabs).
