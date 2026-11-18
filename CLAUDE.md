@@ -65,10 +65,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   **performances** (PRs from logged sets and tests, plus anything the athlete adds). Content:
   `content/src/academy/` (briefings, intake, validator). Editorial look: reading serif, big type,
   real charts, restrained violet.
-- Navigation (owner, 2026-11-17): tabs Home · Campus · **Academy** (middle) · Workout ·
-  Progress; **Me is not a tab** — it opens as a sheet from the round `ProfileButton` at the
-  top left of every tab (iPhone shows only five tabs before "More"). Anything routed to
-  `AppTab.me` opens that sheet (`MainTabView`).
+- Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
+  Campus and Progress are no longer tabs: the Academy has a Twin | Progress switch at the top
+  (`AcademyTabView`, `AcademyNavigation`) — Progress is the old Progress screen — and Campus's
+  ~100 short lessons open from one "Short lessons" row in the Academy (sheet). Routes to
+  `AppTab.campus` / `.progress` / `.me` are redirected in `MainTabView` (Me = profile-button sheet).
 - Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
   parents, scouts or other users; backed up only to their own account, encrypted on the
   phone; "Delete twin" deletes the server backup for real (not an overwrite). Events

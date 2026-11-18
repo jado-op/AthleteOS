@@ -88,6 +88,7 @@ struct AcademyHomeView: View {
                     performances.padding(.top, 48)
                     if state.intakeDoneAt != nil { whoYouAre.padding(.top, 48) }
                     library.padding(.top, 48)
+                    lessonsRow.padding(.top, 8)
                     supportRow.padding(.top, 36).padding(.bottom, 24)
                 }
                 .padding(.horizontal, 24)
@@ -125,16 +126,7 @@ struct AcademyHomeView: View {
     // MARK: Who this twin is
 
     private var topBar: some View {
-        HStack {
-            ProfileButton(name: athlete.displayName)
-            Spacer()
-            Text("Your twin")
-                .font(.telemetry(12))
-                .foregroundStyle(AppTheme.secondaryText)
-            Spacer()
-            Color.clear.frame(width: 40, height: 40)
-        }
-        .padding(.top, 8)
+        AcademyPageSwitcher(name: athlete.displayName)
     }
 
     private var identity: some View {
@@ -460,6 +452,15 @@ struct AcademyHomeView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// Campus's short lessons (no longer a tab): one quiet row.
+    private var lessonsRow: some View {
+        Button { AcademyNavigation.shared.showingLessons = true } label: {
+            ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: "Short lessons",
+                    detail: "100 quick lessons on training, food, sleep and mind")
+        }
+        .buttonStyle(.plain)
     }
 
     private var supportRow: some View {

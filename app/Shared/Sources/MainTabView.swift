@@ -7,9 +7,10 @@ import UIKit
 import WidgetKit
 #endif
 
-/// The tabs: Home (an overview), Campus (learning), Academy (the Digital
-/// Twin), Workout (the three kinds of workout) and Progress (calendar,
-/// practice, events). Me is not a tab (iPhone shows five before "More"):
+/// The tabs: Home (an overview), Academy (the Digital Twin and progress —
+/// Twin | Progress — with Campus's short lessons inside) and Workout (owner,
+/// 2026-11-18). `.campus` and `.progress` remain as routes into the Academy.
+/// Me is not a tab:
 /// it opens from the profile button at the top left of every tab, and
 /// anything that routes to `.me` opens it there.
 enum AppTab: Hashable {
@@ -54,12 +55,7 @@ public struct MainTabView: View {
                 .tint(AppTheme.accent)
                 .tag(AppTab.today)
 
-            CampusView(athlete: athlete)
-                .tabItem { Label("Campus", systemImage: "graduationcap.fill") }
-                .tint(AppTheme.accent)
-                .tag(AppTab.campus)
-
-            AcademyHomeView(athlete: athlete)
+            AcademyTabView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Academy", systemImage: "figure.stand.line.dotted.figure.stand") }
                 .tint(AppTheme.accent)
                 .tag(AppTab.academy)
@@ -68,11 +64,6 @@ public struct MainTabView: View {
                 .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
                 .tint(AppTheme.accent)
                 .tag(AppTab.workout)
-
-            ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
-                .tabItem { Label("Progress", systemImage: "calendar") }
-                .tint(AppTheme.accent)
-                .tag(AppTab.progress)
         }
         .environment(\.openMe, OpenMeAction { showingMe = true })
         // V5: the selected tab is lit red; each screen keeps the white tint.
@@ -86,6 +77,12 @@ public struct MainTabView: View {
                 showingMe = true
                 return
             }
+            // Campus and Progress live in the Academy now.
+            if let page = academyRoute(tab) {
+                AcademyNavigation.shared.page = page
+                selectedTab = .academy
+                return
+            }
             UsageCounts.count("tab.\(tab)")
         }
         // A cold start from Siri / Shortcuts.
@@ -94,11 +91,27 @@ public struct MainTabView: View {
                 selectedTab = .today
                 showingMe = true
             }
+            if let page = academyRoute(selectedTab) {
+                AcademyNavigation.shared.page = page
+                selectedTab = .academy
+            }
             switch IntentRoute.pending {
             case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
             case .logPractice?: selectedTab = .progress
             default: break
             }
+        }
+    }
+
+    /// Where an old Campus or Progress route lands in the Academy (Campus also
+    /// opens the short lessons over it).
+    private func academyRoute(_ tab: AppTab) -> AcademyPage? {
+        switch tab {
+        case .progress: return .progress
+        case .campus:
+            AcademyNavigation.shared.showingLessons = true
+            return .twin
+        default: return nil
         }
     }
 
