@@ -164,12 +164,13 @@ final class DeepLinkTests: XCTestCase {
     func testDirectAppLinks() {
         XCTAssertEqual(DeepLink(url: URL(string: "aos://ABC234")!), .code("ABC234"))
         XCTAssertEqual(DeepLink(url: URL(string: "aos://team/ABC234")!), .team("ABC234"))
-        XCTAssertEqual(DeepLink(url: URL(string: "athleteos://league/ABC234")!), .league("ABC234"))
+        XCTAssertEqual(DeepLink(url: URL(string: "athleteos://workout/ABC234")!), .workout("ABC234"))
+        XCTAssertNil(DeepLink(url: URL(string: "aos://league/ABC234")!), "leagues are gone")
         XCTAssertNil(DeepLink(url: URL(string: "aos://team/ABC0O1")!), "look-alike characters are never codes")
     }
 
     func testEveryLinkRoundTrips() {
-        for link in [DeepLink.team("ABC234"), .league("ABC234"), .workout("ABC234"), .code("ABC234")] {
+        for link in [DeepLink.team("ABC234"), .workout("ABC234"), .code("ABC234")] {
             XCTAssertEqual(DeepLink(url: link.webURL), link)
             XCTAssertEqual(DeepLink(url: link.appURL), link)
         }
@@ -179,7 +180,7 @@ final class DeepLinkTests: XCTestCase {
 
     func testCodeFieldsTakeCodesAndPastedLinks() {
         XCTAssertEqual(DeepLink.code(fromInput: " abc-234 "), "ABC234")
-        XCTAssertEqual(DeepLink.code(fromInput: "https://api.lejacob.dev/fitness/league/ABC234"), "ABC234")
+        XCTAssertEqual(DeepLink.code(fromInput: "https://api.lejacob.dev/fitness/team/ABC234"), "ABC234")
         XCTAssertEqual(DeepLink.code(fromInput: "aos://workout/ABC234"), "ABC234")
         XCTAssertNil(DeepLink.code(fromInput: "hello"))
     }

@@ -23,7 +23,7 @@ struct StudentAthleteApp: App {
         WindowGroup {
             RootView()
                 // Links and QR codes (aos://…, api.lejacob.dev/fitness/…) open
-                // the team, league or workout they point to — after setup, if
+                // the team or workout they point to — after setup, if
                 // it isn't done yet.
                 .onOpenURL { DeepLinkCenter.shared.open($0) }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
