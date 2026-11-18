@@ -109,6 +109,31 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case developmentGoal = "DEVELOPMENT_GOAL"
     case travelling = "TRAVELLING"
     case youngAthlete = "YOUNG_ATHLETE"
+    /// The twin steered the day (see `TwinSteer`).
+    case twinSlowGameRecovery = "TWIN_SLOW_GAME_RECOVERY"
+    case twinLoadSpike = "TWIN_LOAD_SPIKE"
+    case twinSpeedFocus = "TWIN_SPEED_FOCUS"
+}
+
+/// What the athlete's twin (TwinAnalysis, their own data) has found that
+/// changes how they should train. The twin is the one model of the athlete;
+/// the planner reads these like any other signal and says so in "Why".
+public enum TwinSteer: String, Codable, Sendable, CaseIterable {
+    /// Two days after a game they still feel it: day 2 stays light for the legs too.
+    case slowGameRecovery
+    /// This week's load jumped well above their usual: less volume, no hard conditioning.
+    case loadSpike
+    /// Strength is rising but sprint/jump tests aren't: power and speed come first.
+    case strengthNotSpeed
+
+    /// The twin's insight behind it.
+    public static func from(_ insights: [TwinInsightKind]) -> Set<TwinSteer> {
+        var steers: Set<TwinSteer> = []
+        if insights.contains(.recoveryAfterGames) { steers.insert(.slowGameRecovery) }
+        if insights.contains(.loadSpike) { steers.insert(.loadSpike) }
+        if insights.contains(.strengthNotSpeed) { steers.insert(.strengthNotSpeed) }
+        return steers
+    }
 }
 
 /// How the athlete feels this morning (from the check-in).
@@ -219,6 +244,8 @@ public struct TrainingDay: Sendable {
     /// Time of day: before today's practice or game, or the evening.
     public var beforeSession: Bool
     public var evening: Bool
+    /// What the twin has found that changes training.
+    public var twin: Set<TwinSteer> = []
 
     public init(date: Date, phase: SeasonPhase, age: Int, experience: TrainingExperience, demands: SportDemands,
                 goals: [Capacity] = [], practice: PracticeIntensity? = nil, gameToday: Bool = false,
@@ -226,7 +253,8 @@ public struct TrainingDay: Sendable {
                 soreLegs: Bool = false, painAreas: Set<PainArea> = [], illnessReturnDay: Int? = nil,
                 examOrLongDay: Bool = false, daysTrainedInARow: Int = 0, availableMinutes: Int? = nil,
                 recent: RecentLoad = RecentLoad(), reflection: ReflectionSignal? = nil, plannedGymDay: Bool = true,
-                travelling: Bool = false, beforeSession: Bool = false, evening: Bool = false) {
+                travelling: Bool = false, beforeSession: Bool = false, evening: Bool = false, twin: Set<TwinSteer> = []) {
+        self.twin = twin
         self.beforeSession = beforeSession
         self.evening = evening
         self.date = date
@@ -321,6 +349,16 @@ public enum SessionPlanner {
             }
         }
         if day.daysSinceLastGame == 1 { add(.gameYesterday); avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting]) }
+        // The twin: this athlete still feels a game two days later.
+        if day.daysSinceLastGame == 2, day.twin.contains(.slowGameRecovery) {
+            add(.twinSlowGameRecovery)
+            avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting])
+        }
+        // The twin: this week's load jumped — hold the volume, no hard conditioning.
+        if day.twin.contains(.loadSpike) {
+            add(.twinLoadSpike)
+            avoid.insert(.hardConditioning)
+        }
         if let since = day.recent.daysSinceHeavyLower, since <= 1 { add(.lowerBodyTrainedRecently); avoid.insert(.heavyLowerBody) }
 
         let mustRecover = day.readiness == .low || (day.reflection?.somethingHurt ?? false) || day.daysTrainedInARow >= 7
@@ -402,6 +440,7 @@ public enum SessionPlanner {
         // 4. What for.
         var (primary, maintain) = targets(type: type, day: day, legBudget: legBudget, avoid: avoid)
         if !day.goals.isEmpty, primary.contains(where: day.goals.contains) || maintain.contains(where: day.goals.contains) { add(.developmentGoal) }
+        if day.twin.contains(.strengthNotSpeed), primary.contains(where: { [.power, .acceleration, .speed].contains($0) }) { add(.twinSpeedFocus) }
 
         // 5. Conditioning.
         var conditioning: ConditioningType?
@@ -482,6 +521,7 @@ public enum SessionPlanner {
             if day.daysToNextGame == 2 { minutes -= 10 }
             if let illness = day.illnessReturnDay { minutes -= illness <= 3 ? 20 : 10 }
             if day.examOrLongDay { minutes -= 15 }
+            if day.twin.contains(.loadSpike) { minutes -= 10 }
             minutes = min(75, max(35, minutes))
         case .afterPractice:
             minutes = day.phase == .inSeason ? 22 : 28
@@ -490,6 +530,7 @@ public enum SessionPlanner {
             if day.experience == .experienced { minutes += 5 }
             if day.readiness == .belowNormal || day.daysToNextGame == 1 { minutes -= 5 }
             if day.examOrLongDay { minutes -= 5 }
+            if day.twin.contains(.loadSpike) { minutes -= 5 }
             minutes = min(35, max(15, minutes))
         case .primer: minutes = 20
         case .conditioning: minutes = day.phase == .offSeason ? 40 : 30
@@ -510,6 +551,8 @@ public enum SessionPlanner {
     static func priority(_ capacity: Capacity, day: TrainingDay) -> Double {
         var value = day.demands.weights[capacity] ?? 0.3
         if let rank = day.goals.firstIndex(of: capacity) { value += rank == 0 ? 0.6 : 0.35 }
+        // The twin: strength is rising, speed isn't — turn it into speed.
+        if day.twin.contains(.strengthNotSpeed), [.power, .acceleration].contains(capacity) { value += 0.4 }
         let exposure = day.recent.exposure(capacity)
         value *= exposure == 0 ? 1.0 : exposure == 1 ? 0.75 : 0.5
         // Practice already trains speed and agility in field and court sports.

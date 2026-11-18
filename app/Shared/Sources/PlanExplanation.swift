@@ -124,6 +124,15 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
                 ? "Your goal of \(day.goals[0].title) gets its turn on another day this week — today's job is different."
                 : "It trains \(list(hits.map(\.title))), which you chose as a development goal.")
         }
+        // What the twin knows about this athlete that changed today.
+        var twin: [String] = []
+        if r.contains(.twinSlowGameRecovery) { twin.append("you usually still feel a game two days later, so today stays light on the legs") }
+        if r.contains(.twinLoadSpike) { twin.append("your training load jumped this week, so there's a little less volume and no hard conditioning") }
+        if r.contains(.twinSpeedFocus) { twin.append("your strength is rising faster than your speed, so power and acceleration come first") }
+        if !twin.isEmpty {
+            let text = twin.joined(separator: "; ")
+            add("What does your twin change?", "From your own data: " + text + ".")
+        }
         // 10. How does it progress?
         add("How does this build on last time?", progression(decision, day))
         if let conditioning {

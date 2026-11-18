@@ -87,6 +87,7 @@ struct AcademyHomeView: View {
                     if let report {
                         coachRead(report).padding(.top, 28)
                         insights(report).padding(.top, 48)
+                        training(report).padding(.top, 48)
                         if !report.strengths.isEmpty { working(report).padding(.top, 40) }
                     }
                     performances.padding(.top, 48)
@@ -160,12 +161,12 @@ struct AcademyHomeView: View {
     }
 
     /// Sections in the order they show; numbered by what is actually on screen.
-    private enum Section: CaseIterable { case insights, working, performances, whoYouAre, briefings }
+    private enum Section: CaseIterable { case insights, training, working, performances, whoYouAre, briefings }
 
     private func number(_ section: Section) -> Int {
         let shown: [Section] = Section.allCases.filter {
             switch $0 {
-            case .insights: report != nil
+            case .insights, .training: report != nil
             case .working: !(report?.strengths.isEmpty ?? true)
             case .whoYouAre: state.intakeDoneAt != nil
             case .performances, .briefings: true
@@ -362,6 +363,63 @@ struct AcademyHomeView: View {
         case .improving: AppTheme.green
         case .worsening: AppTheme.orange
         case .new, .steady: AppTheme.brightRed
+        }
+    }
+
+    /// How the twin steers training right now: the season, the goals, and
+    /// what its insights change in the workouts (TwinSteer → SessionPlanner).
+    private func trainingLines(_ report: TwinReport) -> [(String, String)] {
+        var lines: [(String, String)] = []
+        if let sport = athlete.activeSport {
+            let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
+            let date = { (d: Date) in d.formatted(.dateTime.day().month(.abbreviated)) }
+            var next = ""
+            if phase != .inSeason, sport.seasonStart > .now {
+                if let pre = PreSeasonStore.start, pre > .now, pre < sport.seasonStart, phase != .preSeason {
+                    next = "Pre-season from \(date(pre)), the season from \(date(sport.seasonStart))."
+                } else {
+                    next = "The season starts \(date(sport.seasonStart))."
+                }
+            } else if phase == .inSeason {
+                next = "Until \(date(sport.seasonEnd))."
+            }
+            lines.append((AthleteStats.phaseLabel(phase), (next + " " + phase.focus).trimmingCharacters(in: .whitespaces)))
+        }
+        let goals = Struggles.selected.prefix(3).map(\.title)
+        if !goals.isEmpty {
+            lines.append(("Your goals", "Workouts lean towards " + goals.joined(separator: ", ").lowercased() + "."))
+        }
+        for steer in TwinSteer.from(report.insights.map(\.kind)).sorted(by: { $0.rawValue < $1.rawValue }) {
+            switch steer {
+            case .slowGameRecovery:
+                lines.append(("After games", "You still feel a \(family.event) two days later, so that day stays light on the legs too."))
+            case .loadSpike:
+                lines.append(("This week", "Your load jumped, so sessions are a little shorter and skip hard conditioning until it settles."))
+            case .strengthNotSpeed:
+                lines.append(("Strength into speed", "Your strength is rising faster than your sprint and jump, so power and acceleration come first."))
+            }
+        }
+        return lines
+    }
+
+    private func training(_ report: TwinReport) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SpaceSection(number(.training), "Your training") { EmptyView() }
+            Text("What your twin changes in your workouts. Tell AthleteOS when something changes.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(trainingLines(report), id: \.0) { line in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(line.0)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                    Text(line.1)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 

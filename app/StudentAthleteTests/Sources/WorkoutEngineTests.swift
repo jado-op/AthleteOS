@@ -229,6 +229,24 @@ final class WorkoutEngineTests: XCTestCase {
     }
 
     // Travelling never overrides a body that needs to recover; a game day never loads the legs.
+    /// The twin's findings steer the plan, and "Why" says so.
+    func testTwinSteersTheDay() {
+        var plain = day("soccer", phase: .offSeason, lastGame: 2)
+        let usual = SessionPlanner.decide(plain)
+        XCTAssertFalse(usual.avoids(.heavyLowerBody))
+        plain.twin = [.slowGameRecovery, .loadSpike]
+        let steered = SessionPlanner.decide(plain)
+        XCTAssertTrue(steered.avoids(.heavyLowerBody), "slow recovery: two days after a game stays light on the legs")
+        XCTAssertTrue(steered.avoids(.hardConditioning), "load spike: no hard conditioning")
+        XCTAssertLessThan(steered.durationTarget, usual.durationTarget)
+        XCTAssertTrue(steered.reasons.contains(.twinSlowGameRecovery))
+        XCTAssertTrue(steered.reasons.contains(.twinLoadSpike))
+        let (decision, session) = build(plain, sport: "soccer")
+        XCTAssertEqual(decision, steered)
+        XCTAssertTrue(session.explanation?.parts.contains { $0.question == "What does your twin change?" } ?? false)
+        XCTAssertEqual(TwinSteer.from([.strengthNotSpeed, .sleepBase]), [.strengthNotSpeed])
+    }
+
     func testTravelAndGameDaysRespectRecovery() {
         let tired = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
                                 demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["soccer"], position: nil),

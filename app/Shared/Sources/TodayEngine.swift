@@ -161,8 +161,24 @@ enum TodayEngine {
             plannedGymDay: plannedGymDay,
             travelling: status == .travel || status == .holiday,
             beforeSession: moment == .beforePractice,
-            evening: moment == .evening
+            evening: moment == .evening,
+            twin: twinSteers(athlete, date: date, calendar: calendar)
         )
+    }
+
+    /// What the athlete's twin has found that changes training (TwinSteer):
+    /// the same analysis the Academy shows, read by the planner. Worked out
+    /// once per day and per change in the data it reads.
+    private static var twinCache: (key: String, steers: Set<TwinSteer>)?
+
+    static func twinSteers(_ athlete: Athlete, date: Date, calendar: Calendar = .current) -> Set<TwinSteer> {
+        let key = [DayKey.of(date, calendar: calendar), "\(athlete.sessions.count)", "\(athlete.checkIns.count)", "\(athlete.competitions.count)",
+                   "\(MindsetStore.reflections.count)", "\(PracticeLogStore.logs.count)", "\(BenchmarkStore.results.count)"].joined(separator: "|")
+        if let twinCache, twinCache.key == key { return twinCache.steers }
+        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load(), now: date, calendar: calendar)
+        let steers = TwinSteer.from(TwinAnalysis.report(input, calendar: calendar).insights.map(\.kind))
+        twinCache = (key, steers)
+        return steers
     }
 
     static func kit(_ athlete: Athlete, catalogue: Catalogue, date: Date, recent: RecentLoad) -> AthleteKit {
@@ -209,7 +225,8 @@ enum TodayEngine {
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
                 athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
-                athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)"].joined(separator: "|")
+                athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)",
+                twinSteers(athlete, date: date, calendar: calendar).map(\.rawValue).sorted().joined()].joined(separator: "|")
     }
 
     static func session(_ requested: SessionType?, athlete: Athlete, sessions: [Session], catalogue: Catalogue,
