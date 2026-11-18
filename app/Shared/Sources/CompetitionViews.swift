@@ -23,7 +23,7 @@ struct CompetitionHubView: View {
     /// the athlete's usual start time).
     private func isOver(_ game: Competition) -> Bool {
         let calendar = Calendar.current
-        let start = FuelEngine.gameStart(game.date, usualMinutes: UserDefaults.standard.object(forKey: "gameStartMinutes") as? Int ?? 17 * 60)
+        let start = GameTime.start(game.date, usualMinutes: UserDefaults.standard.object(forKey: GameTime.usualStartKey) as? Int ?? GameTime.defaultUsualMinutes)
         return calendar.startOfDay(for: game.date) < calendar.startOfDay(for: .now) || start.addingTimeInterval(2 * 3600) < .now
     }
     private var next: Competition? { AthleteStats.upcomingCompetitions(athlete).first { !isOver($0) } }

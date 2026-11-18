@@ -38,19 +38,10 @@ final class ReminderPlanTests: XCTestCase {
                        24 * 60, "after midnight stays after midnight")
     }
 
-    func testHydrationComesTwoHoursBeforeAGameOrALongPractice() {
-        let game = day(21).addingTimeInterval(18 * 3600)
-        XCTAssertEqual(ReminderScheduler.hydrationTime(gameStart: game, practice: nil, day: day(21), calendar: calendar), game.addingTimeInterval(-7200))
-        XCTAssertEqual(ReminderScheduler.hydrationTime(gameStart: nil, practice: PracticeTime(start: 15 * 60, end: 17 * 60), day: day(21), calendar: calendar),
-                       day(21).addingTimeInterval(13 * 3600))
-        XCTAssertNil(ReminderScheduler.hydrationTime(gameStart: nil, practice: PracticeTime(start: 15 * 60, end: 16 * 60), day: day(21), calendar: calendar),
-                     "a short practice needs no reminder")
-    }
-
     func testAGameWithATimeUsesItAndOneWithoutUsesTheUsualTime() {
         let at7pm = day(21).addingTimeInterval(19 * 3600)
-        XCTAssertEqual(FuelEngine.gameStart(at7pm, usualMinutes: 17 * 60, calendar: calendar), at7pm)
-        XCTAssertEqual(FuelEngine.gameStart(day(21), usualMinutes: 17 * 60, calendar: calendar), day(21).addingTimeInterval(17 * 3600))
+        XCTAssertEqual(GameTime.start(at7pm, usualMinutes: 17 * 60, calendar: calendar), at7pm)
+        XCTAssertEqual(GameTime.start(day(21), usualMinutes: 17 * 60, calendar: calendar), day(21).addingTimeInterval(17 * 3600))
     }
 }
 

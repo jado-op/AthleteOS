@@ -33,7 +33,7 @@ enum SportVisibility {
 /// Where a search result goes.
 enum AppSearchTarget: Hashable {
     // Home
-    case checkIn, logWorkout, addGame, history, fuel, dayStatus, schedule, reflection, safety, mindset, tests
+    case checkIn, logWorkout, addGame, history, dayStatus, schedule, reflection, safety, mindset, tests
     case breathing, visualization, practiceLog
     // Sections
     case tab(AppTab)
@@ -85,7 +85,6 @@ enum AppSearch {
         function("Log practice", "How practice went, effort and mood", "person.3.fill", ["practice", "team", "training", "effort", "mood", "log"], .practiceLog),
         function("Add a game", "Games, tournaments and meets", "sportscourt.fill", ["game", "match", "tournament", "meet", "competition", "race", "event"], .addGame),
         function("Past workouts", "Training History", "clock.arrow.circlepath", ["history", "past", "logged", "sessions", "training history"], .history),
-        function("Food & water", "Fuel for practice and games", "fork.knife", ["food", "eat", "meal", "nutrition", "water", "drink", "hydration", "fuel", "protein"], .fuel),
         function("Kind of day", "Normal, sick, travel, holiday", "calendar.day.timeline.left", ["sick", "ill", "travel", "holiday", "vacation", "rest", "status", "day"], .dayStatus),
         function("Practice schedule", "Practice days and times", "calendar.badge.clock", ["schedule", "practice", "times", "days", "calendar", "team"], .schedule),
         function("Evening reflection", "How today went", "moon.stars.fill", ["reflect", "reflection", "evening", "journal", "diary", "went well"], .reflection),
@@ -95,7 +94,7 @@ enum AppSearch {
         function("Visualization", "See your game before you play", "eye.fill", ["visualize", "visualization", "imagery", "mental", "game"], .visualization),
         function("Tests", "Sprint, jump and other benchmarks", "stopwatch.fill", ["test", "benchmark", "sprint", "jump", "speed", "measure", "personal best", "pb"], .tests),
         function("Home", "Today at a glance", "house.fill", ["home", "today", "overview"], .tab(.today)),
-        function("Short lessons", "100 quick lessons on training, food, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
+        function("Short lessons", "100 quick lessons on training, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
         function("Academy", "Your digital twin, insights and briefings", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "insights", "briefings", "personal best", "pr", "performances"], .tab(.academy)),
         function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .support),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),
@@ -116,7 +115,7 @@ enum AppSearch {
         function("Past check-ins", "Every morning check-in", "sun.max.fill", ["check-ins", "history", "sleep", "readiness"], .checkIns),
         function("Reports", "Season report, PDF, recruiting", "doc.richtext", ["report", "pdf", "recruiting", "college", "coach", "season card"], .reports),
         function("Export my data", "Download everything as JSON", "square.and.arrow.up", ["export", "data", "download", "json", "backup"], .dataExport),
-        function("Reminders", "Check-in, bedtime and water reminders", "bell.fill", ["reminders", "notifications", "alerts", "bedtime", "water"], .reminders),
+        function("Reminders", "Check-in, reflection and bedtime reminders", "bell.fill", ["reminders", "notifications", "alerts", "bedtime"], .reminders),
         function("Downloads for offline use", "Sports and exercise pictures on this phone", "arrow.down.circle.fill", ["offline", "downloads", "packs", "storage"], .downloads),
         function("Apple Health", "Sleep, heart rate and workouts", "heart.fill", ["health", "apple health", "healthkit", "heart rate", "watch", "sleep"], .health),
         function("My team", "Join your team with a code", "person.3.fill", ["team", "join", "code", "teammates"], .team),
@@ -300,7 +299,7 @@ struct AppSearchSheet: View {
 
     /// Before typing: the things people look for most.
     private var suggestions: some View {
-        let common: [AppSearchTarget] = [.checkIn, .skillPlans, .sportGuide, .library, .fuel, .safety]
+        let common: [AppSearchTarget] = [.checkIn, .skillPlans, .sportGuide, .library, .safety]
         let rows = common.compactMap { target in entries.first { $0.target == target } }
         return group("Popular") {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in

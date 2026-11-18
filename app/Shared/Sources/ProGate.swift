@@ -2,11 +2,11 @@ import Foundation
 
 /// §4's free vs Pro table as pure, testable rules. Everything that makes the
 /// app a daily habit — the check-in, today's session and the plan, logging,
-/// the Watch, fuelling, and account deletion — is free forever and is listed
+/// the Watch and account deletion — is free forever and is listed
 /// here only so a test can prove it can never be gated by accident.
 public enum ProFeature: String, CaseIterable, Sendable {
     // Free forever (§4, §20).
-    case checkIn, weeklyPlan, logging, watch, fuelling, accountDeletion, coachWeeklyReport
+    case checkIn, weeklyPlan, logging, watch, accountDeletion, coachWeeklyReport
 
     // Limited on free, unlimited on Pro.
     case skillBlocks
@@ -38,7 +38,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
     /// Available to every athlete regardless of subscription.
     public var isFreeForever: Bool {
         switch self {
-        case .checkIn, .weeklyPlan, .logging, .watch, .fuelling, .accountDeletion, .coachWeeklyReport: true
+        case .checkIn, .weeklyPlan, .logging, .watch, .accountDeletion, .coachWeeklyReport: true
         default: false
         }
     }

@@ -93,7 +93,7 @@ export const home = {
     ${feature('book', 'Off-season programs', 'Six-week blocks for speed, strength, power or conditioning when your season ends.')}
     ${feature('watch', 'Apple Watch', 'Train from your wrist: heart rate live, rep counting, rest timers. Log without your phone.')}
     ${feature('brain', 'Mindset', 'Season goals, guided breathing, reset routines and game-day visualization.')}
-    ${feature('plane', 'Tournament mode', 'Between games, sleep in a new time zone, food on the road and a hotel-room workout.')}
+    ${feature('plane', 'Tournament mode', 'Between games, sleep in a new time zone and a hotel-room workout.')}
     ${feature('team', 'Train together', 'Same workout, each on your own phone — see how far your teammates are.')}
     ${feature('mic', 'Siri &amp; Shortcuts', '"Start my workout", "Check in", "What\'s my plan today?" — hands-free.')}
   </dl>
@@ -191,7 +191,7 @@ export const features = {
     ${feature('book', '1,000+ exercises', 'Every one with set-up, cues, common mistakes, easier and harder versions, and an animated how-to.')}
     ${feature('chart', 'Tests every 6–8 weeks', 'Jump, sprints, plank, push-ups and a test for your sport — progress you can see.')}
     ${feature('lock', 'Your own workouts', 'Build, save and share workouts with a code or QR. (Pro)')}
-    ${feature('plane', 'Tournament mode', 'Time zones, sleep, food on the road and a hotel-room workout between games.')}
+    ${feature('plane', 'Tournament mode', 'Time zones, sleep and a hotel-room workout between games.')}
   </dl>
 </div></section>
 
@@ -242,7 +242,7 @@ export const features = {
     ${feature('brain', 'Mindset', 'Evening reflection, season goals, breathing, game-day visualization and optional mental skills — with “did it help?”.')}
     ${feature('moon', 'Sleep &amp; wind-down', 'Plain sleep tips and a calm half-hour routine before bed.', '#1cb0f6')}
     ${feature('chart', 'Season review', 'At the end of a season: what went well, what you\'d change, and what\'s next.')}
-    ${feature('heart', 'Fuel', 'Simple meals around training and games. No calorie counting, ever.')}
+    ${feature('heart', 'Fuel lessons', 'Short lessons on eating enough to train and grow. No calorie counting, ever.')}
     ${feature('cross', 'Emergency card', 'Allergies, conditions and who to call — on your lock-screen widget and your Watch. Stays on your device.')}
     ${feature('watch', 'Apple Watch', 'Live heart rate, rep counting, rest timers and complications.')}
     ${feature('family', 'Parent summary', 'A weekly email or private link with numbers only — never what you wrote.')}
@@ -321,7 +321,7 @@ export const coaches = {
       <li><span>Health is <b>off by default</b> — each athlete turns it on per team.</span></li>
     </ul>
     <ul class="checks no">
-      <li><span>Coaches never see notes, reflections, food or anything an athlete wrote.</span></li>
+      <li><span>Coaches never see notes, reflections or anything an athlete wrote.</span></li>
       <li><span>No ads, no data sold, no third-party trackers.</span></li>
     </ul>
   </div>
@@ -505,7 +505,7 @@ export const pricing = {
       ${row('Short lessons: 3 new a day, unlimited review', 1, 1)}
       ${row('Academy: digital twin and briefings (free in the beta)', 1, 1)}
       ${row('Sport guides and teams', 1, 1)}
-      ${row('Safety, fuel, emergency card and parent summary', 1, 1)}
+      ${row('Safety, emergency card and parent summary', 1, 1)}
       ${row('Coach readiness board and athletic-trainer log', 1, 1)}
       ${row('Edit every set and rep; build your own workouts', 0, 1)}
       ${row('Unlimited short lessons', 0, 1)}

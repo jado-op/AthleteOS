@@ -240,11 +240,10 @@ struct SchoolHoursSection: View {
 
 // MARK: - Tournament and travel mode (16)
 
-/// Away tournaments: the time difference, sleep, between games, food on the
-/// road and a hotel-room workout — in one place.
+/// Away tournaments: the time difference, sleep, between games and a
+/// hotel-room workout — in one place.
 struct TournamentModeView: View {
     let onHotelWorkout: () -> Void
-    let onFood: () -> Void
     @Environment(\.dismiss) private var dismiss
     @AppStorage("travel.timeZone") private var timeZoneID = TimeZone.current.identifier
 
@@ -272,9 +271,8 @@ struct TournamentModeView: View {
                     }
                     section("Between games") {
                         bullets([
-                            "Right after a game: drink, and eat a snack with carbs and some protein within an hour.",
+                            "Drink water between games.",
                             "Feet up and easy movement — no extra workout during a tournament.",
-                            "Next game within 2–3 hours: small, familiar snacks only.",
                             "Feeling faint, sick or dizzy in the heat? Stop, cool down, tell an adult.",
                         ])
                     }
@@ -285,10 +283,8 @@ struct TournamentModeView: View {
                             "A short nap (20–30 min) early in the afternoon is fine; long late naps make the night harder.",
                         ])
                     }
-                    ButtonRow {
-                        Button("Food on the road") { dismiss(); onFood() }.buttonStyle(.secondary)
-                        Button("Hotel-room workout") { dismiss(); onHotelWorkout() }.buttonStyle(.secondary)
-                    }
+                    Button("Hotel-room workout") { dismiss(); onHotelWorkout() }
+                        .buttonStyle(.secondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)

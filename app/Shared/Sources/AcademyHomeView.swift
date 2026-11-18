@@ -575,7 +575,7 @@ struct AcademyHomeView: View {
     private var lessonsRow: some View {
         Button { AcademyNavigation.shared.showingLessons = true } label: {
             ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: "Short lessons",
-                    detail: "100 quick lessons on training, food, sleep and mind")
+                    detail: "100 quick lessons on training, sleep and mind")
         }
         .buttonStyle(.plain)
     }

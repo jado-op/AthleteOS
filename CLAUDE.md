@@ -30,7 +30,14 @@ Reading files, CI logs or the GitHub API needs no lock.
   §23 decisions already made — check there before asking). The owner wrote that doc;
   treat it as their instructions. Roadmap: `docs/ROADMAP.md`.
 - Sport first, gym second. Original gym-companion ideas (muscle picker, balance
-  advice, progress charts, food log, 1,000+ exercises) must exist too, but secondary.
+  advice, progress charts, 1,000+ exercises) must exist too, but secondary.
+- No nutrition tracking (owner, 2026-11-18: "not our product right now"): no food log,
+  water counter, meal cards or hydration reminders. Nutrition stays as learning only
+  (Campus lessons, sport-guide fuel paragraphs, the game-day fuel briefing) and safety text.
+- Focus cut (owner, 2026-11-18): no habit badges, partner "Train together", Wind down
+  screen, offline Downloads row, Mindset season goals, separate Off-season program or
+  "Build a new gym plan". One place per job: games live in the Competitions hub, one
+  Trends block, PRs/tests in the twin's Performances, one Season review.
 - Layout: `app/` (Swift, XcodeGen `project.yml`), `content/` (Node: catalogue, sport
   guides, 3D rig → generated Swift + packs), `backend/` (Express + Prisma + Postgres),
   `tools/asc.mjs` (App Store Connect API client).

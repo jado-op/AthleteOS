@@ -51,7 +51,6 @@ public enum LocalWipe {
         deleteAll(PlannedSession.self, context)
         deleteAll(Plan.self, context)
         deleteAll(CheckIn.self, context)
-        deleteAll(MealLog.self, context)
         deleteAll(SkillBlock.self, context)
         deleteAll(CoachReport.self, context)
         deleteAll(Competition.self, context)

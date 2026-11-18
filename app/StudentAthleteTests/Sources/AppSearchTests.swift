@@ -39,7 +39,6 @@ final class AppSearchTests: XCTestCase {
     func testFunctionsAreFoundByTheirEverydayWords() {
         func first(_ query: String) -> AppSearchTarget? { AppSearch.rank(AppSearch.functions, query: query).first?.target }
         XCTAssertEqual(first("check in"), .checkIn)
-        XCTAssertEqual(first("water"), .fuel)
         XCTAssertEqual(first("concussion"), .safety)
         XCTAssertEqual(first("equipment"), .equipment)
         XCTAssertEqual(first("remindrs"), .reminders, "a typo still finds it")

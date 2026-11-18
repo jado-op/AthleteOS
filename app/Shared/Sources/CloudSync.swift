@@ -4,7 +4,7 @@ import SwiftData
 
 /// Backs up everything the athlete builds up in the app and shares it
 /// across their phones, so a new phone (or a reinstall) comes back exactly
-/// as it was: profile, sports, games, saved skill plans, meals, and every
+/// as it was: profile, sports, games, saved skill plans, and every
 /// setting and bit of progress kept outside SwiftData (Campus XP and
 /// lessons, day status, practice days, reminders, tips seen…).
 ///
@@ -27,7 +27,7 @@ public enum CloudSync {
     /// UserDefaults keys that belong to the athlete (not to this device).
     static let settingsKeys: Set<String> = [
         "dayStatus.v1", "reminderSettings", "home.introSeen", "appTourSeen",
-        "libraryOpened", "trainingStartMinutes", "gameStartMinutes", "weightUnit",
+        "libraryOpened", "gameStartMinutes", "weightUnit",
         "freeSportSwitchDates", "muscleWorkoutStarts",
     ]
     /// Whole families of athlete keys, including ones later features add.
@@ -47,10 +47,6 @@ public enum CloudSync {
 
     static var settingGroups: [String] { ["app"] + settingsPrefixes.map { String($0.dropLast()) } }
 
-    /// Meals older than this aren't backed up (they don't change and would
-    /// only grow the document).
-    static let mealDays = 365
-
     private static let metaKey = "cloud.meta"
     private static let lastRowPullKey = "cloud.lastRowPull"
 
@@ -64,6 +60,7 @@ public enum CloudSync {
         tokenStore: any TokenStore = KeychainTokenStore(), now: Date = .now
     ) async -> Bool {
         guard !DemoData.isEnabled, let token = try? tokenStore.read() else { return false }
+        retireMealsBackupOnce()
         // Deletions first ("Delete twin" made offline), so they can't come back.
         for key in pendingDeletes {
             guard (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
@@ -288,18 +285,6 @@ public enum CloudSync {
         var seed: String
     }
 
-    struct MealDoc: Codable, Equatable {
-        var id: String
-        var date: Date
-        var slot: String
-        var protein: Int
-        var carbs: Int
-        var colour: Int
-        var water: Int
-        var note: String?
-        var clientId: String
-    }
-
     /// A UserDefaults value in JSON: what `@AppStorage` and the stores here write.
     enum SettingValue: Codable, Equatable {
         case bool(Bool)
@@ -368,7 +353,7 @@ public enum CloudSync {
     }
 
     static var documentKeys: [String] {
-        ["profile", "sports", "competitions", "skillBlocks", "meals", "summary"] + settingGroups.map { "settings.\($0)" }
+        ["profile", "sports", "competitions", "skillBlocks", "summary"] + settingGroups.map { "settings.\($0)" }
     }
 
     static func exportAll(athlete: Athlete, now: Date) -> [String: Data] {
@@ -396,12 +381,6 @@ public enum CloudSync {
             return encode(athlete.skillBlocks.sorted { $0.id < $1.id }.map {
                 SkillBlockDoc(id: $0.id, sportSlug: $0.sportSlug, skillSlug: $0.skillSlug, targetDate: $0.targetDate,
                               generatedAt: $0.generatedAt, seed: $0.seed)
-            })
-        case "meals":
-            let cutoff = mealCutoff(now)
-            return encode(athlete.mealLogs.filter { $0.date >= cutoff }.sorted { $0.id < $1.id }.map {
-                MealDoc(id: $0.id, date: $0.date, slot: $0.slot.rawValue, protein: $0.proteinPortions, carbs: $0.carbPortions,
-                        colour: $0.colourPortions, water: $0.hydrationGlasses, note: $0.note, clientId: $0.clientId)
             })
         case "summary":
             return encode(weekSummary(athlete: athlete, now: now))
@@ -501,27 +480,6 @@ public enum CloudSync {
             }
         case "summary":
             return
-        case "meals":
-            guard let docs = try? decoder.decode([MealDoc].self, from: json) else { return }
-            let ids = Set(docs.map(\.id))
-            let cutoff = mealCutoff(now)
-            for meal in athlete.mealLogs where meal.date >= cutoff && !ids.contains(meal.id) { context.delete(meal) }
-            for doc in docs {
-                let slot = MealSlot(rawValue: doc.slot) ?? .snack
-                if let meal = athlete.mealLogs.first(where: { $0.id == doc.id }) {
-                    meal.date = doc.date
-                    meal.slot = slot
-                    meal.proteinPortions = doc.protein
-                    meal.carbPortions = doc.carbs
-                    meal.colourPortions = doc.colour
-                    meal.hydrationGlasses = doc.water
-                    meal.note = doc.note
-                } else {
-                    context.insert(MealLog(id: doc.id, date: doc.date, slot: slot, proteinPortions: doc.protein, carbPortions: doc.carbs,
-                                           colourPortions: doc.colour, hydrationGlasses: doc.water, note: doc.note,
-                                           clientId: doc.clientId, athlete: athlete))
-                }
-            }
         default:
             guard key.hasPrefix("settings."),
                   let settings = try? decoder.decode([String: SettingValue].self, from: json) else { return }
@@ -536,10 +494,6 @@ public enum CloudSync {
         for (key, value) in settings where settingGroup(of: key) == group {
             defaults.set(value.object, forKey: key)
         }
-    }
-
-    private static func mealCutoff(_ now: Date) -> Date {
-        Calendar.current.date(byAdding: .day, value: -mealDays, to: now) ?? now
     }
 
     private static func encode<T: Encodable>(_ value: T) -> Data {
@@ -572,6 +526,22 @@ public enum CloudSync {
               (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
         pendingDeletes.removeAll { $0 == key }
         return true
+    }
+
+    /// Food logging was retired: the old "meals" backup is deleted on the
+    /// server once (queued like any other delete, so offline is fine), and
+    /// the retired "training starts" time goes from this phone.
+    private static let mealsRetiredKey = "cloud.mealsRetired"
+
+    static func retireMealsBackupOnce() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: mealsRetiredKey) else { return }
+        var meta = loadMeta()
+        meta["meals"] = nil
+        saveMeta(meta)
+        if !pendingDeletes.contains("meals") { pendingDeletes.append("meals") }
+        defaults.removeObject(forKey: "trainingStartMinutes")
+        defaults.set(true, forKey: mealsRetiredKey)
     }
 
     static let twinKey = "settings.academyTwin"

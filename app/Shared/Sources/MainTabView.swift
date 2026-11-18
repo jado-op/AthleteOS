@@ -242,7 +242,7 @@ public struct MainTabView: View {
     }
 
     /// Pushes queued workouts and check-ins, syncs the backed-up documents
-    /// (sports, games, plans, meals, settings, Campus progress…) and pulls
+    /// (sports, games, plans, settings, Campus progress…) and pulls
     /// in recent workouts logged on another phone.
     private func backUp() async {
         guard !DemoData.isEnabled, !athlete.isDeleted, !backingUp else { return }

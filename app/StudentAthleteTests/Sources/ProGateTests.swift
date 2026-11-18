@@ -18,7 +18,7 @@ final class ProGateTests: XCTestCase {
     /// §4: "The check-in, the plan, logging and the Watch are free forever"
     /// and §20: account deletion is never behind the paywall.
     func testTheDailyHabitAndAccountDeletionAreNeverGated() {
-        for feature in [ProFeature.checkIn, .weeklyPlan, .logging, .watch, .fuelling, .accountDeletion, .coachWeeklyReport] {
+        for feature in [ProFeature.checkIn, .weeklyPlan, .logging, .watch, .accountDeletion, .coachWeeklyReport] {
             XCTAssertTrue(feature.isFreeForever, "\(feature)")
             XCTAssertTrue(ProGate.isAvailable(feature, isPro: false), "\(feature) must be free")
         }

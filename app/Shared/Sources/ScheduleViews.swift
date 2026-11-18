@@ -19,6 +19,7 @@ struct ScheduleSheet: View {
     @State private var editingPracticeDays = false
     @State private var feedPendingRemoval: CalendarFeed?
     @State private var refreshing = false
+    @AppStorage(GameTime.usualStartKey) private var gameStartMinutes = GameTime.defaultUsualMinutes
 
     private var calendar: Calendar { .current }
     private var nextWeek: Date { calendar.date(byAdding: .day, value: 7, to: .now) ?? .now }
@@ -35,6 +36,7 @@ struct ScheduleSheet: View {
                     ScreenTitle("Your schedule", subtitle: "Your workouts are built around it: a short one after practice, gym sessions on free days, nothing heavy before games, lighter weeks during exams.")
                     calendarsSection
                     practiceSection
+                    gameTimeSection
                     examsSection
                     SchoolHoursSection(onChanged: onChanged)
                     if !upcoming.isEmpty { upcomingSection }
@@ -199,6 +201,32 @@ struct ScheduleSheet: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    // MARK: - Game time
+
+    /// Games from a calendar without a clock time (and games added by hand)
+    /// start at this time: Home's game day and the reminders count from it.
+    private var gameTimeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Usual game start", subtitle: "Used when a game has no time of its own.")
+            DatePicker("Usual game start", selection: gameStartBinding, displayedComponents: .hourAndMinute)
+                .tint(AppTheme.accent)
+                .cardStyle(padding: 14)
+                .onChange(of: gameStartMinutes) { onChanged() }
+        }
+    }
+
+    private var gameStartBinding: Binding<Date> {
+        Binding(
+            get: {
+                calendar.date(bySettingHour: gameStartMinutes / 60, minute: gameStartMinutes % 60, second: 0, of: .now) ?? .now
+            },
+            set: { date in
+                let parts = calendar.dateComponents([.hour, .minute], from: date)
+                gameStartMinutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            }
+        )
     }
 
     private var practiceDayNames: String {

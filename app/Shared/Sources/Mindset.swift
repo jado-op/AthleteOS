@@ -101,14 +101,12 @@ public enum GoalArea: String, Codable, Sendable, CaseIterable, Identifiable {
             "Do every planned gym workout this week — no skipping the last exercise.",
             "Log the weight or reps of your main exercise each time, and add a little.",
             "Sleep 8+ hours on at least 5 nights — that's when your body gets stronger.",
-            "Eat protein at every meal this week (eggs, yogurt, meat, beans, tofu).",
             "Warm up properly before every sprint or jump session — no cold starts.",
         ]
         case .health: [
             "Do your 10 minutes of mobility on at least 5 days this week.",
             "Tell your coach or trainer about any pain that lasts more than a day.",
             "In bed by the same time on every school night this week.",
-            "Drink water through the day, not only at practice — carry a bottle.",
             "Do the injury-prevention exercises in your plan every time they come up.",
         ]
         case .confidence: [

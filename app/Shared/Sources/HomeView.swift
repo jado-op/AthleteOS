@@ -67,7 +67,7 @@ struct HomeView: View {
     /// The widget being held while arranging, and where the board is in reordering it.
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, search, safety, mindset, tests, windDown, seasonReview, tournament
+        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mindset, tests, windDown, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -166,49 +166,9 @@ struct HomeView: View {
         isTrainingDay ? engine(.mobility) : nil
     }
 
-    // MARK: - Food around practice and games
+    // MARK: - Game time
 
-    @AppStorage("gameStartMinutes") private var gameStartMinutes = 17 * 60
-    @State private var prePracticeAnswer: Bool?
-
-    /// Game day: the next two fuel steps, timed from the game.
-    private var gameFuelTips: [FuelTip]? {
-        guard let game = gameToday, status == .active else { return nil }
-        let start = FuelEngine.gameStart(game.date, usualMinutes: gameStartMinutes, calendar: calendar)
-        return Array(FuelEngine.gameDayTimeline(gameStart: start, isTournament: game.kind == .tournament)
-            .filter { ($0.time ?? .distantFuture) > .now.addingTimeInterval(-15 * 60) && $0.time != nil }
-            .prefix(2))
-    }
-
-    /// In the three hours before practice: one question, not a food diary.
-    private var askPrePracticeFuel: Bool {
-        guard status == .active, practiceToday, prePracticeAnswer != true,
-              let time = PracticeSchedule.time(on: .now) else { return false }
-        let now = calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now)
-        guard now >= time.start - 180, now <= time.start + 15 else { return false }
-        return !MealStore.meals(of: athlete, on: .now).contains { $0.slot == .preTraining }
-    }
-
-    private var prePracticeFuelCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Did you eat before practice?").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
-            if prePracticeAnswer == false {
-                Text("A banana, toast or a cereal bar now gives you energy for practice.")
-                    .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
-            }
-            ButtonRow {
-                Button("Yes") {
-                    _ = try? MealStore(modelContext: modelContext).logMeal(athlete: athlete, slot: .preTraining, protein: 0, carbs: 1, colour: 0)
-                    prePracticeAnswer = true
-                }
-                .buttonStyle(.primary)
-                Button("Not yet") { prePracticeAnswer = false }
-                    .buttonStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
-    }
+    @AppStorage(GameTime.usualStartKey) private var gameStartMinutes = GameTime.defaultUsualMinutes
 
     /// From 6 pm: tonight's bedtime for 9 hours before tomorrow's start, and
     /// last week's sleep when it's been short.
@@ -327,7 +287,6 @@ struct HomeView: View {
                         .id(contentKey)
                         .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
                     if !scheduleIsSet && status == .active { scheduleCard }
-                    if askPrePracticeFuel { prePracticeFuelCard }
                     if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red, plan: weekPlan) }
                 }
                 .animation(.easeInOut(duration: 0.45), value: contentKey)
@@ -410,15 +369,13 @@ struct HomeView: View {
                         pendingAction = action
                         activeSheet = nil
                     }
-                    .presentationDetents([.height(420)])
+                    .presentationDetents([.height(320)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:
                     AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .history:
                     SessionHistoryView()
-                case .fuel:
-                    FuelView(athlete: athlete, todaysSession: todaysWorkout?.session)
                 case .dayStatus:
                     DayStatusSheet(current: status) { newStatus, days in
                         DayStatusStore.set(newStatus, days: days)
@@ -427,8 +384,7 @@ struct HomeView: View {
                         onPlanInputsChanged()
                     }
                 case .tournament:
-                    TournamentModeView(onHotelWorkout: { selectedTab = .workout },
-                                       onFood: { Task { @MainActor in try? await Task.sleep(for: .milliseconds(600)); activeSheet = .fuel } })
+                    TournamentModeView(onHotelWorkout: { selectedTab = .workout })
                 case .windDown:
                     WindDownView(bedtime: bedtimeTonight.map { Bedtime.label($0.minutes) },
                                  gameTomorrow: athlete.competitions.contains { calendar.isDateInTomorrow($0.date) })
@@ -515,7 +471,6 @@ struct HomeView: View {
         case .checkIn: activeSheet = .checkIn
         case .addGame: activeSheet = .addGame
         case .history: activeSheet = .history
-        case .fuel: activeSheet = .fuel
         case .dayStatus: activeSheet = .dayStatus
         case .schedule: activeSheet = .schedule
         case .reflection: activeSheet = .reflection
@@ -630,7 +585,6 @@ struct HomeView: View {
         switch action {
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
         case .addGame: activeSheet = .addGame
-        case .fuel: activeSheet = .fuel
         }
     }
 
@@ -670,7 +624,7 @@ struct HomeView: View {
                     .glassCapsule()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add: log a workout, add a game, or food and water")
+            .accessibilityLabel("Add: log a workout or add a game")
         }
     }
 
@@ -825,7 +779,7 @@ struct HomeView: View {
     private var fixedPoint: TodayPlan.FixedPoint? {
         guard status == .active else { return nil }
         if let game = gameToday {
-            let start = FuelEngine.gameStart(game.date, usualMinutes: gameStartMinutes, calendar: calendar)
+            let start = GameTime.start(game.date, usualMinutes: gameStartMinutes, calendar: calendar)
             return .init(kind: .game, start: calendar.component(.hour, from: start) * 60 + calendar.component(.minute, from: start))
         }
         guard practiceToday else { return nil }
@@ -1007,10 +961,6 @@ struct HomeView: View {
                 heroTitle(gameTitle(game))
                 clockNumber(game.date)
                 heroMeta(game.isHome ? "Home" : "Away")
-                Button { activeSheet = .fuel } label: { HeroCTALabel("What to eat before") }
-                    .buttonStyle(.primary)
-                    .padding(.top, 6)
-                    .frame(maxWidth: 300)
             }
             .frame(maxWidth: .infinity)
         }
@@ -1157,7 +1107,7 @@ struct HomeView: View {
             case .recover:
                 HomeEyebrow("Today")
                 heroTitle("Rest and recover")
-                heroMeta("No training today. Drink, eat, sleep.")
+                heroMeta("No training today. Rest well.")
             case .reflectTonight:
                 HomeEyebrow("Today")
                 heroTitle(workoutDoneToday ? "Training done" : "Done for now")
@@ -1319,7 +1269,7 @@ struct HomeView: View {
     private func open(_ step: TodayPlan.Step) {
         switch step {
         case .checkIn: activeSheet = .checkIn
-        case .game: activeSheet = .fuel
+        case .game: showingCompetitions = true
         case .practice:
             if practiceLogToday != nil || (fixedPoint?.hasBegun(at: minuteNow) ?? false) {
                 searchDestination = SearchBox(target: .practiceLog)
@@ -1379,17 +1329,10 @@ struct HomeView: View {
                 }.buttonStyle(.plain)))
             }
         }
-        // Game day: the head and the fuel, one row each.
+        // Game day: get the head ready.
         if gameToday != nil && status == .active && phase != .night {
             rows.append(AnyView(Button { routine = .breathing } label: {
                 HomeDetailRow(systemImage: "wind", color: AppTheme.purple, title: "Get your head ready") { Text("2 min") }
-            }.buttonStyle(.plain)))
-        }
-        if let tips = gameFuelTips, let next = tips.first(where: { ($0.time ?? .distantFuture) > .now }) ?? tips.first {
-            rows.append(AnyView(Button { activeSheet = .fuel } label: {
-                HomeDetailRow(systemImage: "fork.knife", color: AppTheme.green, title: next.title) {
-                    Text(next.time?.formatted(date: .omitted, time: .shortened) ?? "\(eventWord)-day fuel")
-                }
             }.buttonStyle(.plain)))
         }
         if status == .travel {
