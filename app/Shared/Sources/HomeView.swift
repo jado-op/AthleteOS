@@ -1014,17 +1014,9 @@ struct HomeView: View {
                 if let qualities = qualityLine(session) {
                     heroMeta(qualities)
                 }
-                HStack(alignment: .bottom, spacing: 10) {
-                    if session.decision == nil {
-                        GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
-                    }
-                    GlassMetric(value: loadWord, label: "Load", height: 70, accent: readinessBand == nil ? nil : phase.red)
-                    if let tag = focusTag, tag != "Lighter today" {
-                        GlassMetric(value: tag, label: "Note", height: 70)
-                    }
-                }
-                .frame(maxWidth: 380)
-                .padding(.top, 4)
+                // One short line instead of a row of grey boxes: the load word
+                // and, for a plain session, how many exercises.
+                heroMeta(loadLine(session))
                 Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) } label: {
                     HeroCTALabel("Start training")
                 }
@@ -1153,6 +1145,15 @@ struct HomeView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// "Normal load · 12 exercises": the hero's one data line.
+    private func loadLine(_ session: GeneratedSession) -> String {
+        var parts: [String] = []
+        parts.append(loadWord == "Optional" ? "Optional" : loadWord + " load")
+        if session.decision == nil { parts.append("\(session.items.count) exercises") }
+        if let tag = focusTag, tag != "Lighter today" { parts.append(tag) }
+        return parts.joined(separator: " · ")
     }
 
     private var loadWord: String {

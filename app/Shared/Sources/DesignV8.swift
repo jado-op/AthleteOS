@@ -37,7 +37,7 @@ public enum AuraTone: String, Sendable, CaseIterable {
         switch self {
         case .training: [Color(rgb: 0xFFB45C).opacity(0.85), Color(rgb: 0xFF7A1A).opacity(0.35), .clear]
         case .body: [Color(rgb: 0x9CC3FF).opacity(0.75), Color(rgb: 0x4F7DFF).opacity(0.3), .clear]
-        case .mind: [Color(rgb: 0x2A0320).opacity(0.9), Color(rgb: 0xE11D74).opacity(0.55), .clear]
+        case .mind: [Color(rgb: 0xFF8AC8).opacity(0.7), Color(rgb: 0xE11D74).opacity(0.35), .clear]
         case .game: [Color(rgb: 0xD9F99D).opacity(0.6), Color(rgb: 0x84CC16).opacity(0.22), .clear]
         case .calm: [Color.white.opacity(0.05), .clear]
         }
