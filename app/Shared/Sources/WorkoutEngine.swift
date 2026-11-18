@@ -113,6 +113,55 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case twinSlowGameRecovery = "TWIN_SLOW_GAME_RECOVERY"
     case twinLoadSpike = "TWIN_LOAD_SPIKE"
     case twinSpeedFocus = "TWIN_SPEED_FOCUS"
+    /// Training stage (docs/TRAINING-RESEARCH.md §1): learning the movements
+    /// and general strength first; the specific, faster work comes with training age.
+    case stageFoundation = "STAGE_FOUNDATION"
+    case stagePerformance = "STAGE_PERFORMANCE"
+    /// In season: fewer sets, the same quality — strength stays when intensity stays (§6).
+    case inSeasonKeepIntensity = "IN_SEASON_KEEP_INTENSITY"
+    /// Strength first, then a bike or rower rather than running, so the two interfere less (§7).
+    case strengthBeforeCardio = "STRENGTH_BEFORE_CARDIO"
+    /// The session added the sport's proven injury-prevention exercise (§5).
+    case sportInjuryRisk = "SPORT_INJURY_RISK"
+    /// More pulling than pressing, for the shoulders (§4).
+    case pullBalancesPush = "PULL_BALANCES_PUSH"
+    /// Jump landings held to what this stage can absorb (§3).
+    case landingsCapped = "LANDINGS_CAPPED"
+}
+
+/// Where an athlete is in their development (docs/TRAINING-RESEARCH.md §1:
+/// Lloyd & Oliver's Youth Physical Development model, the NSCA's long-term
+/// athletic development statement). Training age matters as much as birthday.
+public enum TrainingStage: String, Codable, Sendable, CaseIterable {
+    /// New to lifting or under 14: movement skill, landing, general strength, variety.
+    case foundation
+    /// Some training age: strength first, power built on it.
+    case development
+    /// Experienced and 16+: more specific power and speed, still inside the youth envelope.
+    case performance
+
+    public static func of(age: Int, experience: TrainingExperience) -> TrainingStage {
+        if experience == .beginner || age < 14 { return .foundation }
+        if experience == .experienced, age >= 16 { return .performance }
+        return .development
+    }
+
+    /// Jump landings one session may hold (the weekly cap still applies on top).
+    public var sessionLandingCap: Int {
+        switch self {
+        case .foundation: 40
+        case .development: 60
+        case .performance: 80
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .foundation: "Foundation"
+        case .development: "Development"
+        case .performance: "Performance"
+        }
+    }
 }
 
 /// What the athlete's twin (TwinAnalysis, their own data) has found that
@@ -246,6 +295,8 @@ public struct TrainingDay: Sendable {
     public var evening: Bool
     /// What the twin has found that changes training.
     public var twin: Set<TwinSteer> = []
+    /// Training stage, from age and training age.
+    public var stage: TrainingStage { TrainingStage.of(age: age, experience: experience) }
 
     public init(date: Date, phase: SeasonPhase, age: Int, experience: TrainingExperience, demands: SportDemands,
                 goals: [Capacity] = [], practice: PracticeIntensity? = nil, gameToday: Bool = false,
@@ -299,6 +350,8 @@ public struct SessionDecision: Sendable, Equatable, Codable {
     /// Main lower / upper pattern to train (alternates through the week).
     public var lowerPattern: String?
     public var upperPattern: String?
+    /// The athlete's training stage (nil: a decision from before stages existed).
+    public var stage: TrainingStage? = nil
 
     public func avoids(_ avoid: AvoidToday) -> Bool { avoidToday.contains(avoid) }
 }
@@ -322,6 +375,11 @@ public enum SessionPlanner {
         }
         if day.experience == .beginner { add(.beginner); avoid.insert(.newHardExercises) }
         if day.age < 15 { add(.youngAthlete) }
+        switch day.stage {
+        case .foundation: add(.stageFoundation)
+        case .performance: add(.stagePerformance)
+        case .development: break
+        }
 
         // Signals that make the day easier.
         if day.readiness == .low { add(.lowReadiness) }
@@ -469,6 +527,18 @@ public enum SessionPlanner {
             break
         }
 
+        // In season the strength work keeps its intensity and loses volume
+        // (Rønnestad 2011; Bosquet 2007): said once, where it applies.
+        if [.inSeason, .postSeason].contains(day.phase), [.gymDevelopment, .afterPractice].contains(type),
+           day.experience != .beginner, primary.contains(.strength) || primary.contains(.upperStrength) {
+            add(.inSeasonKeepIntensity)
+        }
+        // Concurrent training: conditioning after the lifting, on a bike or rower
+        // when the legs lifted (Wilson 2012: running interferes more than cycling).
+        if type == .gymDevelopment, conditioning != nil, conditioning != .recovery, primary.contains(.strength) {
+            add(.strengthBeforeCardio)
+        }
+
         // 6. Which patterns (alternate through the week).
         let lower = day.recent.lastLowerPattern == "squat" ? "hinge" : "squat"
         let upper = day.recent.lastUpperPattern == "push" ? "pull" : "push"
@@ -481,7 +551,8 @@ public enum SessionPlanner {
             avoidToday: AvoidToday.allCases.filter(avoid.contains), reasons: reasons,
             conditioning: conditioning, conditioningMinutes: conditioningMinutes, legBudget: legBudget,
             lowerPattern: [.gymDevelopment, .afterPractice, .travel].contains(type) ? lower : nil,
-            upperPattern: [.gymDevelopment, .afterPractice, .primer, .travel].contains(type) ? upper : nil
+            upperPattern: [.gymDevelopment, .afterPractice, .primer, .travel].contains(type) ? upper : nil,
+            stage: day.stage
         )
     }
 
@@ -553,6 +624,13 @@ public enum SessionPlanner {
         if let rank = day.goals.firstIndex(of: capacity) { value += rank == 0 ? 0.6 : 0.35 }
         // The twin: strength is rising, speed isn't — turn it into speed.
         if day.twin.contains(.strengthNotSpeed), [.power, .acceleration].contains(capacity) { value += 0.4 }
+        // Training stage (YPD model): movement skill and landing first for new
+        // or young athletes; the specific fast qualities with training age.
+        switch day.stage {
+        case .foundation where [.balance, .deceleration, .coordination].contains(capacity): value += 0.15
+        case .performance where [.power, .acceleration, .speed].contains(capacity): value += 0.15
+        default: break
+        }
         let exposure = day.recent.exposure(capacity)
         value *= exposure == 0 ? 1.0 : exposure == 1 ? 0.75 : 0.5
         // Practice already trains speed and agility in field and court sports.

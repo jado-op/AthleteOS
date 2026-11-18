@@ -31,10 +31,19 @@ public struct ConditioningPrescription: Sendable, Equatable {
 public enum ConditioningEngine {
     /// The protocol for `type` that fits in `minutes`, using what the athlete
     /// can do (`usable`), with low-impact options when impact is limited.
+    /// `afterLifting`: the legs just lifted, so cycling or rowing comes before
+    /// running where the type allows (Wilson et al. 2012: running, not cycling,
+    /// blunted strength and size gains in concurrent training).
     public static func prescribe(_ type: ConditioningType, minutes: Int, lowImpact: Bool, age: Int,
-                                 experience: TrainingExperience, usable: (String) -> Bool) -> ConditioningPrescription? {
+                                 experience: TrainingExperience, afterLifting: Bool = false,
+                                 usable: (String) -> Bool) -> ConditioningPrescription? {
         let minutes = max(6, minutes)
-        func first(_ slugs: [String]) -> String? { slugs.first(where: usable) }
+        let cycleFirst = ["easy-bike-ride", "bike-intervals", "rowing-machine-intervals"]
+        func first(_ slugs: [String]) -> String? {
+            guard afterLifting else { return slugs.first(where: usable) }
+            let preferred = slugs.filter { cycleFirst.contains($0) } + slugs.filter { !cycleFirst.contains($0) }
+            return preferred.first(where: usable)
+        }
         let youngOrNew = age < 14 || experience == .beginner
 
         switch type {
@@ -47,7 +56,7 @@ public enum ConditioningEngine {
                                             blockRestSeconds: 0, intensity: "easy, you can talk in full sentences", minutes: total)
         case .aerobicPower:
             // Hard but steady intervals with equal or shorter rest.
-            if !lowImpact, !youngOrNew, let slug = first(["30-15-intermittent-run"]) {
+            if !lowImpact, !youngOrNew, !afterLifting, let slug = first(["30-15-intermittent-run"]) {
                 let reps = min(24, max(8, minutes * 60 / 45))
                 return ConditioningPrescription(type: type, itemSlug: slug, reps: reps, workSeconds: 30, restSeconds: 15, blocks: reps >= 16 ? 2 : 1,
                                                 blockRestSeconds: 180, intensity: "hard but steady — the last rep as fast as the first",
@@ -67,7 +76,7 @@ public enum ConditioningEngine {
         case .repeatedSprint:
             // Fast efforts, short rest, a long break between sets.
             guard !lowImpact else {
-                return prescribe(.aerobicPower, minutes: minutes, lowImpact: true, age: age, experience: experience, usable: usable)
+                return prescribe(.aerobicPower, minutes: minutes, lowImpact: true, age: age, experience: experience, afterLifting: afterLifting, usable: usable)
             }
             guard let slug = first(["shuttle-repeat-sprints", "repeat-shuttle-10m", "in-place-suicide-sprints", "bike-intervals"]) else { return nil }
             let blocks = youngOrNew || minutes < 12 ? 2 : 3

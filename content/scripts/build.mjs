@@ -17,7 +17,7 @@
  *   node scripts/build.mjs
  */
 
-import { profileFor } from '../src/profiles.js';
+import { profileFor, FOCUS_MUSCLES } from '../src/profiles.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -269,6 +269,12 @@ public enum MuscleRole {
 
 /// §9: the fixed primary-muscle accent colour.
 public let muscleMapPrimaryColorHex = "#8B5CF6"
+
+/// The muscle words exercise profiles use ("glutes", "lats" — content/src/profiles.js
+/// FOCUS_MUSCLES), head to toe, each with the anatomical muscles it covers.
+public let focusMuscleSlugs: [String: [String]] = ${swiftDict(Object.entries(FOCUS_MUSCLES).map(([k, v]) => `${swiftStringLiteral(k)}: ${swiftStringArrayLiteral(v)}`))}
+
+public let focusMuscleOrder: [String] = ${swiftStringArrayLiteral(Object.keys(FOCUS_MUSCLES))}
 `;
 }
 

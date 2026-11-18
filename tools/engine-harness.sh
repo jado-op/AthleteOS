@@ -34,7 +34,7 @@ awk '/^\/\/\/ Today.s workouts with today.s pain/{exit} {print}' "$SRC/PainFilte
   awk '/^public struct Dose: Codable/,/^}/' "$SRC/AthleteModels.swift"
 } > "$H/Sources/Engine/Shims.swift"
 
-for t in WorkoutEngineTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests; do
+for t in WorkoutEngineTests TrainingRulesTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests; do
   ln -s "$TESTS/$t.swift" "$H/Tests/EngineTests/$t.swift"
 done
 

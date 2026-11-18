@@ -90,6 +90,12 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             if !decision.maintain.isEmpty { answer += " Kept up with less volume: \(list(decision.maintain.map(\.title)))." }
             add("Why these qualities?", answer)
         }
+        // What it builds: qualities and the muscles that do the work.
+        add("What does it build?", builds(items, catalogue: catalogue))
+        // How hard: by training stage and today's check-in (reps in reserve, never failure).
+        if [.gymDevelopment, .afterPractice, .travel, .primer].contains(decision.sessionType) {
+            add("How hard should it feel?", effort(decision, day, r))
+        }
         // 5. Why these exercises?
         let byBlock = Dictionary(grouping: items.filter { $0.block != nil }, by: { $0.block! })
         let exercises = SessionBlock.allCases.compactMap { block -> String? in
@@ -133,12 +139,49 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             let text = twin.joined(separator: "; ")
             add("What does your twin change?", "From your own data: " + text + ".")
         }
+        // The evidence-based rules that shaped this session.
+        var behind: [String] = []
+        if r.contains(.inSeasonKeepIntensity) { behind.append("In season the sets go down but the weight stays honest: one strength session a week is enough to keep what you built.") }
+        if r.contains(.strengthBeforeCardio) { behind.append("Lifting first, conditioning after — on a bike or rower where possible, because running straight after leg work gets in the way of strength more than cycling.") }
+        if r.contains(.sportInjuryRisk) { behind.append("Your sport has a well-known injury risk, and this session includes the exercise that measurably lowers it.") }
+        if r.contains(.pullBalancesPush) { behind.append("A little more pulling than pressing keeps the shoulders healthy.") }
+        if r.contains(.landingsCapped) { behind.append("Jumps are capped at what you're ready to land in one session; more come as your training age grows.") }
+        if !behind.isEmpty { add("What's behind it?", behind.joined(separator: " ")) }
         // 10. How does it progress?
         add("How does this build on last time?", progression(decision, day))
         if let conditioning {
             add("Conditioning", "\(conditioning.type.title): \(conditioning.summary).")
         }
         return PlanExplanation(summary: summary, parts: parts)
+    }
+
+    /// "Power, single-leg strength and trunk control — mostly glutes, quads and hamstrings."
+    static func builds(_ items: [GeneratedPlannedItem], catalogue: Catalogue) -> String? {
+        let qualities = SessionTrains.builds(items, catalogue: catalogue)
+        guard !qualities.isEmpty else { return nil }
+        let text = list(qualities)
+        var answer = text.prefix(1).uppercased() + String(text.dropFirst())
+        let groups = SessionTrains.sets(items.filter { ![.prep, .cooldown].contains($0.block) }, catalogue: catalogue)
+            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key.order < $1.key.order }
+            .prefix(3).map(\.key.name)
+        if !groups.isEmpty { answer += " — most of the work for your \(list(Array(groups)))" }
+        return answer + "."
+    }
+
+    static func effort(_ d: SessionDecision, _ day: TrainingDay, _ r: Set<PlanReason>) -> String {
+        var text: String
+        switch d.stage ?? day.stage {
+        case .foundation:
+            text = "You're building the base: perfect form, 3–4 reps left in every set, and many different movements. Athletes who reach the top usually learned to move in lots of ways first."
+        case .development:
+            text = "Stop each set with 2–3 good reps left. Strength comes first; power is built on top of it."
+        case .performance:
+            text = "You have the training age for more specific power and speed work. Fast work at full intent with full rest; strength sets stop 1–2 reps short — never to failure, and no max testing."
+        }
+        if r.contains(.belowNormalReadiness) || r.contains(.returnAfterIllness) {
+            text += " Today one notch easier: leave an extra rep or two in the tank."
+        }
+        return text
     }
 
     static func sessionTypeReason(_ d: SessionDecision, _ r: Set<PlanReason>) -> String {

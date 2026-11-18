@@ -107,6 +107,14 @@ private struct BuildState {
     var conditioning: ConditioningPrescription?
     var contactsLeft: Int
     let qualityWeight: [String: Double]
+    /// Training stage (docs/TRAINING-RESEARCH.md §1).
+    let stage: TrainingStage
+    /// Reasons the builder adds to the decision's (an injury-prevention staple, pull balance…).
+    var addedReasons: [PlanReason] = []
+    /// A jump was left out because the session's landings were used up.
+    var landingsLimited = false
+    /// The sport's preventable injuries, most important first.
+    let risks: [InjuryRisk]
 
     /// One candidate: the item, its profile and its relevance — worked out once per build.
     struct Candidate {
@@ -125,7 +133,12 @@ private struct BuildState {
         self.day = day
         self.kit = kit
         rng = SeededGenerator(seed: "\(kit.seed)|\(decision.sessionType.rawValue)")
-        contactsLeft = kit.contactsLeft
+        stage = decision.stage ?? day.stage
+        // Per-session landings by stage, a quarter fewer in season — inside the weekly cap.
+        let inSeason = day.phase == .inSeason || day.phase == .postSeason
+        let sessionCap = inSeason ? stage.sessionLandingCap * 3 / 4 : stage.sessionLandingCap
+        contactsLeft = min(kit.contactsLeft, sessionCap)
+        risks = InjuryPrevention.risks(sport: kit.sport?.slug, demands: day.demands)
         var weights = kit.sport?.qualityProfile ?? [:]
         if let position = kit.positionSlug, let profile = kit.sport?.positions.first(where: { $0.slug == position })?.qualityProfile {
             for (q, w) in profile { weights[q] = (weights[q] ?? 0) + w }
@@ -191,15 +204,23 @@ private struct BuildState {
     mutating func pick(_ block: SessionBlock, why: String, pool poolSize: Int = 3, _ filter: (CatalogueItem, ExerciseProfile) -> Bool) -> Bool {
         // An "explosive" tempo variant is power work, never a strength or trunk exercise.
         let strengthBlock = [.primaryStrength, .secondaryStrength, .accessory].contains(block)
+        // Foundation stage: more variety among good choices (diversified
+        // practice when young — Güllich 2022, Côté's DMSP).
+        let size = stage == .foundation && block != .skill ? max(poolSize, 5) : poolSize
         var matching: [Candidate] = []
+        var skippedForLandings = false
         for candidate in pool {
-            if matching.count == poolSize { break }
+            if matching.count == size { break }
             if used.contains(candidate.item.slug) { continue }
             if strengthBlock, candidate.item.variant?.tempo == "explosive" { continue }
-            if Self.landings(candidate.item, candidate.profile, sets: 1) > 0, contactsLeft < Self.landings(candidate.item, candidate.profile, sets: 3) { continue }
             guard filter(candidate.item, candidate.profile) else { continue }
+            if Self.landings(candidate.item, candidate.profile, sets: 1) > 0, contactsLeft < Self.landings(candidate.item, candidate.profile, sets: 3) {
+                skippedForLandings = true
+                continue
+            }
             matching.append(candidate)
         }
+        if matching.isEmpty, skippedForLandings { landingsLimited = true }
         guard !matching.isEmpty else { return false }
         let item: CatalogueItem = matching[Int(rng.next() % UInt64(matching.count))].item
         let best = item.qualities.max { (a: (key: String, value: Double), b: (key: String, value: Double)) -> Bool in
@@ -253,15 +274,24 @@ private struct BuildState {
     mutating func powerBlock(count: Int) {
         let targets = decision.primaryTargets
         var placed = 0
+        // Foundation stage, or a sport that tears knee ligaments: learn to land
+        // before jumping higher (Lloyd & Oliver 2012; Petushek 2019).
+        if !decision.avoids(.highImpact), stage == .foundation || (risks.first == .knee && stage != .performance), placed < count,
+           pickGroup(.power, ["landing", "decel"], why: "Landing and braking first: soft, quiet, knees over toes — the skill every jump is built on.") {
+            placed += 1
+        }
         if targets.contains(.acceleration), placed < count,
            pickGroup(.power, ["sprint-accel", "sprint-accel-resisted"], why: "Short sprints while you're fresh: acceleration is trained at full speed or not at all.") { placed += 1 }
         if targets.contains(.speed), placed < count,
            pickGroup(.power, ["sprint-maxv"], why: "A few fast runs to build top speed — full rest between.") { placed += 1 }
         if (targets.contains(.power) || placed < count), placed < count {
             let lateral = (day.demands.weights[.coordination] ?? 0) >= 0.7
+            // Performance stage: the heavier end of power too (loaded jumps,
+            // Olympic pulls) — force–velocity work for athletes with a strength base.
+            let heavy = stage == .performance && !decision.avoids(.heavyLowerBody) ? ["olympic"] : []
             let groups = decision.avoids(.highImpact)
                 ? ["throw-rotational", "throw-overhead", "throw-chest", "hinge-ballistic"]
-                : (lateral ? ["jump-lateral", "jump-vertical", "jump-horizontal"] : ["jump-vertical", "jump-horizontal", "jump-lateral"]) + ["throw-rotational", "throw-overhead"]
+                : heavy + (lateral ? ["jump-lateral", "jump-vertical", "jump-horizontal"] : ["jump-vertical", "jump-horizontal", "jump-lateral"]) + ["throw-rotational", "throw-overhead"]
             if pickGroup(.power, groups, why: "Explosive work goes first, before fatigue blunts it.") { placed += 1 }
         }
         if placed < count, (day.demands.weights[.power] ?? 0) >= 0.5 || (qualityWeight["rotational-power"] ?? 0) > 0.5 {
@@ -324,6 +354,7 @@ private struct BuildState {
         if decision.primaryTargets.contains(.balance) || day.goals.first == .balance {
             pickGroup(.accessory, ["balance"], why: "For your balance goal: control on one leg.")
         }
+        balancePulling()
         conditioningBlock()
     }
 
@@ -332,14 +363,49 @@ private struct BuildState {
         let rotated = Array(SessionBuilder.trunkGroups[offset...] + SessionBuilder.trunkGroups[..<offset])
         pickGroup(.accessory, rotated, role: "trunk", why: "A trunk that resists movement passes force from legs to arms.")
         guard count > 1 else { return }
+        // First the sport's proven injury-prevention exercise (Nordics, Copenhagen,
+        // landing, shoulder, balance — docs/TRAINING-RESEARCH.md §5): on a gym day the
+        // most important one, after practice rotating through the sport's risks.
+        if injuryStaple(rotate: decision.sessionType != .gymDevelopment ? offset : 0) { return }
         // The protected area rotates day to day through the sport's load areas,
         // and the reason names the area actually protected.
         let areas = loadAreas.isEmpty ? [] : Array(loadAreas[(offset % loadAreas.count)...] + loadAreas[..<(offset % loadAreas.count)])
         for area in areas {
-            let groups = SessionBuilder.resilienceGroups[area] ?? []
+            let groups = (SessionBuilder.resilienceGroups[area] ?? []).filter { group in !picks.contains { $0.item.planProfile.group == group } }
             if !groups.isEmpty, pickGroup(.accessory, groups, why: "Protects your \(area.replacingOccurrences(of: "-", with: " ")), which your sport loads a lot.") { return }
         }
         pickGroup(.accessory, ["hamstring-eccentric", "shoulder-health", "calf-ankle"], why: "Small strength that prevents common injuries.")
+    }
+
+    /// One exercise for the sport's preventable injuries, unless the session
+    /// already has one for that risk. Returns whether it added one.
+    mutating func injuryStaple(rotate: Int) -> Bool {
+        guard !risks.isEmpty else { return false }
+        let start = rotate % risks.count
+        for risk in Array(risks[start...] + risks[..<start]) {
+            if picks.contains(where: { risk.groups.contains($0.item.planProfile.group) }) { continue }
+            if pickGroup(.accessory, risk.groups, why: risk.why) {
+                if !addedReasons.contains(.sportInjuryRisk) { addedReasons.append(.sportInjuryRisk) }
+                return true
+            }
+        }
+        return false
+    }
+
+    /// More pulling than pressing (shoulder health): when the session's
+    /// pressing muscles out-work the upper back, add one pulling accessory.
+    mutating func balancePulling() {
+        var push = 0, pull = 0
+        for pick in picks where ![.prep, .mobility, .cooldown].contains(pick.block) {
+            let p = pick.item.planProfile
+            let main = Set(p.primaryMuscles)
+            if p.isUpper, !main.isDisjoint(with: ["chest", "front-delts", "triceps"]) { push += 1 }
+            if p.isUpper, !main.isDisjoint(with: ["lats", "upper-back", "rear-delts", "rotator-cuff"]) { pull += 1 }
+        }
+        guard push > pull else { return }
+        if pickGroup(.accessory, ["shoulder-health", "pull-horizontal"], why: "More pulling than pressing keeps the shoulders healthy and balanced.") {
+            addedReasons.append(.pullBalancesPush)
+        }
     }
 
     mutating func conditioningBlock() {
@@ -353,7 +419,8 @@ private struct BuildState {
                 && item.minAge <= age && (coached || !item.isCoached) && experience.allows(item)
         } ?? false }
         guard let rx = ConditioningEngine.prescribe(type, minutes: decision.conditioningMinutes, lowImpact: lowImpact, age: day.age,
-                                                    experience: day.experience, usable: usable),
+                                                    experience: day.experience,
+                                                    afterLifting: decision.reasons.contains(.strengthBeforeCardio), usable: usable),
               let item = kit.catalogue.item(rx.itemSlug) else { return }
         conditioning = rx
         picks.append((item, .conditioning, "\(type.title): \(rx.summary).", item.qualities.max { $0.value < $1.value }?.key ?? ""))
@@ -438,16 +505,20 @@ private struct BuildState {
         pickGroup(.primaryStrength, ["push-horizontal"], why: "Push-ups: upper-body strength anywhere.")
         pickGroup(.secondaryStrength, ["hinge-hip-extension", "single-leg-hip"], why: "Glutes and hamstrings, no weights needed.")
         pickGroup(.accessory, ["anti-extension", "anti-lateral"], role: "trunk", why: "Trunk strength on the floor of a hotel room.")
+        balancePulling()
     }
 
     // MARK: Dosing
 
-    func dose(_ item: CatalogueItem, block: SessionBlock) -> (Dose, Int) {
+    func dose(_ item: CatalogueItem, block: SessionBlock) -> (Dose, Int, String?) {
         let youth = day.age < 18
         var dose = item.defaultDose
         let inSeason = day.phase == .inSeason || day.phase == .postSeason
         let easier = day.readiness == .belowNormal || day.illnessReturnDay != nil
+        let profile = item.planProfile
+        let quality = profile.trains
         var rest = 60
+        var effort: String?
         switch block {
         case .prep, .mobility, .cooldown:
             dose.sets = dose.kind == "distance" ? 2 : 1
@@ -456,11 +527,37 @@ private struct BuildState {
             if block == .mobility, decision.mobilityPurpose != .preTraining { dose.sets = min(item.defaultDose.sets, 2) }
             rest = block == .prep ? 10 : 15
         case .power:
+            // Fast work is dosed by quality (docs/TRAINING-RESEARCH.md §3): few
+            // reps at full intent, rest long enough that every rep stays fast.
             dose.sets = decision.sessionType == .primer ? 2 : (inSeason ? 3 : 4)
-            if dose.kind == "reps" { dose.reps = min(dose.reps ?? 5, 5) }
-            if dose.kind == plyometricDoseKind { dose.contacts = min(dose.contacts ?? 5, 6) }
-            if dose.kind == "distance" { dose.metres = min(dose.metres ?? 20, 20) }
-            rest = item.planProfile.role == "speed" ? 90 : 75
+            if stage == .foundation { dose.sets = min(dose.sets, 3) }
+            switch quality {
+            case .strengthSpeed:
+                if dose.kind == "reps" { dose.reps = min(dose.reps ?? 3, 3) }
+                rest = 120
+                effort = "Moderate weight, as fast as you can — stop the set if the bar slows."
+            case .reactive:
+                if dose.kind == plyometricDoseKind { dose.contacts = min(dose.contacts ?? 5, stage == .performance ? 8 : stage == .foundation ? 5 : 6) }
+                if dose.kind == "reps" { dose.reps = min(dose.reps ?? 5, 5) }
+                rest = 90
+                effort = "Quick, stiff contacts — off the ground fast."
+            case .acceleration, .maxVelocity, .changeOfDirection:
+                if dose.kind == "reps" { dose.reps = min(dose.reps ?? 4, 4) }
+                if dose.kind == "distance" { dose.metres = min(dose.metres ?? 20, quality == .maxVelocity ? 30 : 20) }
+                rest = quality == .maxVelocity ? 150 : 120
+                effort = "All-out with full rest — stop when you start to slow down."
+            case .deceleration:
+                if dose.kind == "reps" { dose.reps = min(dose.reps ?? 4, 5) }
+                if dose.kind == plyometricDoseKind { dose.contacts = min(dose.contacts ?? 5, 5) }
+                rest = 60
+                effort = "Stick every landing for two seconds: quiet feet, knees over toes."
+            default:
+                if dose.kind == "reps" { dose.reps = min(dose.reps ?? 5, 5) }
+                if dose.kind == plyometricDoseKind { dose.contacts = min(dose.contacts ?? 5, 6) }
+                if dose.kind == "distance" { dose.metres = min(dose.metres ?? 20, 20) }
+                rest = profile.pattern == "throw" ? 75 : 90
+                effort = "Every rep at full intent — quality, not fatigue."
+            }
         case .skill:
             // A drill of the athlete's own sport: its own dose, a little less in season.
             dose.sets = min(max(1, item.defaultDose.sets), inSeason || easier ? 2 : 3)
@@ -473,6 +570,12 @@ private struct BuildState {
             }
             if decision.sessionType == .afterPractice || decision.sessionType == .primer || decision.sessionType == .travel { dose.sets = 2; rest = min(rest, 90) }
             if inSeason || easier { dose.sets = max(2, dose.sets - 1) }
+            // In season: fewer sets, but the reps stay heavy (Rønnestad 2011).
+            if inSeason, day.experience != .beginner, quality == .maxStrength, let reps = dose.reps, dose.kind == "reps",
+               !(item.defaultDose.load?.hasPrefix("bodyweight") ?? false) {
+                dose.reps = max(youth ? 6 : 4, reps - 2)
+            }
+            effort = strengthEffort(primary: true, easier: easier)
             if item.planProfile.isLower, decision.avoids(.highVolumeLowerBody) { dose.sets = 2 }
             if dose.kind != "reps" { dose.reps = item.defaultDose.reps }
             // Bodyweight lifts: their own (higher) reps — 2 × 8 air squats isn't main strength.
@@ -483,14 +586,29 @@ private struct BuildState {
             dose.sets = day.experience == .beginner || inSeason || easier || decision.sessionType == .afterPractice ? 2 : 3
             if dose.kind == "reps" { dose.reps = day.experience == .experienced ? 8 : 10 }
             rest = 90
+            effort = strengthEffort(primary: false, easier: easier)
         case .accessory:
             dose.sets = day.experience == .experienced && !inSeason ? 3 : 2
             if dose.kind == "reps" { dose.reps = min(max(dose.reps ?? 10, 8), 15) }
             rest = item.planProfile.role == "trunk" ? 40 : 45
+            switch quality {
+            case .injuryPrevention where profile.group == "hamstring-eccentric" || profile.group == "knee-eccentric":
+                // Eccentric work: few, slow, high-quality reps (in season a small dose keeps the effect).
+                if dose.kind == "reps" { dose.reps = min(item.defaultDose.reps ?? 6, 6) }
+                dose.sets = inSeason || stage == .foundation ? 2 : 3
+                rest = 90
+                effort = "Lower as slowly as you can; it's fine to fall the last bit."
+            case .injuryPrevention: effort = "Slow and controlled — small doses, every week."
+            case .stability: effort = "Hold the position; stop when it starts to shake or sag."
+            case .deceleration: effort = "Stick every landing for two seconds."
+            default: break
+            }
         case .conditioning:
             if let rx = conditioning {
                 dose = Dose(kind: "time", sets: rx.reps, seconds: rx.workSeconds)
                 rest = rx.restSeconds
+                let first: String = String(rx.intensity.prefix(1)).uppercased()
+                effort = first + String(rx.intensity.dropFirst()) + "."
             }
         }
         if let extra = extraSets[block] { dose.sets = max(1, min(dose.sets + extra, youth ? 3 : 4)) }
@@ -498,21 +616,51 @@ private struct BuildState {
             dose.sets = min(max(dose.sets, 1), 3)
             if let reps = dose.reps { dose.reps = min(max(reps, block == .prep || block == .power ? 1 : 6), 15) }
         }
-        return (dose, rest)
+        return (dose, rest, effort)
+    }
+
+    /// How hard a strength set should feel: reps left in the tank (RIR,
+    /// Helms et al. 2016) by stage and today's check-in. Never to failure; no
+    /// maximum testing — the effort is felt, not a percentage of a max.
+    func strengthEffort(primary: Bool, easier: Bool) -> String {
+        if easier { return "Easier today: stop each set with 3–4 reps left." }
+        switch stage {
+        case .foundation: return "Light enough for perfect form — stop with 3–4 reps left."
+        case .development: return "Stop each set with 2–3 good reps left."
+        case .performance: return primary && day.age >= 18 ? "Hard: stop with 1–2 reps left." : "Stop each set with 2 good reps left."
+        }
     }
 
     // MARK: Fitting the time
+
+    /// Inside the fast block: landing skill, then sprints, then the reactive
+    /// work, then jumps and throws — the most neurally demanding first.
+    static func fastRank(_ profile: ExerciseProfile) -> Int {
+        switch profile.trains {
+        case .deceleration: 0
+        case .acceleration, .maxVelocity, .changeOfDirection: 1
+        case .reactive: 2
+        case .strengthSpeed: 3
+        default: profile.pattern == "throw" ? 5 : 4
+        }
+    }
 
     func planned() -> [GeneratedPlannedItem] {
         let order: [SessionBlock] = SessionBlock.allCases
         let sorted = picks.enumerated().sorted { lhs, rhs in
             let l = order.firstIndex(of: lhs.element.block) ?? 0, r = order.firstIndex(of: rhs.element.block) ?? 0
-            return l != r ? l < r : lhs.offset < rhs.offset
+            if l != r { return l < r }
+            if lhs.element.block == .power {
+                let a = Self.fastRank(lhs.element.item.planProfile), b = Self.fastRank(rhs.element.item.planProfile)
+                if a != b { return a < b }
+            }
+            return lhs.offset < rhs.offset
         }.map(\.element)
         return sorted.enumerated().map { index, pick in
-            let (dose, rest) = dose(pick.item, block: pick.block)
+            let (dose, rest, effort) = dose(pick.item, block: pick.block)
             var item = GeneratedPlannedItem(itemSlug: pick.item.slug, order: index, dose: dose, restSec: rest, rationale: pick.why, quality: pick.quality)
             item.block = pick.block
+            item.effort = effort
             return item
         }
     }
@@ -605,8 +753,21 @@ private struct BuildState {
         }
         var session = GeneratedSession(date: day.date, title: title, focusQualities: decision.primaryTargets.map(\.rawValue),
                                        estimatedMinutes: decision.sessionType == .rest ? 0 : max(5, minutes(items)), items: items)
-        session.decision = decision
-        session.explanation = PlanExplanation.make(decision: decision, day: day, items: items, catalogue: kit.catalogue, conditioning: conditioning)
+        // What the builder itself decided joins the decision's reasons.
+        var built = decision
+        // Only what survived the time fit.
+        let groups = Set(items.compactMap { kit.catalogue.item($0.itemSlug)?.planProfile.group })
+        var extra = addedReasons.filter { reason in
+            switch reason {
+            case .sportInjuryRisk: return risks.contains { !groups.isDisjoint(with: $0.groups) }
+            case .pullBalancesPush: return items.contains { $0.rationale.hasPrefix("More pulling than pressing") }
+            default: return true
+            }
+        }
+        if landingsLimited { extra.append(.landingsCapped) }
+        for reason in extra where !built.reasons.contains(reason) { built.reasons.append(reason) }
+        session.decision = built
+        session.explanation = PlanExplanation.make(decision: built, day: day, items: items, catalogue: kit.catalogue, conditioning: conditioning)
         return session
     }
 }

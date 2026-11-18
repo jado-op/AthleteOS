@@ -18,6 +18,10 @@ struct WorkoutTabView: View {
     @State private var showingImprove = false
     @State private var showingMuscles = false
     @State private var showingLibrary = false
+    /// The recommended session's exercises, opened from the card (details one tap away).
+    @State private var showingContents = false
+    @State private var detailItem: CatalogueItem?
+    @State private var showingMuscleExercises = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
     @State private var sharing: ShareTarget?
@@ -193,6 +197,15 @@ struct WorkoutTabView: View {
             .sheet(isPresented: $showingImprove) {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
             }
+            .sheet(item: $detailItem) { item in
+                NavigationStack { ItemDetailView(item: item, closes: true) }
+            }
+            .sheet(isPresented: $showingMuscleExercises) {
+                MuscleExercisesSheet(catalogue: catalogue, athlete: athlete) { item in
+                    showingMuscleExercises = false
+                    detailItem = item
+                }
+            }
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
@@ -283,6 +296,12 @@ struct WorkoutTabView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
             if let session = recommendedSession {
+                // What it builds, in one short line (docs/TRAINING-RESEARCH.md §2).
+                let builds = SessionTrains.builds(session.items, catalogue: catalogue)
+                if !builds.isEmpty {
+                    Headline([.soft("Builds "), .strong(PlanExplanation.list(builds))], size: 22)
+                        .accessibilityRemoveTraits(.isHeader)
+                }
                 HStack(alignment: .lastTextBaseline, spacing: 16) {
                     BigFigure("\(session.estimatedMinutes)", unit: "min", size: 68)
                     Spacer(minLength: 8)
@@ -305,6 +324,23 @@ struct WorkoutTabView: View {
                 Text(focusTags.joined(separator: " · "))
                     .font(.telemetry(12))
                     .foregroundStyle(AppTheme.secondaryText)
+            }
+            // The exercises and what each one trains: one tap away.
+            if let session = recommendedSession, !session.items.isEmpty {
+                Button { withAnimation(.easeInOut(duration: 0.25)) { showingContents.toggle() } } label: {
+                    HStack(spacing: 5) {
+                        Text("What's in it · \(session.items.count) exercises")
+                        Image(systemName: showingContents ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                if showingContents {
+                    sessionContents(session)
+                        .transition(.opacity)
+                }
             }
             // The reasoning is one tap away, not a paragraph at first sight.
             Button { withAnimation(.easeInOut(duration: 0.25)) { showingReason.toggle() } } label: {
@@ -354,6 +390,79 @@ struct WorkoutTabView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.top, 12)
+    }
+
+    /// Each exercise with what it trains ("Power · glutes, quads") and how
+    /// much; tap one for how it's done. Warm-up and cool-down stay one line each.
+    private func sessionContents(_ session: GeneratedSession) -> some View {
+        let warmUp = session.items.filter { $0.block == .prep }
+        let coolDown = session.items.filter { $0.block == .cooldown || $0.block == .mobility }
+        let main = session.items.filter { item in !warmUp.contains(item) && !coolDown.contains(item) }
+        return VStack(alignment: .leading, spacing: 0) {
+            if !warmUp.isEmpty {
+                summaryRow("Warm-up", warmUp)
+            }
+            ForEach(Array(main.enumerated()), id: \.offset) { _, planned in
+                if let item = catalogue.item(planned.itemSlug) {
+                    Button { detailItem = item } label: { exerciseRow(item, planned) }
+                        .buttonStyle(.plain)
+                }
+            }
+            if !coolDown.isEmpty {
+                summaryRow(session.items.contains { $0.block == .cooldown } ? "Cool-down" : "Mobility", coolDown)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func exerciseRow(_ item: CatalogueItem, _ planned: GeneratedPlannedItem) -> some View {
+        let profile = item.planProfile
+        let trains = planned.block == .skill ? "Your sport · \(profile.trains.title.lowercased())" : profile.trainsLabel
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.name)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                    .multilineTextAlignment(.leading)
+                Text(trains)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.78))
+                Text(DoseFormatter.text(planned.dose))
+                    .font(.telemetry(12))
+                    .foregroundStyle(AppTheme.ink.opacity(0.62))
+                // How hard matters most where intensity is the point: fast work and the main lifts.
+                if let effort = planned.effort, planned.block == .power || planned.block == .primaryStrength {
+                    Text(effort)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.ink.opacity(0.62))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.5))
+                .padding(.top, 4)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Shows how it's done")
+    }
+
+    private func summaryRow(_ title: String, _ items: [GeneratedPlannedItem]) -> some View {
+        let names = items.compactMap { catalogue.item($0.itemSlug)?.name }
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+            Text(names.joined(separator: ", "))
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.ink.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
     }
 
     private func detail(_ mode: WorkoutMode, _ session: GeneratedSession?) -> String {
@@ -499,6 +608,12 @@ struct WorkoutTabView: View {
                 Button { showingLibrary = true } label: {
                     ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
                             detail: "Every exercise and drill, with how it looks")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { showingMuscleExercises = true } label: {
+                    ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle",
+                            detail: "Tap a muscle: what trains it, and how")
                 }
                 .buttonStyle(.plain)
             }

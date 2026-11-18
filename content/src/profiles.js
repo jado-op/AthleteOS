@@ -22,6 +22,25 @@
  *   legLoad     0 … 3: how much it adds to leg fatigue (the after-practice budget)
  *   group       replacement group: exercises that can stand in for each other
  *   conditioning (conditioning items only) { type, modality }
+ *
+ * What each exercise TRAINS (docs/TRAINING-RESEARCH.md §2) — the second table:
+ *
+ *   quality     the main physical quality it develops (TRAINING_QUALITIES):
+ *               max-strength · strength-speed (heavy and fast: cleans, loaded
+ *               jumps) · speed-strength (light and fast: jumps, throws) ·
+ *               reactive (short ground contacts, the stretch-shortening cycle) ·
+ *               acceleration · max-velocity · change-of-direction · deceleration
+ *               (braking and landing) · hypertrophy · strength-endurance ·
+ *               aerobic · anaerobic · repeated-sprint · mobility · stability ·
+ *               injury-prevention · recovery
+ *   energy      the energy system that pays for it (after "/"): alactic
+ *               (phosphocreatine, ≤ ~10 s all-out) · glycolytic · aerobic ·
+ *               mixed (repeated efforts). Derived from the quality when left out.
+ *   muscles     primary | secondary, in the FOCUS_MUSCLES vocabulary below —
+ *               each name is a set of the anatomical muscles in muscles.js, so
+ *               the body map, the Library's muscle filter and the planner
+ *               speak about the same muscles. Checked against every item's own
+ *               weighted muscle map (test/profiles.test.js).
  */
 
 // slug: pattern role regions fatigue impact technique legLoad group
@@ -252,6 +271,329 @@ const CONDITIONING = {
   'sled-drag-backward': ['tempo', 'sled'],
 };
 
+/**
+ * The muscle words the planner and the Workout tab use: the names a coach
+ * says ("glutes", "lats"), each one a set of the anatomical muscles in
+ * muscles.js. Order is head to toe, for display.
+ */
+export const FOCUS_MUSCLES = {
+  neck: ['sternocleidomastoid', 'neck-extensors'],
+  traps: ['trapezius-upper', 'levator-scapulae'],
+  'front-delts': ['deltoid-anterior'],
+  'side-delts': ['deltoid-lateral'],
+  'rear-delts': ['deltoid-posterior'],
+  'rotator-cuff': ['supraspinatus', 'infraspinatus', 'subscapularis', 'teres-minor'],
+  chest: ['pectoralis-major', 'pectoralis-minor'],
+  serratus: ['serratus-anterior'],
+  lats: ['latissimus-dorsi', 'teres-major'],
+  'upper-back': ['trapezius-middle', 'trapezius-lower', 'rhomboids'],
+  biceps: ['biceps-brachii', 'brachialis'],
+  triceps: ['triceps-brachii'],
+  forearms: ['forearm-flexors', 'forearm-extensors', 'brachioradialis'],
+  abs: ['rectus-abdominis', 'transverse-abdominis'],
+  obliques: ['obliques-external', 'obliques-internal'],
+  'lower-back': ['erector-spinae', 'quadratus-lumborum', 'multifidus'],
+  glutes: ['gluteus-maximus', 'deep-hip-rotators'],
+  'glute-med': ['gluteus-medius', 'gluteus-minimus', 'tensor-fasciae-latae'],
+  'hip-flexors': ['iliopsoas', 'sartorius'],
+  adductors: ['adductors'],
+  quads: ['rectus-femoris', 'vastus-lateralis', 'vastus-medialis'],
+  hamstrings: ['biceps-femoris', 'semitendinosus', 'semimembranosus'],
+  calves: ['gastrocnemius', 'soleus', 'peroneals'],
+  shins: ['tibialis-anterior'],
+  feet: ['foot-intrinsics'],
+};
+export const FOCUS_NAMES = Object.keys(FOCUS_MUSCLES);
+const FOCUS_OF_MUSCLE = new Map(Object.entries(FOCUS_MUSCLES).flatMap(([focus, slugs]) => slugs.map((m) => [m, focus])));
+/** The focus name an anatomical muscle belongs to. */
+export const focusOf = (muscle) => FOCUS_OF_MUSCLE.get(muscle);
+
+export const TRAINING_QUALITIES = ['max-strength', 'strength-speed', 'speed-strength', 'reactive', 'acceleration', 'max-velocity',
+  'change-of-direction', 'deceleration', 'hypertrophy', 'strength-endurance', 'aerobic', 'anaerobic', 'repeated-sprint',
+  'mobility', 'stability', 'injury-prevention', 'recovery'];
+export const ENERGY_SYSTEMS = ['alactic', 'glycolytic', 'aerobic', 'mixed'];
+
+/** The energy system a quality runs on when the table doesn't say. */
+const DEFAULT_ENERGY = {
+  'strength-speed': 'alactic', 'speed-strength': 'alactic', reactive: 'alactic', acceleration: 'alactic', 'max-velocity': 'alactic',
+  'change-of-direction': 'alactic', deceleration: 'alactic', aerobic: 'aerobic', anaerobic: 'glycolytic', 'repeated-sprint': 'mixed',
+};
+
+// slug: quality[/energy] | primary muscles | secondary muscles ("-": none)
+const TRAINS = `
+acceleration-wall-drill: acceleration/alactic | glutes calves | hip-flexors quads abs
+acceleration-march: acceleration/alactic | glutes calves | hip-flexors quads
+sled-push: acceleration/alactic | glutes quads | calves hamstrings abs
+flying-sprint: max-velocity/alactic | hamstrings glutes calves | hip-flexors quads
+lateral-shuffle-cone-drill: change-of-direction/alactic | glute-med adductors quads | calves glutes
+5-10-5-shuttle: change-of-direction/alactic | glute-med quads | glutes adductors calves
+lateral-bound: speed-strength/alactic | glute-med glutes quads | adductors calves
+deceleration-drop-stick: deceleration/alactic | quads glutes | hamstrings glute-med calves
+countermovement-jump: speed-strength/alactic | glutes quads calves | hamstrings
+weighted-jump-squat: strength-speed/alactic | glutes quads | calves hamstrings lower-back
+broad-jump: speed-strength/alactic | glutes hamstrings quads | calves
+rotational-step-through-throw: speed-strength/alactic | obliques glutes | abs chest front-delts
+med-ball-rotational-throw: speed-strength/alactic | obliques glutes | abs chest adductors
+explosive-wall-reach-jump: speed-strength/alactic | glutes quads front-delts | calves
+med-ball-overhead-throw: speed-strength/alactic | front-delts abs | lats glutes triceps
+pogo-hop: reactive/alactic | calves | shins quads feet
+trap-bar-deadlift: max-strength | glutes quads lower-back | hamstrings forearms traps
+goblet-squat: max-strength | quads glutes | adductors abs upper-back
+barbell-back-squat: max-strength | quads glutes | adductors lower-back abs
+bulgarian-split-squat: max-strength | quads glutes | glute-med adductors hip-flexors
+split-squat: max-strength | quads glutes | glute-med adductors
+nordic-hamstring-curl: injury-prevention | hamstrings | calves glutes
+bodyweight-squat: strength-endurance | quads glutes | adductors
+push-up: max-strength | chest triceps | front-delts abs serratus
+bench-press: max-strength | chest triceps front-delts | lats
+incline-push-up: strength-endurance | chest triceps | front-delts abs
+pull-up: max-strength | lats biceps | upper-back forearms abs
+band-assisted-pull-up: max-strength | lats biceps | upper-back forearms
+inverted-row: max-strength | lats upper-back | biceps rear-delts abs
+prone-y-t-w-raise: injury-prevention | upper-back rear-delts | rotator-cuff
+band-pull-apart: injury-prevention | upper-back rear-delts | rotator-cuff
+plank-shoulder-tap: stability | abs obliques | front-delts serratus
+pallof-press: stability | obliques abs | glutes
+bear-crawl-hold: stability | abs front-delts | forearms quads serratus
+farmers-carry: strength-endurance | forearms traps abs | obliques glutes
+continuous-easy-run: aerobic/aerobic | calves hamstrings glutes | quads
+hill-sprint-repeats: anaerobic/glycolytic | glutes hamstrings calves | quads
+shuttle-repeat-sprints: repeated-sprint/mixed | glutes hamstrings calves | quads adductors
+tempo-run: aerobic/aerobic | hamstrings calves glutes | quads
+single-leg-balance-reach: stability | glute-med feet | glutes calves
+single-leg-rdl: max-strength | hamstrings glutes | glute-med lower-back feet
+90-90-hip-switch: mobility | glutes adductors glute-med | hip-flexors
+mobility-flow-series: mobility | hip-flexors adductors | calves hamstrings
+scapular-wall-slide: injury-prevention | upper-back serratus | rotator-cuff
+single-leg-ankle-hop: reactive/alactic | calves | feet glute-med
+drop-landing-stick: deceleration/alactic | quads glutes | hamstrings glute-med
+shadow-cutting-drill: change-of-direction/alactic | glute-med quads | adductors glutes calves
+in-place-suicide-sprints: repeated-sprint/mixed | glutes hamstrings calves | quads
+a-skip: max-velocity/alactic | hip-flexors calves | glutes
+b-skip: max-velocity/alactic | hamstrings hip-flexors | calves glutes
+straight-leg-bound: max-velocity/alactic | hamstrings calves | glutes
+falling-start: acceleration/alactic | glutes quads | calves hamstrings
+sprint-from-push-up-start: acceleration/alactic | glutes quads | calves chest
+resisted-band-sprint: acceleration/alactic | glutes quads calves | hamstrings
+wicket-runs: max-velocity/alactic | hamstrings hip-flexors calves | glutes
+build-up-strides: max-velocity/aerobic | hamstrings calves glutes | hip-flexors
+hill-bounds: speed-strength/alactic | glutes quads | calves hamstrings
+t-drill: change-of-direction/alactic | glute-med adductors quads | calves glutes
+l-drill: change-of-direction/alactic | quads glute-med | calves adductors
+pro-agility-plant-hold: deceleration/alactic | quads glute-med | glutes adductors
+reactive-mirror-drill: change-of-direction/alactic | glute-med adductors | calves quads
+crossover-run-drill: change-of-direction/alactic | glute-med adductors | obliques hip-flexors
+backpedal-to-sprint: change-of-direction/alactic | quads glutes | hamstrings calves
+eccentric-step-down: injury-prevention | quads | glute-med hip-flexors
+box-jump: speed-strength/alactic | glutes quads | calves
+depth-jump: reactive/alactic | calves quads | glutes
+tuck-jump: reactive/alactic | hip-flexors calves | abs quads
+hurdle-hops: reactive/alactic | calves | quads glutes
+skater-hops: speed-strength/alactic | glute-med glutes | adductors quads
+single-leg-hop-and-hold: deceleration/alactic | glute-med quads | calves glutes
+split-squat-jump: speed-strength/alactic | glutes quads | hip-flexors calves
+lateral-line-hops: reactive/alactic | calves | glute-med
+jump-rope-intervals: aerobic/mixed | calves | forearms shins
+broad-jump-to-sprint: speed-strength/alactic | glutes quads | calves hamstrings
+med-ball-scoop-toss: speed-strength/alactic | obliques glutes | hamstrings lower-back
+med-ball-shotput-throw: speed-strength/alactic | chest triceps obliques | front-delts glutes
+med-ball-slam: speed-strength/alactic | lats abs | triceps
+med-ball-chest-pass: speed-strength/alactic | chest triceps | front-delts
+band-woodchop: stability | obliques | abs front-delts
+landmine-rotation: speed-strength/alactic | obliques | abs front-delts glutes
+barbell-front-squat: max-strength | quads glutes | upper-back abs adductors
+romanian-deadlift: max-strength | hamstrings glutes | lower-back forearms
+hip-thrust: max-strength | glutes | hamstrings
+step-up: max-strength | glutes quads | glute-med calves
+reverse-lunge: max-strength | glutes quads | adductors glute-med
+lateral-lunge: max-strength | adductors glute-med | quads glutes
+cossack-squat: mobility | adductors | glutes quads
+wall-sit: strength-endurance | quads | glutes
+spanish-squat: injury-prevention | quads | glutes
+sissy-squat-assisted: injury-prevention | quads | hip-flexors
+hamstring-slider-curl: injury-prevention | hamstrings | glutes calves
+leg-curl-machine: hypertrophy | hamstrings | calves
+kettlebell-swing: speed-strength/alactic | glutes hamstrings | lower-back forearms
+single-leg-glute-bridge: stability | glutes | glute-med hamstrings
+dumbbell-bench-press: max-strength | chest triceps front-delts | rotator-cuff
+overhead-press-dumbbell: max-strength | front-delts triceps side-delts | abs traps serratus
+landmine-press: max-strength | front-delts serratus | triceps chest abs
+dips-parallel: max-strength | triceps chest | front-delts
+pike-push-up: strength-endurance | front-delts triceps | traps serratus
+plyo-push-up: speed-strength/alactic | chest triceps | front-delts
+tempo-push-up: hypertrophy | chest triceps | serratus abs
+dumbbell-row: max-strength | lats upper-back | biceps rear-delts
+lat-pulldown: max-strength | lats | biceps upper-back
+chin-up: max-strength | lats biceps | forearms
+seated-cable-row: max-strength | upper-back lats | biceps rear-delts
+face-pull: injury-prevention | rear-delts rotator-cuff | upper-back
+towel-row: strength-endurance | upper-back forearms | biceps
+scap-pull-up: injury-prevention | upper-back | lats
+band-external-rotation: injury-prevention | rotator-cuff | rear-delts
+sleeper-stretch: mobility | rotator-cuff | rear-delts
+serratus-wall-slide: injury-prevention | serratus | upper-back
+prone-i-raise: injury-prevention | upper-back | rear-delts
+dumbbell-curl: hypertrophy | biceps | forearms
+triceps-extension-band: hypertrophy | triceps | forearms
+dead-hang: strength-endurance | forearms | lats
+suitcase-carry: stability | obliques lower-back forearms | glute-med
+overhead-carry: stability | side-delts traps serratus | abs
+plate-pinch: strength-endurance | forearms | -
+wrist-roller: strength-endurance | forearms | biceps
+band-wrist-extension: injury-prevention | forearms | -
+dead-bug: stability | abs | hip-flexors
+bird-dog: stability | lower-back glutes | abs
+side-plank: stability | obliques lower-back | glute-med
+hollow-hold: stability | abs | hip-flexors
+ab-wheel-rollout: stability | abs | lats serratus
+half-kneeling-chop: stability | obliques | glutes
+hanging-knee-raise: stability | abs hip-flexors | forearms
+stir-the-pot: stability | abs obliques | serratus
+back-extension: strength-endurance | lower-back | glutes hamstrings
+superman-hold: stability | lower-back | glutes upper-back
+copenhagen-plank: injury-prevention | adductors | obliques glute-med
+adductor-squeeze: injury-prevention | adductors | abs
+tibialis-raise: injury-prevention | shins | calves
+standing-calf-raise: injury-prevention | calves | feet
+bent-knee-calf-raise: injury-prevention | calves | -
+ankle-alphabet: mobility | shins calves | feet
+short-foot-drill: stability | feet | shins
+towel-toe-curls: injury-prevention | feet | -
+single-leg-balance-eyes-closed: stability | calves glute-med feet | -
+star-excursion-reach: stability | glute-med | quads calves
+lateral-band-walk: injury-prevention | glute-med | hip-flexors
+clamshell: injury-prevention | glute-med | glutes
+reverse-nordic: injury-prevention | quads | hip-flexors
+neck-isometrics: injury-prevention | neck | traps
+band-neck-extension: injury-prevention | neck | traps
+chin-tuck: recovery | neck | -
+worlds-greatest-stretch: mobility | hip-flexors adductors | obliques hamstrings
+couch-stretch: mobility | quads hip-flexors | -
+deep-squat-hold: mobility | adductors | glutes calves
+pigeon-stretch: mobility | glutes | glute-med
+hamstring-floss: mobility | hamstrings | calves
+thoracic-open-book: mobility | obliques chest | upper-back
+cat-camel: recovery | lower-back | abs
+ankle-knee-to-wall: mobility | calves | shins
+foam-roll-quads-calves: recovery | quads calves | -
+hip-circles-standing: mobility | hip-flexors glute-med | adductors
+shoulder-dislocates-band: mobility | front-delts chest | upper-back
+bike-intervals: aerobic/mixed | quads glutes | calves
+easy-bike-ride: aerobic/aerobic | quads | glutes calves
+burpee: anaerobic/glycolytic | quads chest glutes | triceps abs
+mountain-climbers: anaerobic/glycolytic | hip-flexors abs | front-delts
+30-15-intermittent-run: aerobic/mixed | calves hamstrings quads | glutes
+fartlek-run: aerobic/aerobic | calves quads hamstrings | glutes
+sled-drag-backward: aerobic/aerobic | quads | calves glutes
+battle-rope-waves: anaerobic/glycolytic | front-delts forearms | abs side-delts
+stair-runs: anaerobic/glycolytic | glutes quads | calves
+rowing-machine-intervals: aerobic/mixed | lats quads | lower-back glutes biceps
+hang-power-clean: strength-speed/alactic | glutes traps quads | hamstrings lower-back calves
+clean-pull-dumbbell: speed-strength/alactic | traps glutes | side-delts hamstrings
+push-press: strength-speed/alactic | front-delts triceps | quads glutes abs
+barbell-bent-over-row: max-strength | lats upper-back | lower-back biceps
+barbell-deadlift: max-strength | glutes hamstrings lower-back | quads forearms traps
+barbell-overhead-squat-pvc: mobility | upper-back front-delts | glutes quads
+lateral-box-jump: speed-strength/alactic | glute-med quads | calves
+single-leg-box-jump: speed-strength/alactic | glutes quads calves | glute-med
+triple-broad-jump: speed-strength/alactic | glutes quads calves | hamstrings
+medball-overhead-backward-toss: speed-strength/alactic | glutes lower-back | front-delts hamstrings
+medball-side-toss-lateral-step: speed-strength/alactic | obliques glute-med | glutes
+dumbbell-snatch-single-arm: speed-strength/alactic | glutes traps side-delts | hamstrings
+repeat-shuttle-10m: repeated-sprint/mixed | quads glutes calves | adductors
+tempo-200s: aerobic/aerobic | calves hamstrings | glutes
+long-easy-run: aerobic/aerobic | calves | quads
+box-step-over-conditioning: aerobic/mixed | glutes quads | calves
+goblet-lateral-squat: max-strength | adductors glutes quads | -
+split-squat-bottom-hold: strength-endurance | quads glutes | hip-flexors
+kickstand-rdl: max-strength | hamstrings glutes | glute-med
+inverted-row-feet-elevated: max-strength | upper-back lats | biceps
+push-up-plus: injury-prevention | serratus | chest triceps
+bear-crawl-forward: stability | front-delts abs | quads
+turkish-get-up: stability | front-delts obliques | glutes
+pallof-hold-split-stance: stability | obliques | abs
+farmers-march: stability | forearms hip-flexors glute-med | -
+nordic-assisted-band: injury-prevention | hamstrings | -
+hip-airplane: stability | glute-med | glutes
+lateral-hop-to-stick: deceleration/alactic | glute-med calves | quads
+drop-squat: deceleration/alactic | quads glutes | -
+sprint-arm-drill: max-velocity/alactic | front-delts rear-delts | lats
+curtsy-lunge: max-strength | glute-med glutes | adductors quads
+dumbbell-incline-press: max-strength | chest front-delts | triceps
+reverse-fly-dumbbell: injury-prevention | rear-delts | upper-back
+breathing-90-90: recovery | abs | -
+`;
+
+function parseTrains() {
+  const out = new Map();
+  for (const line of TRAINS.trim().split('\n')) {
+    const [slug, rest] = line.split(':');
+    const [head, primary, secondary] = rest.split('|').map((part) => part.trim());
+    const [quality, energy] = head.split('/');
+    const words = (text) => (text === '-' ? [] : text.split(/\s+/).filter(Boolean));
+    out.set(slug.trim(), {
+      quality,
+      energy: energy ?? DEFAULT_ENERGY[quality],
+      muscles: { primary: words(primary), secondary: words(secondary) },
+    });
+  }
+  return out;
+}
+
+export const HAND_TRAINS = parseTrains();
+
+/** Item quality → the physical quality it trains (drills and untagged items). */
+const QUALITY_TRAINS = {
+  acceleration: 'acceleration', 'max-velocity': 'max-velocity', 'change-of-direction': 'change-of-direction',
+  'lateral-power': 'change-of-direction', deceleration: 'deceleration', 'landing-mechanics': 'deceleration',
+  'vertical-power': 'speed-strength', 'horizontal-power': 'speed-strength', 'rotational-power': 'speed-strength',
+  'overhead-power': 'speed-strength', 'reactive-strength': 'reactive', 'ankle-stiffness': 'reactive',
+  'lower-body-strength': 'max-strength', 'upper-body-push': 'max-strength', 'upper-body-pull': 'max-strength',
+  'trunk-anti-rotation': 'stability', 'single-leg-stability': 'stability', grip: 'strength-endurance',
+  'aerobic-base': 'aerobic', 'anaerobic-capacity': 'anaerobic', 'repeat-sprint': 'repeated-sprint',
+  'hip-mobility': 'mobility', 'shoulder-stability': 'injury-prevention',
+};
+
+/**
+ * Primary and secondary muscles from an item's own weighted map: ≥ 0.7 is a
+ * main mover, 0.4–0.7 helps; at least one primary.
+ */
+export function focusFromMuscles(muscles = {}) {
+  const best = new Map();
+  for (const [slug, weight] of Object.entries(muscles)) {
+    const focus = focusOf(slug);
+    if (focus) best.set(focus, Math.max(best.get(focus) ?? 0, weight));
+  }
+  const ranked = [...best.entries()].sort((a, b) => b[1] - a[1] || FOCUS_NAMES.indexOf(a[0]) - FOCUS_NAMES.indexOf(b[0]));
+  let primary = ranked.filter(([, w]) => w >= 0.7).map(([f]) => f).slice(0, 3);
+  if (primary.length === 0 && ranked.length) primary = [ranked[0][0]];
+  const secondary = ranked.filter(([f, w]) => !primary.includes(f) && w >= 0.4).map(([f]) => f).slice(0, 3);
+  return { primary, secondary };
+}
+
+/** What an item trains when it has no hand row: from its qualities and muscles. */
+function derivedTrains(item, profile) {
+  const top = Object.entries(item.qualities ?? {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+  let quality = QUALITY_TRAINS[top] ?? 'stability';
+  if (profile.conditioning) {
+    quality = { 'aerobic-base': 'aerobic', 'aerobic-power': 'aerobic', tempo: 'aerobic', 'repeated-sprint': 'repeated-sprint', anaerobic: 'anaerobic' }[profile.conditioning.type] ?? quality;
+  }
+  return { quality, energy: DEFAULT_ENERGY[quality], muscles: focusFromMuscles(item.muscles) };
+}
+
+function withTrains(item, profile) {
+  const own = HAND_TRAINS.get(item.slug) ?? (item.baseSlug ? HAND_TRAINS.get(item.baseSlug) : undefined);
+  const trains = own ?? derivedTrains(item, profile);
+  const out = { ...profile, quality: trains.quality, muscles: trains.muscles };
+  if (trains.energy) out.energy = trains.energy;
+  // An explosive tempo variant trains speed-strength, whatever its base is for.
+  if (item.variant?.tempo === 'explosive' && ['max-strength', 'hypertrophy', 'strength-endurance'].includes(out.quality)) {
+    out.quality = 'speed-strength';
+    out.energy = 'alactic';
+  }
+  return out;
+}
+
 export const PATTERNS = ['squat', 'hinge', 'push', 'pull', 'carry', 'rotation', 'anti-rotation', 'unilateral-lower', 'jump', 'throw', 'sprint',
   'deceleration', 'change-of-direction', 'locomotion', 'conditioning', 'mobility', 'isolation', 'balance', 'breathing', 'skill'];
 export const ROLES = ['prep', 'power', 'speed', 'primary', 'secondary', 'accessory', 'trunk', 'conditioning', 'mobility', 'recovery', 'skill'];
@@ -287,6 +629,10 @@ const POWER_Q = ['vertical-power', 'horizontal-power', 'rotational-power', 'over
  * a tempo variant costs a little more, a unilateral one stays the same.
  */
 export function profileFor(item) {
+  return withTrains(item, planProfile(item));
+}
+
+function planProfile(item) {
   const own = HAND_PROFILES.get(item.slug);
   if (own) return own;
   if (item.baseSlug && HAND_PROFILES.has(item.baseSlug)) {

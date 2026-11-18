@@ -243,7 +243,13 @@ struct LibraryRow: View {
                 Text("\(item.kind == "drill" ? "Drill" : "Exercise") · \(DoseFormatter.text(item.defaultDose))")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
-                if let quality = item.primaryQuality {
+                if item.profile != nil {
+                    // What it trains: "Power · glutes, quads".
+                    Text(item.planProfile.trainsLabel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AuraTone.training.mark)
+                        .lineLimit(1)
+                } else if let quality = item.primaryQuality {
                     Tag(quality.shortName, color: quality.group.color)
                 }
             }
@@ -461,6 +467,8 @@ struct ItemDetailView: View {
                     }
                 }
 
+                if item.profile != nil { trainsCard }
+
                 StartWorkoutButton("Try it now", session: .single(item))
 
                 VStack(spacing: 12) {
@@ -514,6 +522,38 @@ struct ItemDetailView: View {
         .appScreen()
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { libraryOpened = true }
+    }
+
+    /// What it trains, big and short: the quality, the main muscles, and how
+    /// that quality is trained (docs/TRAINING-RESEARCH.md §2–§3).
+    private var trainsCard: some View {
+        let profile = item.planProfile
+        let main = profile.primaryMuscles.map(FocusMuscle.title)
+        let helps = profile.secondaryMuscles.map(FocusMuscle.title)
+        return AuraCard(.training, focus: UnitPoint(x: 0.2, y: 0.3), radius: 170, padding: 20) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Trains")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                Headline(main.isEmpty ? [.strong(profile.trains.title)]
+                         : [.strong(profile.trains.title), .soft(" for your "), .strong(PlanExplanation.list(main))], size: 26)
+                    .accessibilityRemoveTraits(.isHeader)
+                Text(profile.trains.howItsTrained)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.ink.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                let helpLine: String? = helps.isEmpty ? nil : "Helps: \(helps.joined(separator: ", "))"
+                let energyLine: String? = profile.energySystem.map { "Energy: \($0.title.lowercased())" }
+                let extras: [String] = [helpLine, energyLine].compactMap { $0 }
+                if !extras.isEmpty {
+                    Text(extras.joined(separator: " · "))
+                        .font(.telemetry(12))
+                        .foregroundStyle(AppTheme.ink.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func factCard(_ value: String, _ label: String, _ icon: String) -> some View {

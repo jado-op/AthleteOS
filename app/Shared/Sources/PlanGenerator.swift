@@ -101,6 +101,9 @@ public struct GeneratedPlannedItem: Sendable, Equatable {
     public let quality: String
     /// V6: which part of the session it belongs to.
     public var block: SessionBlock? = nil
+    /// How hard each set should feel, in words (reps in reserve, intent) —
+    /// docs/TRAINING-RESEARCH.md §3. Nil for items from older builders.
+    public var effort: String? = nil
 }
 
 public enum PlanGenerator {

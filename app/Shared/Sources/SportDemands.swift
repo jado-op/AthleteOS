@@ -251,3 +251,96 @@ public enum SportDemandsTable {
         return out
     }
 }
+
+/// The injuries a sport is known for that a few minutes of the right exercise
+/// measurably prevent (docs/TRAINING-RESEARCH.md §5). Each risk names the
+/// exercise groups with the evidence behind them; the builder adds one per
+/// session where the sport carries the risk.
+public enum InjuryRisk: String, CaseIterable, Codable, Sendable {
+    /// High-speed running: Nordic hamstring curls (van Dyk 2019; van der Horst 2015).
+    case hamstring
+    /// Kicking, skating, cutting: Copenhagen adductor work (Harøy 2019).
+    case groin
+    /// Landing and cutting (ACL): landing and braking control (Petushek 2019).
+    case knee
+    /// Throwing and hitting overhead: rotator cuff and shoulder blade (Andersson 2017).
+    case shoulder
+    /// Landing on someone's foot, uneven ground: balance and ankle strength (Lauersen 2014).
+    case ankle
+
+    /// Exercise groups that address it, best first.
+    public var groups: [String] {
+        switch self {
+        case .hamstring: ["hamstring-eccentric"]
+        case .groin: ["hip-adductor"]
+        case .knee: ["landing", "decel", "knee-isometric"]
+        case .shoulder: ["shoulder-health"]
+        case .ankle: ["balance", "calf-ankle"]
+        }
+    }
+
+    /// Why it's in the session, in a coach's words.
+    public var why: String {
+        switch self {
+        case .hamstring: "Nordic-style hamstring work: programmes that include it see about half the hamstring injuries."
+        case .groin: "Adductor strength for the groin: a few sets a week lowered groin problems in football by about 40%."
+        case .knee: "Landing and braking with control — the core of programmes that halve knee ligament injuries in young athletes."
+        case .shoulder: "Rotator cuff and shoulder-blade strength: the warm-up that cut shoulder problems in throwing athletes."
+        case .ankle: "Balance and ankle strength: in trials, balance training cut sports injuries almost in half."
+        }
+    }
+}
+
+public enum InjuryPrevention {
+    // slug: risks, most important first.
+    private static let table: [String: [InjuryRisk]] = [
+        "soccer": [.hamstring, .groin, .knee, .ankle],
+        "football": [.hamstring, .shoulder, .knee],
+        "flag-football": [.hamstring, .groin],
+        "rugby": [.hamstring, .shoulder, .groin],
+        "field-hockey": [.hamstring, .groin, .knee],
+        "lacrosse": [.hamstring, .groin, .knee],
+        "ultimate": [.hamstring, .knee, .ankle],
+        "track-and-field": [.hamstring, .ankle],
+        "indoor-track-and-field": [.hamstring, .ankle],
+        "ice-hockey": [.groin, .hamstring],
+        "basketball": [.knee, .ankle],
+        "volleyball": [.knee, .shoulder, .ankle],
+        "netball": [.knee, .ankle],
+        "team-handball": [.shoulder, .knee, .ankle],
+        "baseball": [.shoulder, .hamstring],
+        "softball": [.shoulder, .hamstring],
+        "tennis": [.shoulder, .ankle],
+        "badminton": [.knee, .shoulder, .ankle],
+        "squash": [.knee, .ankle],
+        "racquetball": [.knee, .shoulder],
+        "pickleball": [.knee, .ankle],
+        "water-polo": [.shoulder],
+        "swimming-diving": [.shoulder],
+        "gymnastics": [.knee, .ankle, .shoulder],
+        "competitive-spirit": [.knee, .ankle, .shoulder],
+        "competitive-dance": [.ankle, .knee],
+        "step-team": [.knee, .ankle],
+        "skiing": [.knee],
+        "snowboarding": [.knee, .ankle],
+        "climbing": [.shoulder],
+        "wrestling": [.shoulder, .knee],
+        "judo": [.shoulder, .knee],
+        "fencing": [.knee, .ankle],
+        "cross-country": [.ankle],
+        "orienteering": [.ankle],
+        "unified-sports": [.knee, .ankle],
+        "spikeball": [.knee, .ankle],
+    ]
+
+    /// The sport's preventable risks, most important first; a sport not in the
+    /// table that sprints a lot still gets the hamstring work.
+    public static func risks(sport: String?, demands: SportDemands?) -> [InjuryRisk] {
+        if let sport, let known = table[sport] { return known }
+        guard let demands else { return [] }
+        var out: [InjuryRisk] = []
+        if (demands.weights[.speed] ?? 0) >= 0.6 || (demands.weights[.acceleration] ?? 0) >= 0.7 { out.append(.hamstring) }
+        if (demands.weights[.deceleration] ?? 0) >= 0.6 || (demands.weights[.coordination] ?? 0) >= 0.7 { out.append(.knee) }
+        return out
+    }
+}

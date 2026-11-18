@@ -171,6 +171,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   and caches sessions; Home, Workout, week plan, Watch and widgets all use it.
 - Exercise profiles are authored in `content/src/profiles.js` (hand table for every base
   exercise) and shipped in the packs.
+- Evidence base (2026-11-18): `docs/TRAINING-RESEARCH.md` — every engine rule maps to a verified
+  source ("Rules the engine now follows"). Profiles carry `quality`, `energy`, `muscles` (coach muscle
+  words over the anatomical list); `TrainingStage` (foundation / development / performance), effort
+  by reps in reserve (never to failure), landing caps, `InjuryPrevention` per sport, pull ≥ push,
+  strength before running. Workout tab shows what each exercise trains; "Exercises by muscle" sheet.
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 
