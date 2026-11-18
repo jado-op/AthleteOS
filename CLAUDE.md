@@ -155,6 +155,14 @@ Reading files, CI logs or the GitHub API needs no lock.
 - **Always build TestFlight** (owner, 2026-09-27): after every push that goes green in
   `check.yml`, dispatch `testflight.yml` on master and watch it to a real upload; then
   carry on without waiting.
+- **One TestFlight build at a time, from one session** (owner, 2026-11-18; two sessions
+  once dispatched the same build in the same second). Only the session whose commit is the
+  **newest code commit** on master dispatches (`work-lock:` commits don't count). If the
+  other session pushed code after yours, don't dispatch: its green run covers your commit
+  too, and it builds. Right before dispatching, list `testflight.yml` runs: if one is
+  queued or in progress, or one was created after that newest code commit, don't dispatch;
+  watch that one instead. A duplicate you started by mistake: cancel your own run, never
+  the other session's.
 - "UPLOAD SUCCEEDED" ≠ in TestFlight. Apple can process for an hour; check with
   `asc-inspect.yml` ("Recent uploads": PROCESSING / COMPLETE / FAILED) before diagnosing.
 - CI is the only compiler for the app (~8 min per round), except the Foundation-only
