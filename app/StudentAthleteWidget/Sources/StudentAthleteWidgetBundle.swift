@@ -17,7 +17,7 @@ struct WorkoutLiveActivity: Widget {
         ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(context.attributes.title.uppercased())
+                    Text(context.attributes.title)
                         .font(.caption2.bold())
                         .foregroundStyle(.secondary)
                     Text(context.state.exercise)
@@ -148,15 +148,21 @@ struct TodayWidgetView: View {
 
     private var headline: String {
         guard let snapshot else { return "Open to plan today" }
-        if snapshot.isGameDay { return "Game day" }
+        if snapshot.isGameDay { return "\(event) day" }
+        if snapshot.doneToday == true { return "Done for today" }
         return snapshot.sessionTitle ?? "Rest day"
     }
 
     private var bigNumber: String {
         guard let snapshot else { return "—" }
-        if snapshot.isGameDay { return "Game" }
+        if snapshot.isGameDay { return event }
+        if snapshot.doneToday == true { return "Done" }
         return snapshot.sessionMinutes.map { "\($0)" } ?? "Rest"
     }
+
+    private var event: String { snapshot?.eventWord ?? "Game" }
+
+    private func countdown(_ days: Int) -> String { days == 0 ? "\(event) today" : "\(event) in \(days)d" }
 
     private var weekProgress: Double {
         guard let snapshot, snapshot.plannedThisWeek > 0 else { return 0 }
@@ -173,7 +179,7 @@ struct TodayWidgetView: View {
     private var small: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("TODAY")
+                Text("Today")
                     .font(.caption2.bold())
                     .foregroundStyle(WidgetInk.muted)
                 Spacer()
@@ -186,13 +192,13 @@ struct TodayWidgetView: View {
                 .font(.system(size: 38, weight: .bold))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            Text(snapshot?.sessionMinutes != nil ? "min · \(headline)" : headline)
+            Text(snapshot?.sessionMinutes != nil && snapshot?.doneToday != true && snapshot?.isGameDay != true ? "min · \(headline)" : headline)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WidgetInk.muted)
                 .lineLimit(2)
             if let next = snapshot?.nextGameDate {
                 let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: next)).day ?? 0
-                Text(days == 0 ? "Game today" : "Game in \(days)d")
+                Text(countdown(days))
                     .font(.caption2.bold())
                     .foregroundStyle(WidgetInk.red)
             }
@@ -202,7 +208,7 @@ struct TodayWidgetView: View {
     private var medium: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(snapshot?.sportName.uppercased() ?? "STUDENT ATHLETE")
+                Text(snapshot?.sportName ?? "AthleteOS")
                     .font(.caption2.bold())
                     .foregroundStyle(WidgetInk.muted)
                 Text(bigNumber)
@@ -218,7 +224,7 @@ struct TodayWidgetView: View {
                         Label(readinessWord, systemImage: snapshot.checkedIn ? "checkmark.circle.fill" : "sun.max.fill")
                         if let next = snapshot.nextGameDate {
                             let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: next)).day ?? 0
-                            Label(days == 0 ? "Game today" : "Game in \(days)d", systemImage: "sportscourt.fill")
+                            Label(countdown(days), systemImage: "sportscourt.fill")
                                 .foregroundStyle(WidgetInk.red)
                         }
                     }

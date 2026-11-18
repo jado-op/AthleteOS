@@ -114,8 +114,8 @@ struct AppTourView: View {
     static let pages: [Page] = [
         Page(icon: "house.fill", color: AppTheme.ink, tab: "Home",
              title: "Your day at a glance",
-             body: "Home is your day: the morning check-in, today's readiness, what's on today and why. Want more on it? Add widgets with Edit Home.",
-             steps: ["Check in each morning — 30 seconds", "Start today's training from TODAY", "Edit Home (at the bottom) to add widgets"]),
+             body: "Home is your day: the morning check-in, today's readiness, the one next step, and why. Tell AthleteOS what's coming up in your own words, and the trophy opens your competitions.",
+             steps: ["Check in each morning — 30 seconds", "Do the next step at the top", "Type \u{201C}match on Saturday\u{201D} into Tell AthleteOS"]),
         Page(icon: "figure.stand.line.dotted.figure.stand", color: AppTheme.brightRed, tab: "Academy",
              title: "Your digital twin",
              body: "Your twin reads your check-ins, training, games and tests, and an interview about how you think. It shows what's really going on, holds your best performances, and your coach assigns a briefing for each thing it finds. Switch to Progress for your calendar, practice log and history. Only you can see it.",
@@ -126,8 +126,8 @@ struct AppTourView: View {
              steps: ["The one for today is marked", "See it, then press Start", "Change it: swap, add or remove exercises, pick your days"]),
         Page(icon: "person.fill", color: AppTheme.purple, tab: "Me",
              title: "You, your goals and settings",
-             body: "Me opens from the round button at the top left of every tab. Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, tests, team & family, reminders and your account live here too.",
-             steps: ["Me → My Development Goals", "Progress → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
+             body: "Me opens from the round button at the top left of every tab. Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, team & family, reminders and your account live here too.",
+             steps: ["Me → My Development Goals", "Academy → Performances → Run a test every 6–8 weeks", "Replay this tour any time in Me → Help"]),
     ]
 
     var body: some View {

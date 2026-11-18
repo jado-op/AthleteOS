@@ -34,7 +34,9 @@ final class WatchSessionModel {
         self.value = items.first?.targetValue ?? 8
     }
 
-    var current: WatchPlanItem? { items.indices.contains(index) ? items[index] : nil }
+    /// Nil once every set is logged (the "All done" page).
+    var current: WatchPlanItem? { !allDone && items.indices.contains(index) ? items[index] : nil }
+    var allDone: Bool { !items.isEmpty && items.indices.allSatisfy { setsLogged[$0] >= items[$0].sets } }
 
     var totalSets: Int { max(items.reduce(0) { $0 + $1.sets }, 1) }
     var loggedSets: Int { setsLogged.reduce(0, +) }
@@ -68,11 +70,12 @@ final class WatchSessionModel {
 
         let finishedItem = setIndex + 1 >= current.sets
         let rest = current.restSec
-        if finishedItem, index < items.count - 1 {
-            index += 1
-            value = items[index].targetValue
+        if finishedItem, let nextOpen = items.indices.first(where: { setsLogged[$0] < items[$0].sets }) {
+            index = nextOpen
+            value = items[nextOpen].targetValue
         }
-        startRest(rest)
+        // Every set done: no rest, the done page shows Finish.
+        if !allDone { startRest(rest) }
     }
 
     private func startRest(_ seconds: Int) {
@@ -247,9 +250,9 @@ struct WatchCurrentItemPage: View {
                     .foregroundStyle(.green)
                 Text("All done")
                     .font(.headline)
-                Text("Scroll down to finish.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Button("Finish") { model.isFinishing = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.brand)
             }
         }
     }
@@ -368,6 +371,11 @@ struct WatchRPEView: View {
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.brand)
             .foregroundStyle(.white)
+            // Ended by mistake: back to the session.
+            if !model.allDone {
+                Button("Keep training") { model.isFinishing = false }
+                    .font(.caption)
+            }
         }
     }
 }

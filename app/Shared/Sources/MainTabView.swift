@@ -250,6 +250,9 @@ public struct MainTabView: View {
         backingUp = true
         defer { backingUp = false }
         SessionLogger(modelContext: modelContext).removeAbandoned()
+        #if canImport(ActivityKit) && os(iOS) && !APP_EXTENSION
+        if scenePhase == .active, liveFromLink == nil { WorkoutActivity.endLeftovers() }
+        #endif
         #if os(iOS) && !APP_EXTENSION
         // Leaving the app: ask iOS for the few seconds the upload needs.
         let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "backup")

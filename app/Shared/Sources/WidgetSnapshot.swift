@@ -19,6 +19,10 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public var streak: Int
     public var sessionsThisWeek: Int
     public var plannedThisWeek: Int
+    /// The athlete's word for a competition ("Match", "Race"); nil in older snapshots.
+    public var eventWord: String?
+    /// Today's session is already done.
+    public var doneToday: Bool?
 
     public init(
         day: Date, sportName: String, sessionTitle: String?, sessionMinutes: Int?, exerciseCount: Int,
@@ -85,6 +89,9 @@ enum WidgetSnapshotWriter {
             sessionsThisWeek: sessionsThisWeek,
             plannedThisWeek: week?.sessions.count ?? 0
         )
+        var snapshot = snapshot
+        snapshot.eventWord = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"]
+        snapshot.doneToday = athlete.sessions.contains { calendar.isDateInToday($0.startedAt) && $0.endedAt != nil }
         guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)
         #if canImport(WidgetKit)

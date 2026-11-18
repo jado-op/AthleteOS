@@ -38,11 +38,20 @@ enum WorkoutActivity {
 
     static func show(title: String, state: WorkoutActivityAttributes.ContentState) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let content = ActivityContent(state: state, staleDate: nil)
+        // Goes grey on the Lock Screen if nothing updates it for two hours.
+        let content = ActivityContent(state: state, staleDate: Date.now.addingTimeInterval(2 * 3600))
         if let current {
             Task { await current.update(content) }
         } else {
             current = try? Activity.request(attributes: WorkoutActivityAttributes(title: title), content: content, pushType: nil)
+        }
+    }
+
+    /// At launch: a workout left on the Lock Screen by a crash or force-quit goes.
+    static func endLeftovers() {
+        guard current == nil else { return }
+        for activity in Activity<WorkoutActivityAttributes>.activities {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
     }
 

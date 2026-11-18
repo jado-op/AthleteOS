@@ -3,6 +3,9 @@ import SwiftUI
 #if os(iOS)
 import UIKit
 #endif
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 
 /// §15: "The live session screen gets the most attention after Today:
 /// current item with its pose animation and muscle map, prefilled targets
@@ -37,6 +40,9 @@ public struct LiveSessionView: View {
     @State private var contacts = 10
     @State private var restRemaining = 0
     @State private var restTotal = 0
+    /// When the rest ends — the clock follows this, so a locked phone doesn't pause it.
+    @State private var restEndsAt: Date?
+    @Environment(\.scenePhase) private var scenePhase
     @State private var restTask: Task<Void, Never>?
     @State private var showingCues = false
     @State private var showingPicker = false
@@ -48,6 +54,8 @@ public struct LiveSessionView: View {
     @State private var startedAt = Date.now
     /// Why today's target differs from last time (progressive overload).
     @State private var targetNote: String?
+    /// "Last time: 3 × 8 · 40 kg" — what this exercise was the last time.
+    @State private var lastTimeNote: String?
     /// "New best: 45 kg" after a set heavier than ever before.
     @State private var bestNote: String?
     @State private var bestCount = 0
@@ -125,6 +133,10 @@ public struct LiveSessionView: View {
         .sensoryFeedback(.success, trigger: loggedCount)
         .sensoryFeedback(.warning, trigger: restEndedCount)
         .task { await start() }
+        // Locked or left during a rest: one alert when it's over (none while watching).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { RestAlarm.cancel() } else if restRemaining > 0 { RestAlarm.schedule(at: restEndsAt) }
+        }
         .onDisappear {
             restTask?.cancel()
             setIdleTimerDisabled(false)
@@ -135,12 +147,14 @@ public struct LiveSessionView: View {
             }
         }
         .sheet(isPresented: $showingRPE) {
-            RPEPromptView(rpe: $rpe, heartRate: heartRate) { finish() }
+            RPEPromptView(rpe: $rpe, heartRate: heartRate, onKeepTraining: { showingRPE = false }) { finish() }
                 .task {
                     guard let session else { return }
+                    let asked = rpe
                     heartRate = await HealthKitManager.shared.heartRate(from: session.startedAt, to: .now)
-                    // A watch saw the effort: start the question from there.
-                    if let heartRate {
+                    // A watch saw the effort: start the question from there — unless
+                    // the athlete already picked a number.
+                    if let heartRate, rpe == asked {
                         rpe = WearableLoad.effort(averageHeartRate: Double(heartRate.average), minutes: Int(Date.now.timeIntervalSince(session.startedAt) / 60),
                                                   age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now))
                     }
@@ -248,6 +262,11 @@ public struct LiveSessionView: View {
                     .foregroundStyle(AppTheme.amber)
                     .sensoryFeedback(.success, trigger: bestCount)
             }
+            if let lastTimeNote, done == 0 {
+                Text(lastTimeNote)
+                    .font(.telemetry(12))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
             if let targetNote, done == 0 {
                 Label(targetNote, systemImage: "arrow.up.right")
                     .font(.footnote)
@@ -327,8 +346,10 @@ public struct LiveSessionView: View {
             .frame(width: 180, height: 180)
             ButtonRow {
                 Button("+15s") {
+                    restEndsAt = (restEndsAt ?? .now).addingTimeInterval(15)
                     restRemaining += 15
                     restTotal += 15
+                    updateActivity()
                 }
                 .buttonStyle(.secondary)
                 Button("Skip rest") { endRest(silently: true) }
@@ -491,7 +512,7 @@ public struct LiveSessionView: View {
         let state = WorkoutActivityAttributes.ContentState(
             exercise: currentItem?.name ?? displayName(forSlug: current.itemSlug),
             detail: restRemaining > 0 ? "Rest" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
-            restEndsAt: restRemaining > 0 ? Date.now.addingTimeInterval(Double(restRemaining)) : nil,
+            restEndsAt: restRemaining > 0 ? (restEndsAt ?? Date.now.addingTimeInterval(Double(restRemaining))) : nil,
             setsDone: totalLogged, setsTotal: totalTargetSets
         )
         WorkoutActivity.show(title: planned?.title ?? "Workout", state: state)
@@ -529,17 +550,27 @@ public struct LiveSessionView: View {
         let slug = current.itemSlug
         let descriptor = FetchDescriptor<SetLog>(predicate: #Predicate { $0.itemSlug == slug })
         let earlier = ((try? modelContext.fetch(descriptor)) ?? []).filter { $0.session?.id != session?.id }
-        let previous = earlier.max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }
+        // The last set of the most recent session (not any set of it).
+        let previous = earlier.max {
+            let a = $0.session?.startedAt ?? .distantPast, b = $1.session?.startedAt ?? .distantPast
+            return a == b ? $0.setIndex < $1.setIndex : a < b
+        }
+        let lastSession = previous?.session
+        let sameSession = earlier.filter { $0.session?.id == lastSession?.id && lastSession != nil }.sorted { $0.setIndex < $1.setIndex }
+        // A set logged without a weight (the Watch) never wipes the weight used before.
+        let lastWeight = earlier.filter { ($0.weightKg ?? 0) > 0 }
+            .max { ($0.session?.startedAt ?? .distantPast, $0.setIndex) < ($1.session?.startedAt ?? .distantPast, $1.setIndex) }?.weightKg
 
         reps = previous?.reps ?? current.dose.reps ?? 8
-        weightKg = previous?.weightKg ?? 0
+        weightKg = lastWeight ?? 0
+        lastTimeNote = Self.lastTime(sameSession, unit: unit)
         seconds = previous?.seconds ?? current.dose.seconds ?? 30
         distanceM = previous?.distanceM ?? current.dose.metres ?? 20
         contacts = previous?.contacts ?? current.dose.contacts ?? 10
         targetNote = nil
 
-        guard let lastSession = previous?.session else { return }
-        let lastSets = earlier.filter { $0.session?.id == lastSession.id }
+        guard let lastSession else { return }
+        let lastSets = sameSession
             .map { LoggedSet(reps: $0.reps, weightKg: $0.weightKg, seconds: $0.seconds) }
         let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now)
         let calendar = Calendar.current
@@ -598,17 +629,38 @@ public struct LiveSessionView: View {
         }
     }
 
+    /// "Last time: 3 × 8 · 40 kg", "Last time: 3 × 30 s".
+    static func lastTime(_ sets: [SetLog], unit: WeightUnit) -> String? {
+        guard let first = sets.first else { return nil }
+        var text = "Last time: \(sets.count) × "
+        if let reps = first.reps { text += "\(reps)" } else if let seconds = first.seconds { text += "\(seconds) s" }
+        else if let metres = first.distanceM { text += "\(Int(metres)) m" } else if let contacts = first.contacts { text += "\(contacts)" } else { return nil }
+        if let top = sets.compactMap(\.weightKg).filter({ $0 > 0 }).max() { text += " · " + unit.format(kg: top) }
+        return text
+    }
+
     private func startRest(_ duration: Int) {
         restTask?.cancel()
-        restTotal = max(duration, 1)
+        // No rest to take (conditioning intervals) or nothing left to do.
+        guard duration > 0, !allDone else {
+            restRemaining = 0
+            restEndsAt = nil
+            updateActivity()
+            return
+        }
+        restTotal = duration
         restRemaining = duration
+        restEndsAt = Date.now.addingTimeInterval(Double(duration))
         updateActivity()
         restTask = Task {
-            while restRemaining > 0 {
-                try? await Task.sleep(for: .seconds(1))
+            for _ in 0..<3600 {
+                try? await Task.sleep(for: .milliseconds(500))
                 if Task.isCancelled { return }
-                restRemaining -= 1
+                // From the end time: right again the moment the phone is unlocked.
+                restRemaining = max(0, Int(ceil((restEndsAt ?? .now).timeIntervalSinceNow)))
+                if restRemaining == 0 { break }
             }
+            restEndsAt = nil
             restEndedCount += 1
             updateActivity()
         }
@@ -617,7 +669,10 @@ public struct LiveSessionView: View {
     private func endRest(silently: Bool) {
         restTask?.cancel()
         restRemaining = 0
+        restEndsAt = nil
+        RestAlarm.cancel()
         if !silently { restEndedCount += 1 }
+        updateActivity()
     }
 
     private func finish() {
@@ -777,6 +832,8 @@ struct ExercisePickerSheet: View {
 struct RPEPromptView: View {
     @Binding var rpe: Int
     var heartRate: HeartRateSummary? = nil
+    /// "Keep training": back to the workout (a mistaken Finish).
+    var onKeepTraining: (() -> Void)? = nil
     let onDone: () -> Void
 
     private func description(_ value: Int) -> String {
@@ -791,7 +848,7 @@ struct RPEPromptView: View {
     }
 
     var body: some View {
-        StepScaffold(title: "How hard was that?", subtitle: "1 = very easy, 10 = the hardest you could do. It tells us how to plan your next days.", buttonTitle: "Save session", onContinue: onDone) {
+        StepScaffold(title: "How hard was that?", subtitle: "1 = very easy, 10 = the hardest you could do. It tells us how to plan your next days.", buttonTitle: "Save session", onBack: onKeepTraining, onContinue: onDone) {
             VStack(spacing: 18) {
                 if let heartRate {
                     Label("Heart rate \(heartRate.average) bpm on average, \(heartRate.max) at the top", systemImage: "heart.fill")
@@ -826,5 +883,31 @@ struct RPEPromptView: View {
                 }
             }
         }
+    }
+}
+
+/// A quiet alert when the rest is over and the phone is locked.
+enum RestAlarm {
+    static let identifier = "workout.rest-over"
+
+    static func schedule(at date: Date?) {
+        #if canImport(UserNotifications) && os(iOS)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        guard let date, date.timeIntervalSinceNow > 1 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Rest's over"
+        content.body = "Next set."
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: date.timeIntervalSinceNow, repeats: false)
+        center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+        #endif
+    }
+
+    static func cancel() {
+        #if canImport(UserNotifications) && os(iOS)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+        #endif
     }
 }

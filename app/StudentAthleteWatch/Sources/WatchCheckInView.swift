@@ -17,6 +17,8 @@ struct WatchCheckInView: View {
     @State private var measured: (hours: Double, sleep: Int, energy: Int)?
     @State private var loaded = false
     @State private var soreness: Int?
+    /// "Any pain? Yes": the safety line comes first, then Done.
+    @State private var reportedPain = false
 
     private let questions: [(title: String, low: String, high: String)] = [
         ("How did you sleep?", "Poorly", "Great"),
@@ -27,7 +29,9 @@ struct WatchCheckInView: View {
 
     var body: some View {
         Group {
-            if !loaded {
+            if reportedPain {
+                painAdvice
+            } else if !loaded {
                 ProgressView()
             } else if let measured {
                 twoTaps(measured)
@@ -77,9 +81,31 @@ struct WatchCheckInView: View {
         if pain {
             // Where it hurts is asked on the phone; the plan eases off now.
             PhoneWatchBridge.shared.sendToPhone(day: DayKey.of(.now), pain: true)
+            WKInterfaceDevice.current().play(.notification)
+            reportedPain = true
+            return
         }
         WKInterfaceDevice.current().play(.success)
         onDone()
+    }
+
+    /// Pain: never "train through it" (under-18 safety).
+    private var painAdvice: some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(AppTheme.danger)
+                Text("Go easy today")
+                    .font(.headline)
+                Text("Nothing that hurts. Sharp or getting worse: stop and get it checked — tell an adult or your trainer. Say where it hurts on your phone.")
+                    .font(.caption2)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button("Done") { onDone() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.brand)
+            }
+        }
     }
 
     private func load() async {

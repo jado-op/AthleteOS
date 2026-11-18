@@ -91,7 +91,7 @@ enum ComplicationState {
 
     var detail: String {
         switch self {
-        case .checkIn: "Four taps"
+        case .checkIn: "30 seconds"
         case .session(_, let minutes): "\(minutes) min planned"
         case .gameDay: "Warm-up only"
         case .countdown: "Stay sharp"
@@ -117,11 +117,6 @@ struct ComplicationView: View {
                 Text(state.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if let streak = entry.snapshot?.streak, streak > 0 {
-                    Text("\(streak)-day streak")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .accessoryCorner:

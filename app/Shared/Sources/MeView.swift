@@ -123,7 +123,8 @@ struct MeView: View {
                     SectionHeader("Health & safety")
                     menuCard {
                         menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
-                                detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
+                                detail: !HealthKitManager.shared.isAvailable ? "Unavailable"
+                                    : (UserDefaults.standard.bool(forKey: "healthPermissionAsked") ? "Set up" : "Connect")) { activeSheet = .health }
                         menuDivider
                         menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.danger, detail: "Pain, head injury, illness") { activeSheet = .safety }
                         menuDivider
