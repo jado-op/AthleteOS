@@ -111,7 +111,19 @@ Reading files, CI logs or the GitHub API needs no lock.
   Coach notes: free coaches one private note per athlete a week, Pro unlimited (owner, 2026-10-10;
   enforced server-side from `proUntil`).
 
-## Design (V7, owner 2026-11-18: "space", done smart — supersedes V5 where they differ)
+## Design (V8, owner 2026-11-18 — supersedes V7 and V5 where they differ)
+- Reference: big, short sentences with impact that carry the whole message, tap to dig
+  deeper (`Headline`: key words white, connecting words dimmed, inline SF Symbols);
+  vivid coloured cards where colour has a job (`AuraTone`: training ember, body/readiness
+  blue, mind/twin/reflection magenta, games green, calm dark) with the aura placed behind
+  the one number the eye should land on (`AuraCard`, `AuraBackground`, `MetricTile`);
+  big light numbers (`BigFigure`); black canvas; white primary button; floating pill tab
+  bar (`PillTabBar`). No decoration without a function. Pieces in `DesignV8.swift`.
+- Owner's inspiration: Dribbble "Veri Mobile – Smart Health Tracking" (aura cards,
+  tiles) and "Time Tracking & Productivity" (big sentence greeting, orange cards,
+  ring timer). Don't copy; make it more useful.
+
+## Design (V7, owner 2026-11-18: "space", done smart — superseded by V8)
 - Deep space, not decoration: `AppBackground` is a quiet seeded starfield (`Starfield`) with two
   faint nebulae, coloured by the time of day (`SkyPalette`: dawn plum/rose, day deep blue with dimmer stars,
   dusk violet with a warm edge, night near-black; always dark); no light-field glows, no sport geometry behind content (`SportAtmosphere` unused).
