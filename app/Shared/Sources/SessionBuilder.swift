@@ -493,7 +493,7 @@ private struct BuildState {
                 rest = rx.restSeconds
             }
         }
-        if let extra = extraSets[block] { dose.sets = min(dose.sets + extra, youth ? 3 : 4) }
+        if let extra = extraSets[block] { dose.sets = max(1, min(dose.sets + extra, youth ? 3 : 4)) }
         if youth, dose.kind == "reps" {
             dose.sets = min(max(dose.sets, 1), 3)
             if let reps = dose.reps { dose.reps = min(max(reps, block == .prep || block == .power ? 1 : 6), 15) }
@@ -529,7 +529,8 @@ private struct BuildState {
     mutating func fit() {
         let target = decision.durationTarget
         var guardCount = 0
-        while minutes(planned()) > target + 4, guardCount < 8 {
+        var trimmedHard = false
+        while minutes(planned()) > target + 4, guardCount < 16 {
             guardCount += 1
             if let i = picks.lastIndex(where: { $0.block == .cooldown }), picks.filter({ $0.block == .cooldown }).count > 1 { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .accessory }).count > 2, let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); continue }
@@ -537,8 +538,18 @@ private struct BuildState {
             if picks.filter({ $0.block == .prep }).count > 3, let i = picks.lastIndex(where: { $0.block == .prep }) { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .secondaryStrength }).count > 1, let i = picks.lastIndex(where: { $0.block == .secondaryStrength }) { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .accessory }).count > 1, let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); continue }
+            // Still too long for the time there is (a 20-minute day): fewer
+            // sets first, then the smaller strength work, then the fast work.
+            if extraSets[.secondaryStrength, default: 0] > -1, picks.contains(where: { $0.block == .secondaryStrength }) { extraSets[.secondaryStrength] = -1; trimmedHard = true; continue }
+            if extraSets[.primaryStrength, default: 0] > -1, picks.contains(where: { $0.block == .primaryStrength }) { extraSets[.primaryStrength] = -1; trimmedHard = true; continue }
+            if let i = picks.lastIndex(where: { $0.block == .secondaryStrength }) { picks.remove(at: i); trimmedHard = true; continue }
+            if let i = picks.lastIndex(where: { $0.block == .power }) { picks.remove(at: i); trimmedHard = true; continue }
+            if picks.filter({ $0.block == .prep }).count > 2, let i = picks.lastIndex(where: { $0.block == .prep }) { picks.remove(at: i); trimmedHard = true; continue }
+            if let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); trimmedHard = true; continue }
             break
         }
+        // Trimmed to fit: never grown back past the time.
+        if trimmedHard { return }
         grow()
     }
 

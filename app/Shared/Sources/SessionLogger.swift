@@ -40,14 +40,27 @@ public struct SessionLogger {
         return set
     }
 
-    /// Workouts opened and left without a single set (a crash, a force-quit):
-    /// gone after six hours, so they never count as training.
+    /// Workouts left open (a crash, a force-quit, a dead phone), after six
+    /// hours: without a set they're removed (never "training"); with sets
+    /// they're closed as they were, so the work counts and gets backed up.
     public func removeAbandoned(now: Date = .now) {
         let cutoff = now.addingTimeInterval(-6 * 3600)
         let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.endedAt == nil && $0.startedAt < cutoff })
         guard let open = try? modelContext.fetch(descriptor) else { return }
-        for session in open where session.sets.isEmpty { modelContext.delete(session) }
+        for session in open {
+            if session.sets.isEmpty { modelContext.delete(session) } else { try? close(session) }
+        }
         try? modelContext.save()
+    }
+
+    /// Closes an interrupted workout without the effort question: about three
+    /// minutes a set, at most 90 minutes.
+    public func close(_ session: Session) throws {
+        let minutes = min(90, max(5, session.sets.count * 3))
+        session.endedAt = session.startedAt.addingTimeInterval(Double(minutes) * 60)
+        session.minutes = minutes
+        session.syncedAt = nil
+        try modelContext.save()
     }
 
     /// §15: "It ends with the single RPE question and nothing else."

@@ -313,6 +313,7 @@ struct HomeView: View {
                             withAnimation { self.announcement = nil }
                         }
                     }
+                    if let open = unfinishedWorkout { resumeCard(open) }
                     if let lowEnergy, !lowEnergySnoozed {
                         LowEnergyCard(warning: lowEnergy) {
                             LowEnergyCheck.snoozeForAWeek()
@@ -467,7 +468,7 @@ struct HomeView: View {
                 }
             }
             .fullScreenCover(item: $liveLaunch) { launch in
-                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
+                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind, resuming: launch.resuming)
             }
             .sheet(item: $searchDestination, onDismiss: {
                 revision += 1
@@ -743,6 +744,41 @@ struct HomeView: View {
 
     /// Refreshed every minute and when the app comes back, so Home follows the day.
     private var phase: DayPhase { DayPhase.at(clock) }
+
+    /// A workout of today left open with sets in it (the app closed, the
+    /// phone died): carry on or finish it.
+    private var unfinishedWorkout: Session? {
+        _ = revision
+        guard liveLaunch == nil else { return nil }
+        return allSessions.first { calendar.isDateInToday($0.startedAt) && $0.endedAt == nil && !$0.sets.isEmpty }
+    }
+
+    private func resumeCard(_ open: Session) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Workout not finished")
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+            Text("Started \(open.startedAt.formatted(date: .omitted, time: .shortened)) · \(countedNoun(open.sets.count, "set")) logged")
+                .font(.telemetry(13))
+                .foregroundStyle(AppTheme.secondaryText)
+            ButtonRow {
+                Button {
+                    let logged = Set(open.sets.map(\.itemSlug))
+                    let plan = todaysWorkout.map(\.session).flatMap { logged.isSubset(of: Set($0.items.map(\.itemSlug))) ? $0 : nil }
+                    liveLaunch = LiveSessionLaunch(planned: plan, kind: SessionKinds.kind(of: open.clientId), resuming: open)
+                } label: { Text("Resume") }
+                .buttonStyle(.primary)
+                Button {
+                    try? SessionLogger(modelContext: modelContext).close(open)
+                    revision += 1
+                } label: { Text("Finish it") }
+                .buttonStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glassSurface()
+    }
 
     /// Today's real sessions: finished, or with at least one set (an open or
     /// abandoned workout isn't "training done").

@@ -255,4 +255,15 @@ final class WorkoutEngineTests: XCTestCase {
             XCTAssertTrue(PlanGenerator.isEligibleForEquipment(Self.catalogue.item(item.itemSlug)!, available: ["none"]), item.itemSlug)
         }
     }
+
+    // Limited time: the session really fits (fewer sets, then less work), and keeps the sport's drill.
+    func testATwentyMinuteDayFitsInTwentyMinutes() {
+        let short = TrainingDay(date: date, phase: .offSeason, age: 16, experience: .intermediate,
+                                demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["basketball"], position: nil),
+                                availableMinutes: 20, plannedGymDay: true)
+        let (decision, session) = build(short, sport: "basketball")
+        XCTAssertLessThanOrEqual(decision.durationTarget, 20)
+        XCTAssertLessThanOrEqual(session.estimatedMinutes, 24, "about 20 minutes, not 30")
+        XCTAssertTrue(session.items.contains { $0.block == .primaryStrength }, "still a real strength session")
+    }
 }

@@ -7,6 +7,8 @@ struct LiveSessionLaunch: Identifiable {
     var kind: WorkoutKind? = nil
     /// Training together: the partner session's code (see PartnerWorkouts).
     var partnerCode: String? = nil
+    /// An interrupted workout to carry on (app closed, phone died).
+    var resuming: Session? = nil
 }
 
 enum QuickAction: String, Identifiable, CaseIterable {

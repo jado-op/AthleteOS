@@ -32,7 +32,12 @@ public struct LiveSessionView: View {
     @State private var catalogue = Catalogue()
     @State private var queue: [GeneratedPlannedItem] = []
     @State private var index = 0
-    @State private var setsLogged: [String: Int] = [:]
+    /// Sets logged per queue position (an exercise that appears twice counts twice).
+    @State private var setsLogged: [Int: Int] = [:]
+    /// Positions the athlete skipped (count as done for finishing).
+    @State private var skipped: Set<Int> = []
+    /// The picker replaces the current exercise instead of adding one.
+    @State private var swapping = false
     @State private var reps = 8
     @State private var weightKg: Double = 0
     @State private var seconds = 30
@@ -66,10 +71,19 @@ public struct LiveSessionView: View {
 
     /// Every planned set is logged — time to finish.
     private var allDone: Bool {
-        !queue.isEmpty && queue.allSatisfy { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }
+        !queue.isEmpty && queue.indices.allSatisfy { isFinished($0) }
     }
 
-    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil, kind: WorkoutKind? = nil, partnerCode: String? = nil) {
+    private func isFinished(_ position: Int) -> Bool {
+        skipped.contains(position) || setsLogged[position, default: 0] >= queue[position].dose.sets
+    }
+
+    /// An interrupted workout to carry on: its sets stay, the rest continues.
+    let resuming: Session?
+
+    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil, kind: WorkoutKind? = nil, partnerCode: String? = nil,
+                resuming: Session? = nil) {
+        self.resuming = resuming
         self.athlete = athlete
         self.apiClient = apiClient
         self.planned = planned
@@ -100,7 +114,7 @@ public struct LiveSessionView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         if let partnerCode {
-                            PartnerStrip(code: partnerCode, done: queue.filter { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }.count,
+                            PartnerStrip(code: partnerCode, done: queue.indices.filter { isFinished($0) }.count,
                                          total: queue.count, finished: false)
                         }
                         if loggedCount == 0 {
@@ -143,7 +157,8 @@ public struct LiveSessionView: View {
         }
         .sheet(isPresented: $showingPicker) {
             ExercisePickerSheet(catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) { item in
-                add(item)
+                if swapping { swap(to: item) } else { add(item) }
+                swapping = false
             }
         }
         .sheet(isPresented: $showingRPE) {
@@ -229,7 +244,7 @@ public struct LiveSessionView: View {
     /// V5: "03 / 08", the name big, the dose as one tracked line, rest and
     /// why underneath.
     private func itemHeader(_ current: GeneratedPlannedItem) -> some View {
-        let done = setsLogged[current.itemSlug, default: 0]
+        let done = setsLogged[index, default: 0]
         return VStack(alignment: .leading, spacing: 10) {
             Text(String(format: "%02d / %02d", index + 1, queue.count))
                 .font(.footnote.weight(.bold).monospacedDigit())
@@ -271,6 +286,19 @@ public struct LiveSessionView: View {
                 Label(targetNote, systemImage: "arrow.up.right")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
+            }
+            // Rack busy, it hurts, no kit: change it or leave it out.
+            if !isFinished(index) {
+                HStack(spacing: 18) {
+                    if done == 0 {
+                        Button { swapping = true; showingPicker = true } label: { Label("Swap", systemImage: "arrow.triangle.2.circlepath") }
+                    }
+                    Button { skipCurrent() } label: { Label("Skip", systemImage: "forward.end") }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
             }
         }
     }
@@ -411,19 +439,20 @@ public struct LiveSessionView: View {
                 }
             }
             ForEach(Array(queue.enumerated()), id: \.offset) { position, item in
-                let done = setsLogged[item.itemSlug, default: 0]
+                let done = setsLogged[position, default: 0]
                 Button {
                     jump(to: position)
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: done >= item.dose.sets ? "checkmark.circle.fill" : (position == index ? "play.circle.fill" : "circle"))
+                        Image(systemName: done >= item.dose.sets ? "checkmark.circle.fill"
+                              : (skipped.contains(position) ? "forward.end.circle" : (position == index ? "play.circle.fill" : "circle")))
                             .foregroundStyle(done >= item.dose.sets ? AppTheme.green : AppTheme.ink)
                         Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
                             .font(.subheadline.weight(position == index ? .bold : .regular))
                             .foregroundStyle(AppTheme.ink)
                             .lineLimit(1)
                         Spacer()
-                        Text("\(done) of \(countedNoun(item.dose.sets, "set"))")
+                        Text(skipped.contains(position) && done < item.dose.sets ? "Skipped" : "\(done) of \(countedNoun(item.dose.sets, "set"))")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.secondaryText)
                     }
@@ -493,7 +522,30 @@ public struct LiveSessionView: View {
 
     private func start() async {
         catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
-        if session == nil {
+        if session == nil, let resuming {
+            // Carry on: the plan if there is one, else what was logged; logged sets count.
+            session = resuming
+            startedAt = resuming.startedAt
+            let logged = Dictionary(grouping: resuming.sets, by: \.itemSlug).mapValues(\.count)
+            if let planned {
+                queue = planned.items
+            } else {
+                queue = logged.keys.sorted().map { slug in
+                    let item = catalogue.item(slug)
+                    var dose = item?.defaultDose ?? Dose(kind: "reps", sets: 3, reps: 8)
+                    dose.sets = max(dose.sets, logged[slug] ?? 0)
+                    return GeneratedPlannedItem(itemSlug: slug, order: 0, dose: dose, restSec: item?.restSeconds ?? 60, rationale: "", quality: "")
+                }
+            }
+            var remaining = logged
+            for (position, item) in queue.enumerated() {
+                let count = min(remaining[item.itemSlug, default: 0], item.dose.sets)
+                if count > 0 { setsLogged[position] = count; remaining[item.itemSlug, default: 0] -= count }
+            }
+            loggedCount = resuming.sets.count
+            index = queue.indices.first { !isFinished($0) } ?? 0
+            prefill()
+        } else if session == nil {
             session = try? SessionLogger(modelContext: modelContext).startSession(athlete: athlete)
             if let session { SessionKinds.record(session.clientId, kind ?? (planned == nil ? nil : .gym)) }
             startedAt = session?.startedAt ?? .now
@@ -508,7 +560,7 @@ public struct LiveSessionView: View {
     private func updateActivity() {
         #if os(iOS) && !APP_EXTENSION
         guard let current else { return }
-        let done = setsLogged[current.itemSlug, default: 0]
+        let done = setsLogged[index, default: 0]
         let state = WorkoutActivityAttributes.ContentState(
             exercise: currentItem?.name ?? displayName(forSlug: current.itemSlug),
             detail: restRemaining > 0 ? "Rest" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
@@ -523,6 +575,32 @@ public struct LiveSessionView: View {
         #if os(iOS) && !APP_EXTENSION
         WorkoutActivity.end()
         #endif
+    }
+
+    /// Replaces the current exercise (nothing logged on it yet): same number
+    /// of sets and rest, the new exercise's own reps or time.
+    private func swap(to item: CatalogueItem) {
+        guard queue.indices.contains(index), setsLogged[index, default: 0] == 0 else { return }
+        let old = queue[index]
+        var dose = item.defaultDose
+        dose.sets = old.dose.sets
+        var replacement = GeneratedPlannedItem(itemSlug: item.slug, order: old.order, dose: dose, restSec: old.restSec,
+                                               rationale: old.rationale, quality: item.primaryQuality?.id ?? old.quality)
+        replacement.block = old.block
+        queue[index] = replacement
+        prefill()
+        updateActivity()
+    }
+
+    /// Leaves the current exercise out and moves to the next one still open.
+    private func skipCurrent() {
+        skipped.insert(index)
+        endRest(silently: true)
+        if let next = queue.indices.first(where: { $0 > index && !isFinished($0) }) ?? queue.indices.first(where: { !isFinished($0) }) {
+            jump(to: next)
+        } else {
+            updateActivity()
+        }
     }
 
     private func add(_ item: CatalogueItem) {
@@ -608,7 +686,7 @@ public struct LiveSessionView: View {
                 bestCount += 1
             }
         }
-        let setIndex = setsLogged[current.itemSlug, default: 0]
+        let setIndex = setsLogged[index, default: 0]
         _ = try? SessionLogger(modelContext: modelContext).logSet(
             session: session, itemSlug: current.itemSlug, setIndex: setIndex,
             reps: kind == "reps" ? reps : nil,
@@ -617,12 +695,13 @@ public struct LiveSessionView: View {
             distanceM: kind == "distance" ? distanceM : nil,
             contacts: kind == "contacts" ? contacts : nil
         )
-        setsLogged[current.itemSlug] = setIndex + 1
+        setsLogged[index] = setIndex + 1
         loggedCount += 1
 
-        if setIndex + 1 >= current.dose.sets, index < queue.count - 1 {
-            // All sets done: move on, resting on the way.
-            jump(to: index + 1)
+        if setIndex + 1 >= current.dose.sets,
+           let next = queue.indices.first(where: { $0 > index && !isFinished($0) }) ?? queue.indices.first(where: { !isFinished($0) }) {
+            // All sets done: move on to the next open exercise, resting on the way.
+            jump(to: next)
             startRest(current.restSec)
         } else {
             startRest(current.restSec)
