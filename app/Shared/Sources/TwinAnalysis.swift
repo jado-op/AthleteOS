@@ -74,10 +74,12 @@ public struct TwinInput: Sendable {
     public var reflections: [Reflect]
     /// Intake answers: question id → option id or free text.
     public var intake: [String: String]
+    /// The athlete's sport: its words ("matches", "races") and whether speed decides.
+    public var sportSlug: String?
     public var now: Date
 
     public init(mornings: [Morning] = [], games: [Date] = [], sessions: [Date] = [], lifts: [Lift] = [], tests: [Test] = [],
-                reflections: [Reflect] = [], intake: [String: String] = [:], now: Date = .now) {
+                reflections: [Reflect] = [], intake: [String: String] = [:], sportSlug: String? = nil, now: Date = .now) {
         self.mornings = mornings
         self.games = games
         self.sessions = sessions
@@ -85,6 +87,7 @@ public struct TwinInput: Sendable {
         self.tests = tests
         self.reflections = reflections
         self.intake = intake
+        self.sportSlug = sportSlug
         self.now = now
     }
 }
@@ -176,7 +179,7 @@ public enum TwinAnalysis {
             .map(\.element)
         let strengths = issues.filter(\.positive) + [consistentTraining(context), sleepBase(context)].compactMap { $0 }
         return TwinReport(insights: found, strengths: strengths,
-                          coachRead: coachRead(found, strengths: strengths, counts: context.counts, hasIntake: !input.intake.isEmpty),
+                          coachRead: coachRead(found, strengths: strengths, counts: context.counts, hasIntake: !input.intake.isEmpty, events: context.events),
                           counts: context.counts)
     }
 
@@ -190,10 +193,15 @@ public enum TwinAnalysis {
         let gameDays: Set<Date>
         let reflections: [TwinInput.Reflect]
         let counts: TwinReport.Counts
+        /// The athlete's words: game/match/race…
+        let family: SportFamily
+        var event: String { family.event }
+        var events: String { family.events }
 
         init(input: TwinInput, calendar: Calendar) {
             self.input = input
             self.calendar = calendar
+            family = AcademyContent.family(forSport: input.sportSlug)
             let today = calendar.startOfDay(for: input.now)
             start = calendar.date(byAdding: .day, value: -TwinAnalysis.windowDays, to: today) ?? today
             let start = start
@@ -247,17 +255,17 @@ public enum TwinAnalysis {
         let ratesLower = gameFeel.count >= 2 && otherFeel.count >= 3 && mean(otherFeel) - mean(gameFeel) >= 0.5
         return TwinInsight(
             kind: .sleepBeforeGames,
-            headline: "You sleep \(gapText) less before games\(ratesLower ? " — and rate those games lower." : ".")",
-            detail: "Before your last \(eves.count) games you slept \(one(before)) h on average; on other nights \(one(usual)) h.",
+            headline: "You sleep \(gapText) less before \(c.events)\(ratesLower ? " — and rate those \(c.events) lower." : ".")",
+            detail: "Before your last \(eves.count) \(c.events) you slept \(one(before)) h on average; on other nights \(one(usual)) h.",
             strength: eves.count >= 3 && gap >= 0.6 ? .strong : .emerging,
-            basis: "\(eves.count) games",
+            basis: "\(eves.count) \(c.events)",
             evidence: TwinEvidence(style: .bars,
                                    points: c.recentMornings.compactMap { m in
                                        m.sleepHours.flatMap { $0 > 0 ? TwinPoint(date: m.date, value: $0, marked: c.gameDays.contains(c.day(m.date))) : nil }
                                    },
-                                   unit: "h", caption: "Sleep each night · highlighted: the night before a game"),
-            values: ["sleepGap": gapText, "gameCount": "\(eves.count)"],
-            reason: "You slept \(gapText) less before your last \(eves.count) games than on other nights.",
+                                   unit: "h", caption: "Sleep each night · highlighted: the night before a \(c.event)"),
+            values: c.family.tokens.merging(["sleepGap": gapText, "gameCount": "\(eves.count)"]) { $1 },
+            reason: "You slept \(gapText) less before your last \(eves.count) \(c.events) than on other nights.",
             positive: false)
     }
 
@@ -272,15 +280,15 @@ public enum TwinAnalysis {
         let span = twoDays ? "two days" : "a day"
         return TwinInsight(
             kind: .recoveryAfterGames,
-            headline: "Games leave you sore for \(span) — far more than training does.",
-            detail: "The morning after a game your soreness is \(one(after)) of 5; on other mornings \(one(normal)). If it's sharp or in one spot, get it checked.",
+            headline: "\(c.family.tokens["Events"] ?? "Games") leave you sore for \(span) — far more than training does.",
+            detail: "The morning after a \(c.event) your soreness is \(one(after)) of 5; on other mornings \(one(normal)). If it's sharp or in one spot, get it checked.",
             strength: dayOne.count >= 3 ? .strong : .emerging,
-            basis: "\(dayOne.count) games",
+            basis: "\(dayOne.count) \(c.events)",
             evidence: TwinEvidence(style: .bars,
                                    points: c.recentMornings.map { TwinPoint(date: $0.date, value: Double($0.soreness), marked: c.daysAfterGame($0.date) != nil) },
-                                   unit: "/5", caption: "Soreness each morning · highlighted: the days after a game"),
-            values: ["sorenessDays": span, "gameCount": "\(dayOne.count)"],
-            reason: "Your soreness stays high for \(span) after games.",
+                                   unit: "/5", caption: "Soreness each morning · highlighted: the days after a \(c.event)"),
+            values: c.family.tokens.merging(["sorenessDays": span, "gameCount": "\(dayOne.count)"]) { $1 },
+            reason: "Your soreness stays high for \(span) after \(c.events).",
             positive: false)
     }
 
@@ -292,25 +300,25 @@ public enum TwinAnalysis {
             if gap >= 0.8 {
                 return TwinInsight(
                     kind: .gameDayFuel,
-                    headline: "Your energy is lowest on game days — exactly when you need it most.",
-                    detail: "On the mornings of your last \(game.count) games your energy was \(one(gap)) points lower (of 5) than on other days.",
+                    headline: "Your energy is lowest on \(c.event) days — exactly when you need it most.",
+                    detail: "On the mornings of your last \(game.count) \(c.events) your energy was \(one(gap)) points lower (of 5) than on other days.",
                     strength: game.count >= 3 ? .strong : .emerging,
-                    basis: "\(game.count) games",
+                    basis: "\(game.count) \(c.events)",
                     evidence: TwinEvidence(style: .bars,
                                            points: c.recentMornings.map { TwinPoint(date: $0.date, value: Double($0.energy), marked: c.gameDays.contains(c.day($0.date))) },
-                                           unit: "/5", caption: "Energy each morning · highlighted: game days"),
-                    values: ["energyGap": "\(one(gap)) points", "gameCount": "\(game.count)"],
-                    reason: "Your energy dips on game days.",
+                                           unit: "/5", caption: "Energy each morning · highlighted: \(c.event) days"),
+                    values: c.family.tokens.merging(["energyGap": "\(one(gap)) points", "gameCount": "\(game.count)"]) { $1 },
+                    reason: "Your energy dips on \(c.event) days.",
                     positive: false)
             }
         }
         guard let food = c.input.intake["gameFood"], food == "nothing" || food == "small" else { return nil }
         return TwinInsight(
             kind: .gameDayFuel,
-            headline: food == "nothing" ? "You often play on an empty tank." : "You go into games on very little fuel.",
-            detail: "You told the twin you usually eat \(food == "nothing" ? "nothing" : "something small") before games. Repeated sprints run on fuel you put in hours earlier.",
-            strength: .emerging, basis: "your interview", evidence: nil, values: [:],
-            reason: "You told your twin you often eat \(food == "nothing" ? "nothing" : "very little") before games.",
+            headline: food == "nothing" ? "You often compete on an empty tank." : "You go into \(c.events) on very little fuel.",
+            detail: "You told the twin you usually eat \(food == "nothing" ? "nothing" : "something small") before \(c.events). Repeated sprints run on fuel you put in hours earlier.",
+            strength: .emerging, basis: "your interview", evidence: nil, values: c.family.tokens,
+            reason: "You told your twin you often eat \(food == "nothing" ? "nothing" : "very little") before \(c.events).",
             positive: false)
     }
 
@@ -346,10 +354,12 @@ public enum TwinAnalysis {
         let gainText = "\(Int((best.gain * 100).rounded()))%"
         let weeks = max(1, Int((Double(c.calendar.dateComponents([.day], from: best.points.first?.date ?? c.input.now, to: best.points.last?.date ?? c.input.now).day ?? 0) / 7).rounded()))
         let sprints = c.input.tests.filter { $0.testID.contains("sprint") && !$0.higherIsBetter }.sorted { $0.date < $1.date }
-        guard let id = sprints.last?.testID else {
+        // Where speed doesn't decide (endurance, precision…), getting stronger is simply progress.
+        guard c.family.speed, let id = sprints.last?.testID else {
             return TwinInsight(
                 kind: .strengthRising, headline: "Your \(lift) is up \(gainText) in \(weeks) weeks.",
-                detail: "Test your sprint (Progress → Tests) so the twin can see whether the strength carries into speed.",
+                detail: c.family.speed ? "Test your sprint (Progress → Tests) so the twin can see whether the strength carries into speed."
+                    : "Strength you build now protects you and carries into every part of your sport.",
                 strength: .strong, basis: "\(best.points.count) sessions", evidence: nil, values: [:], reason: "", positive: true)
         }
         let runs = sprints.filter { $0.testID == id }
@@ -371,7 +381,7 @@ public enum TwinAnalysis {
             evidence: TwinEvidence(style: .lines, points: best.points, unit: "%",
                                    caption: "Change since the start · violet: \(lift) · white: \(firstRun.name.lowercased())",
                                    comparison: runs.map { TwinPoint(date: c.day($0.date), value: (firstRun.value - $0.value) / firstRun.value * 100) }),
-            values: ["strengthGain": gainText, "sprintChange": sprintChange],
+            values: c.family.tokens.merging(["strengthGain": gainText, "sprintChange": sprintChange]) { $1 },
             reason: "Your \(lift) is up \(gainText), your sprint shows \(sprintChange).",
             positive: false)
     }
@@ -397,8 +407,8 @@ public enum TwinAnalysis {
         let headline = fromInterview
             ? "After a mistake you \(habit) — and that's where the next play gets lost."
             : "Focus came up as the thing to work on in \(flagged) of your last \(c.reflections.count) reflections."
-        var values: [String: String] = [:]
-        if flagged >= 1, c.reflections.count >= 3 { values = ["mistakeCount": "\(flagged)", "reflectionCount": "\(c.reflections.count)"] }
+        var values = c.family.tokens
+        if flagged >= 1, c.reflections.count >= 3 { values.merge(["mistakeCount": "\(flagged)", "reflectionCount": "\(c.reflections.count)"]) { $1 } }
         return TwinInsight(
             kind: .mistakeReplay, headline: headline,
             detail: fromData ? "In \(flagged) of \(c.reflections.count) evening reflections you named focus or decisions as the thing to work on."
@@ -419,7 +429,7 @@ public enum TwinAnalysis {
         guard fromInterview || fromData || source == "swings" else { return nil }
         let headline: String
         if pressure == "hide" {
-            headline = "In big moments you'd rather someone else had the ball."
+            headline = "In big moments you'd rather the moment passed you by."
         } else if pressure == "tense" {
             headline = "In big moments you tense up and play it safe."
         } else if fromData {
@@ -427,8 +437,8 @@ public enum TwinAnalysis {
         } else {
             headline = "Your confidence comes and goes with the day."
         }
-        var values: [String: String] = [:]
-        if flagged >= 1, c.reflections.count >= 3 { values = ["confidenceCount": "\(flagged)", "reflectionCount": "\(c.reflections.count)"] }
+        var values = c.family.tokens
+        if flagged >= 1, c.reflections.count >= 3 { values.merge(["confidenceCount": "\(flagged)", "reflectionCount": "\(c.reflections.count)"]) { $1 } }
         return TwinInsight(
             kind: .pressureConfidence, headline: headline,
             detail: "Confidence you can count on is built from preparation and evidence, not from waiting to feel it.",
@@ -452,8 +462,8 @@ public enum TwinAnalysis {
             guard count >= 2 else { return nil }
             total += count
         }
-        return TwinInsight(kind: .consistentTraining, headline: "You've trained or played at least twice every week for a month.",
-                           detail: "\(total) sessions and games in four weeks. Consistency is what turns training into progress.",
+        return TwinInsight(kind: .consistentTraining, headline: "You've trained or competed at least twice every week for a month.",
+                           detail: "\(total) sessions and \(c.events) in four weeks. Consistency is what turns training into progress.",
                            strength: .strong, basis: "\(total) sessions", evidence: nil, values: [:], reason: "", positive: true)
     }
 
@@ -469,12 +479,13 @@ public enum TwinAnalysis {
 
     // MARK: The coach's read
 
-    static func coachRead(_ insights: [TwinInsight], strengths: [TwinInsight], counts: TwinReport.Counts, hasIntake: Bool) -> String {
+    static func coachRead(_ insights: [TwinInsight], strengths: [TwinInsight], counts: TwinReport.Counts, hasIntake: Bool,
+                          events: String = "games") -> String {
         let enough = counts.checkIns >= 5 || counts.sessions >= 3 || counts.games >= 1
         guard enough || !insights.isEmpty else {
             return hasIntake
-                ? "Your twin knows who you are — now it needs your data. Check in each morning, log your sessions and add your games; in a couple of weeks it will show you what's really going on."
-                : "Your twin needs to get to know you. Start with the interview, then check in each morning and log your sessions and games."
+                ? "Your twin knows who you are — now it needs your data. Check in each morning, log your sessions and add your \(events); in a couple of weeks it will show you what's really going on."
+                : "Your twin needs to get to know you. Start with the interview, then check in each morning and log your sessions and \(events)."
         }
         var parts: [String] = []
         if let good = strengths.first {

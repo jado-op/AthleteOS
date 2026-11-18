@@ -31,7 +31,8 @@ enum TwinInputBuilder {
             return TwinInput.Reflect(date: date.addingTimeInterval(20 * 3600), feeling: reflection.feeling, needsWork: reflection.needsWork ?? [])
         }
         return TwinInput(mornings: mornings, games: athlete.competitions.map(\.date), sessions: athlete.sessions.map(\.startedAt),
-                         lifts: lifts, tests: results, reflections: reflections, intake: state.intake, now: now)
+                         lifts: lifts, tests: results, reflections: reflections, intake: state.intake,
+                         sportSlug: athlete.activeSport?.sportSlug, now: now)
     }
 
     static func unit(_ unit: BenchmarkUnit) -> String {

@@ -33,11 +33,24 @@ public struct BriefingBlock: Codable, Hashable, Sendable {
         case p, h, quote, example, yourData, `protocol`
     }
 
+    public struct Variant: Codable, Hashable, Sendable {
+        public let title: String?
+        public let text: String
+    }
+
     public let kind: Kind
     public let text: String?
     public let title: String?
     public let key: String?
     public let steps: [String]?
+    /// The same paragraph or example for another sport family.
+    public let variants: [String: Variant]?
+
+    /// The block as an athlete of this sport family reads it.
+    public func resolved(for family: String) -> (title: String?, text: String?) {
+        if let variant = variants?[family] { return (variant.title ?? title, variant.text) }
+        return (title, text)
+    }
 }
 
 public struct BriefingChapter: Codable, Hashable, Sendable {
@@ -65,7 +78,7 @@ public struct Briefing: Codable, Hashable, Sendable, Identifiable {
     public let chapters: [BriefingChapter]
     public let sources: [BriefingSource]
 
-    /// `why` with the athlete's own numbers, or nil when one is missing.
+    /// `why` with the athlete's own numbers and words, or nil when one is missing.
     public func why(filling values: [String: String]) -> String? {
         var out = why
         for (key, value) in values { out = out.replacingOccurrences(of: "{\(key)}", with: value) }
@@ -87,15 +100,44 @@ public struct IntakeQuestion: Codable, Hashable, Sendable, Identifiable {
     public let label: String
     public let prompt: String
     public let freeText: Bool
+    /// Only asked in team sports.
+    public let teamOnly: Bool
     public let placeholder: String?
     public let options: [Option]
+}
+
+/// How a family of sports talks: a tennis player plays matches, a swimmer races.
+public struct SportFamily: Codable, Hashable, Sendable {
+    public let event: String
+    public let events: String
+    public let team: Bool
+    /// Speed decides (the strength-into-speed insight runs).
+    public let speed: Bool
+
+    public static let general = SportFamily(event: "game", events: "games", team: true, speed: true)
+
+    /// {event}, {events}, {Event}, {Events} in the athlete's own words.
+    public var tokens: [String: String] {
+        ["event": event, "events": events, "Event": event.prefix(1).uppercased() + event.dropFirst(),
+         "Events": events.prefix(1).uppercased() + events.dropFirst()]
+    }
+
+    public func fill(_ text: String) -> String {
+        var out = text
+        for (key, value) in tokens { out = out.replacingOccurrences(of: "{\(key)}", with: value) }
+        return out
+    }
 }
 
 public struct AcademyContentPack: Codable, Sendable {
     public let briefings: [Briefing]
     public let intake: [IntakeQuestion]
+    public let families: [String: SportFamily]
+    /// Sport slug → family id.
+    public let sportFamilies: [String: String]
+    public let defaultFamily: String
 
-    public static let empty = AcademyContentPack(briefings: [], intake: [])
+    public static let empty = AcademyContentPack(briefings: [], intake: [], families: [:], sportFamilies: [:], defaultFamily: "field")
 }
 
 public enum AcademyContent {
@@ -109,6 +151,21 @@ public enum AcademyContent {
     public static var intake: [IntakeQuestion] { pack.intake }
 
     public static func briefing(_ id: String) -> Briefing? { pack.briefings.first { $0.id == id } }
+
+    /// The sport family id for a sport ("racket" for tennis).
+    public static func familyID(forSport slug: String?, pack: AcademyContentPack = AcademyContent.pack) -> String {
+        slug.flatMap { pack.sportFamilies[$0] } ?? pack.defaultFamily
+    }
+
+    public static func family(forSport slug: String?, pack: AcademyContentPack = AcademyContent.pack) -> SportFamily {
+        pack.families[familyID(forSport: slug, pack: pack)] ?? .general
+    }
+
+    /// The interview for this sport: team-only questions left out, words filled in.
+    public static func intake(forSport slug: String?) -> [IntakeQuestion] {
+        let family = family(forSport: slug)
+        return pack.intake.filter { family.team || !$0.teamOnly }
+    }
 
     public static func briefing(for insight: TwinInsightKind) -> Briefing? { pack.briefings.first { $0.insight == insight } }
 }

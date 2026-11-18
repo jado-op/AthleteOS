@@ -210,4 +210,45 @@ final class TwinAnalysisTests: XCTestCase {
         XCTAssertEqual(SupportResources.resource(region: "US").phone, "988")
         XCTAssertNil(SupportResources.resource(region: nil).phone)
     }
+
+    // MARK: Every sport
+
+    func testTheTwinSpeaksTheAthletesSport() {
+        var tennis = season(games: [3, 10, 17])
+        tennis.sportSlug = "tennis"
+        let report = TwinAnalysis.report(tennis, calendar: calendar)
+        let sleep = report.insights.first { $0.kind == .sleepBeforeGames }
+        XCTAssertEqual(sleep?.headline, "You sleep 1 h 12 min less before matches.")
+        XCTAssertEqual(sleep?.basis, "3 matches")
+        XCTAssertFalse(sleep?.why.contains("{") == true)
+        XCTAssertFalse(sleep?.why.contains("games") == true)
+        XCTAssertTrue(report.insights.allSatisfy { !$0.headline.contains("game") })
+        XCTAssertEqual(AcademyContent.family(forSport: "swimming-diving").events, "races")
+        XCTAssertEqual(AcademyContent.family(forSport: "golf").event, "round")
+        XCTAssertEqual(AcademyContent.familyID(forSport: "unknown-sport"), "field")
+        XCTAssertEqual(AcademyContent.family(forSport: "tennis").fill("Before a {event} — {Events} matter."), "Before a match — Matches matter.")
+    }
+
+    func testStrengthIsJustProgressWhereSpeedDoesntDecide() {
+        let lifts = squats([(40, 80), (33, 82), (12, 90), (5, 92)])
+        let sprints = [TwinInput.Test(date: day(41), testID: "sprint30", name: "30 m sprint", value: 4.22, higherIsBetter: false),
+                       TwinInput.Test(date: day(4), testID: "sprint30", name: "30 m sprint", value: 4.21, higherIsBetter: false)]
+        let golf = TwinAnalysis.report(TwinInput(lifts: lifts, tests: sprints, sportSlug: "golf", now: now), calendar: calendar)
+        XCTAssertNil(golf.insights.first { $0.kind == .strengthNotSpeed })
+        XCTAssertNotNil(golf.strengths.first { $0.kind == .strengthRising })
+    }
+
+    func testEveryBriefingReadsForEverySport() {
+        for briefing in AcademyContent.briefings {
+            for family in AcademyContent.pack.families.keys {
+                let words = AcademyContent.pack.families[family]!
+                for chapter in briefing.chapters {
+                    for block in chapter.blocks {
+                        let resolved = block.resolved(for: family)
+                        XCTAssertFalse(words.fill(resolved.text ?? "").contains("{event"), "\(briefing.id) / \(family)")
+                    }
+                }
+            }
+        }
+    }
 }

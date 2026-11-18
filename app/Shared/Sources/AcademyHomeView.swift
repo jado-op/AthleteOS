@@ -54,6 +54,7 @@ struct AcademyHomeView: View {
     }
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
+    private var family: SportFamily { AcademyContent.family(forSport: sportSlug) }
 
     /// "Central midfielder · Soccer · In season"
     private var meta: String {
@@ -99,10 +100,11 @@ struct AcademyHomeView: View {
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
         }
         .fullScreenCover(item: $reading, onDismiss: reload) { target in
-            BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil)
+            BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil,
+                               familyID: AcademyContent.familyID(forSport: sportSlug))
         }
         .fullScreenCover(isPresented: $showingInterview, onDismiss: reload) {
-            IntakeInterviewView(sportSummary: meta)
+            IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
@@ -148,7 +150,7 @@ struct AcademyHomeView: View {
                     count("\(counts.weeks) wk", "of data")
                     count("\(counts.checkIns)", "check-ins")
                     count("\(counts.sessions)", "sessions")
-                    count("\(counts.games)", "games")
+                    count("\(counts.games)", family.events)
                 }
                 .padding(.top, 8)
             }
@@ -190,7 +192,7 @@ struct AcademyHomeView: View {
                 .lineSpacing(5)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) games\(state.intakeDoneAt == nil ? "" : ", and your interview")")
+            Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) \(family.events)\(state.intakeDoneAt == nil ? "" : ", and your interview")")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.mutedText)
         }
@@ -210,7 +212,7 @@ struct AcademyHomeView: View {
             sectionTitle("Insights", "What your data says, and what to do about it.")
             if report.insights.isEmpty {
                 Text(report.counts.checkIns + report.counts.sessions < 5
-                     ? "Nothing yet — a couple of weeks of check-ins, sessions and games and your twin starts to see patterns."
+                     ? "Nothing yet — a couple of weeks of check-ins, sessions and \(family.events) and your twin starts to see patterns."
                      : "Nothing in your data is holding you back right now.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
@@ -349,10 +351,10 @@ struct AcademyHomeView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.brightRed)
             }
-            ForEach(AcademyContent.intake) { question in
+            ForEach(AcademyContent.intake(forSport: sportSlug)) { question in
                 if let answer = summary(question) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(question.label)
+                        Text(family.fill(question.label))
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.ink)
                         Spacer(minLength: 12)
@@ -371,7 +373,7 @@ struct AcademyHomeView: View {
     private func summary(_ question: IntakeQuestion) -> String? {
         guard let answer = state.intake[question.id] else { return nil }
         if question.freeText { return answer }
-        return question.options.first { $0.id == answer }?.summary
+        return question.options.first { $0.id == answer }.map { family.fill($0.summary) }
     }
 
     // MARK: Library and support

@@ -6,6 +6,7 @@
  * or load prescriptions (that is the Workout tab's job, with a coach).
  */
 import { SOURCES } from '../guides/sources.js';
+import { DEFAULT_FAMILY, FAMILIES, SPORT_FAMILY } from './families.js';
 import { INSIGHTS, TOPICS, WHY_PLACEHOLDERS, YOUR_DATA } from './model.js';
 
 /** Never in Academy text, whatever the sentence around it says. */
@@ -22,11 +23,24 @@ export const BANNED = [
   [/\b\d+(\.\d+)?\s*(kg|kgs|kilos?|lbs?|pounds)\b/i, 'loads'],
 ];
 
+/** Words the app fills with the athlete's own sport language ("match", "races"…). */
+export const SPORT_TOKENS = ['event', 'events', 'Event', 'Events'];
+
+/** Only for some sports — in default text they go into a variant. */
+const TEAM_ONLY = /\b(teammates?|kick-?off|half-?time)\b/i;
+
 /** A briefing is a real read: about 9–14 minutes. */
 export const WORDS = { min: 1700, max: 2800 };
 export const WORDS_PER_MINUTE = 200;
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function variantTexts(block) {
+  const out = [];
+  for (const v of Object.values(block.variants ?? {})) out.push(...(typeof v === 'string' ? [v] : [v.title, v.body]));
+  for (const v of Object.values(block.example?.variants ?? {})) out.push(v.title, v.body);
+  return out.filter(Boolean);
+}
 
 function blockTexts(block) {
   if (block.p) return [block.p];
@@ -37,8 +51,14 @@ function blockTexts(block) {
   return [];
 }
 
+/** The default text, the one every sport without a variant reads. */
 export function briefingTexts(b) {
   return [b.title, b.dek, b.why, ...b.chapters.flatMap((c) => [c.title, ...c.blocks.flatMap(blockTexts)])].filter(Boolean);
+}
+
+/** Default text and every sport variant. */
+export function allTexts(b) {
+  return [...briefingTexts(b), ...b.chapters.flatMap((c) => c.blocks.flatMap(variantTexts))];
 }
 
 export function wordCount(b) {
@@ -65,9 +85,10 @@ export function validateBriefings(briefings) {
     if (!TOPICS.includes(b.topic)) problems.push(`${at}: topic must be one of ${TOPICS.join(', ')}`);
     if (!INSIGHTS.includes(b.insight)) problems.push(`${at}: unknown insight ${b.insight}`);
     for (const key of ['title', 'dek', 'why']) if (!b[key]?.trim()) problems.push(`${at}: missing ${key}`);
+    if (/\{\w+\}/.test(b.title ?? '')) problems.push(`${at}: the title is read everywhere — no tokens in it`);
     const allowed = WHY_PLACEHOLDERS[b.insight] ?? [];
     for (const [, name] of (b.why ?? '').matchAll(/\{(\w+)\}/g)) {
-      if (!allowed.includes(name)) problems.push(`${at}: why uses {${name}}, ${b.insight} only fills ${allowed.join(', ')}`);
+      if (!allowed.includes(name) && !SPORT_TOKENS.includes(name)) problems.push(`${at}: why uses {${name}}, ${b.insight} only fills ${allowed.join(', ')}`);
     }
     const chapters = b.chapters ?? [];
     if (chapters.length < 3 || chapters.length > 5) problems.push(`${at}: needs 3–5 chapters, has ${chapters.length}`);
@@ -97,7 +118,38 @@ export function validateBriefings(briefings) {
     if (b.topic === 'mind' && !/counsellor|counselor|helpline|talk(ing)? to/i.test(briefingTexts(b).join(' '))) {
       problems.push(`${at}: mind briefings say who to talk to when it feels heavy`);
     }
-    safety(briefingTexts(b), at, problems);
+    const families = Object.keys(FAMILIES);
+    for (const text of allTexts(b)) {
+      for (const [, name] of text.matchAll(/\{(\w+)\}/g)) {
+        if (!SPORT_TOKENS.includes(name) && !(text === b.why && allowed.includes(name))) problems.push(`${at}: unknown token {${name}}`);
+      }
+    }
+    // The base example is the field-sports version; everything else must fit every sport.
+    const neutral = [b.title, b.dek, b.why, ...chapters.flatMap((c) => [c.title, ...c.blocks.filter((x) => !x.example).flatMap(blockTexts)])];
+    for (const text of neutral.filter(Boolean)) {
+      if (TEAM_ONLY.test(text)) problems.push(`${at}: team-only words belong in a sport variant: “${text.slice(0, 80)}”`);
+    }
+    for (const c of chapters) {
+      for (const block of c.blocks ?? []) {
+        for (const key of Object.keys(block.variants ?? {})) {
+          if (!families.includes(key)) problems.push(`${at}: unknown sport family ${key}`);
+          if (!block.p) problems.push(`${at}: only paragraphs and examples have variants`);
+          if (typeof block.variants[key] !== 'string' || !block.variants[key].trim()) problems.push(`${at}: a paragraph variant is text`);
+        }
+        if (block.example) {
+          const have = Object.keys(block.example.variants ?? {});
+          for (const key of have) {
+            if (!families.includes(key)) problems.push(`${at}: unknown sport family ${key}`);
+            const v = block.example.variants[key];
+            if (!v?.title?.trim() || !v?.body?.trim()) problems.push(`${at}: example variant ${key} needs title and body`);
+          }
+          for (const key of families) {
+            if (key !== DEFAULT_FAMILY && !have.includes(key)) problems.push(`${at}: example “${block.example.title}” has no ${key} variant`);
+          }
+        }
+      }
+    }
+    safety(allTexts(b), at, problems);
   }
   for (const insight of INSIGHTS) {
     if (!briefings.some((b) => b.insight === insight)) problems.push(`no briefing answers the insight ${insight}`);
@@ -123,6 +175,9 @@ export function validateIntake(intake) {
       for (const o of q.options ?? []) if (!o.id || !o.text?.trim() || !o.summary?.trim()) problems.push(`${at}: option needs id, text, summary`);
       if (q.options?.some((o) => o.correct !== undefined)) problems.push(`${at}: the intake has no right answers`);
     }
+    for (const text of [q.prompt, ...(q.options ?? []).flatMap((o) => [o.text, o.summary])]) {
+      for (const [, name] of text.matchAll(/\{(\w+)\}/g)) if (!SPORT_TOKENS.includes(name)) problems.push(`${at}: unknown token {${name}}`);
+    }
     safety([q.prompt, ...(q.options ?? []).flatMap((o) => [o.text, o.summary])], at, problems);
   }
   return problems;
@@ -142,21 +197,31 @@ export function academyPayload(briefings, intake) {
       chapters: b.chapters.map((c) => ({
         title: c.title,
         blocks: c.blocks.map((block) => {
-          if (block.p) return { kind: 'p', text: block.p };
+          if (block.p) {
+            const variants = Object.fromEntries(Object.entries(block.variants ?? {}).map(([k, v]) => [k, { text: v }]));
+            return { kind: 'p', text: block.p, ...(Object.keys(variants).length ? { variants } : {}) };
+          }
           if (block.h) return { kind: 'h', text: block.h };
           if (block.quote) return { kind: 'quote', text: block.quote };
-          if (block.example) return { kind: 'example', title: block.example.title, text: block.example.body };
+          if (block.example) {
+            const variants = Object.fromEntries(Object.entries(block.example.variants ?? {}).map(([k, v]) => [k, { title: v.title, text: v.body }]));
+            return { kind: 'example', title: block.example.title, text: block.example.body, variants };
+          }
           if (block.yourData) return { kind: 'yourData', key: block.yourData };
           return { kind: 'protocol', title: block.protocol.title, steps: block.protocol.steps };
         }),
       })),
       sources: (b.sources ?? []).map((key) => ({ title: SOURCES[key].title, detail: SOURCES[key].detail, url: SOURCES[key].url })),
     })),
+    families: Object.fromEntries(Object.entries(FAMILIES).map(([id, f]) => [id, { event: f.event, events: f.events, team: f.team, speed: f.speed }])),
+    sportFamilies: SPORT_FAMILY,
+    defaultFamily: DEFAULT_FAMILY,
     intake: intake.map((q) => ({
       id: q.id,
       label: q.label,
       prompt: q.prompt,
       freeText: q.freeText === true,
+      teamOnly: q.teamOnly === true,
       placeholder: q.placeholder ?? null,
       options: (q.options ?? []).map((o) => ({ id: o.id, text: o.text, summary: o.summary })),
     })),

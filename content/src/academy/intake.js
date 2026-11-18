@@ -19,22 +19,22 @@ export const INTAKE = [
   },
   {
     id: 'pressure', label: 'Under pressure',
-    prompt: 'In a big moment of a game, you usually…',
+    prompt: 'In a big moment of a {event}, you usually…',
     options: [
       { id: 'narrow', text: 'Lock in — my focus gets sharper', summary: 'Locks in' },
       { id: 'tense', text: 'Tense up and play safer', summary: 'Tenses up, plays safe' },
-      { id: 'wantBall', text: 'Want the ball even more', summary: 'Wants the ball' },
-      { id: 'hide', text: 'Hope it goes to someone else', summary: 'Would rather someone else had it' },
+      { id: 'wantBall', text: 'Want the moment even more', summary: 'Wants the big moment' },
+      { id: 'hide', text: 'Hope it passes me by', summary: 'Would rather avoid it' },
     ],
   },
   {
     id: 'mistake', label: 'After a mistake',
-    prompt: 'After you make a mistake in a game, you…',
+    prompt: 'After you make a mistake in a {event}, you…',
     options: [
       { id: 'reset', text: 'Reset quickly and play the next action', summary: 'Resets quickly' },
       { id: 'replay', text: 'Replay it in my head for a while', summary: 'Replays it' },
       { id: 'angry', text: 'Get angry — at myself or others', summary: 'Gets angry' },
-      { id: 'quiet', text: 'Go quiet and avoid the ball', summary: 'Goes quiet' },
+      { id: 'quiet', text: 'Go quiet and play it safe', summary: 'Goes quiet' },
     ],
   },
   {
@@ -42,7 +42,7 @@ export const INTAKE = [
     prompt: 'Your confidence comes mostly from…',
     options: [
       { id: 'preparation', text: 'How well I prepared', summary: 'Preparation' },
-      { id: 'form', text: 'How my last games went', summary: 'Recent form' },
+      { id: 'form', text: 'How my last {events} went', summary: 'Recent form' },
       { id: 'others', text: 'What coaches and others say', summary: 'What others say' },
       { id: 'swings', text: 'It comes and goes', summary: 'It comes and goes' },
     ],
@@ -57,8 +57,8 @@ export const INTAKE = [
     ],
   },
   {
-    id: 'teammates', label: 'Teammates would say',
-    prompt: 'How would your teammates describe you?',
+    id: 'teammates', label: 'Others would say',
+    prompt: 'How would the people you train with describe you?',
     options: [
       { id: 'leader', text: 'A leader', summary: 'A leader' },
       { id: 'worker', text: 'The hardest worker', summary: 'The hardest worker' },
@@ -77,8 +77,8 @@ export const INTAKE = [
     ],
   },
   {
-    id: 'gameFood', label: 'Before games',
-    prompt: 'Before a game, you usually eat…',
+    id: 'gameFood', label: 'Before competing',
+    prompt: 'Before a {event}, you usually eat…',
     options: [
       { id: 'meal', text: 'A proper meal a few hours before', summary: 'A proper meal' },
       { id: 'small', text: 'Something small', summary: 'Something small' },

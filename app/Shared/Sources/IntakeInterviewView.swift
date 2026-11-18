@@ -6,13 +6,15 @@ import SwiftUI
 struct IntakeInterviewView: View {
     /// "Central midfielder · Soccer · In season"
     let sportSummary: String
+    let sportSlug: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var index = -1
     @State private var answers: [String: String] = AcademyStore.load().intake
     @FocusState private var typing: Bool
 
-    private let questions = AcademyContent.intake
+    private var questions: [IntakeQuestion] { AcademyContent.intake(forSport: sportSlug) }
+    private var family: SportFamily { AcademyContent.family(forSport: sportSlug) }
 
     private var question: IntakeQuestion? { questions.indices.contains(index) ? questions[index] : nil }
 
@@ -84,10 +86,10 @@ struct IntakeInterviewView: View {
 
     private func questionView(_ question: IntakeQuestion) -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("\(index + 1) of \(questions.count) · \(question.label)")
+            Text("\(index + 1) of \(questions.count) · \(family.fill(question.label))")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.mutedText)
-            Text(question.prompt)
+            Text(family.fill(question.prompt))
                 .font(.system(size: 28, weight: .semibold))
                 .tracking(-0.6)
                 .foregroundStyle(AppTheme.ink)
@@ -113,7 +115,7 @@ struct IntakeInterviewView: View {
                             withAnimation(.easeInOut(duration: 0.15)) { answers[question.id] = option.id }
                         } label: {
                             HStack(spacing: 12) {
-                                Text(option.text)
+                                Text(family.fill(option.text))
                                     .font(.body.weight(.medium))
                                     .foregroundStyle(AppTheme.ink)
                                     .multilineTextAlignment(.leading)

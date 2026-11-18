@@ -8,8 +8,13 @@ struct BriefingReaderView: View {
     /// The insight that made the coach assign it (its "why" and chart).
     let insight: TwinInsight?
     let alreadyRead: Bool
+    /// The athlete's sport family: its examples and its words.
+    let familyID: String
 
     @Environment(\.dismiss) private var dismiss
+
+    private var family: SportFamily { AcademyContent.pack.families[familyID] ?? .general }
+    private func words(_ text: String?) -> String { family.fill(text ?? "") }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,13 +63,13 @@ struct BriefingReaderView: View {
             Text("Briefing · \(briefing.topic.title)")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(briefing.topic.color)
-            Text(briefing.title)
+            Text(words(briefing.title))
                 .font(.system(size: 36, weight: .semibold))
                 .tracking(-1)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text(briefing.dek)
+            Text(words(briefing.dek))
                 .font(.reading(20))
                 .lineSpacing(5)
                 .foregroundStyle(AppTheme.ink.opacity(0.7))
@@ -101,7 +106,7 @@ struct BriefingReaderView: View {
                 Text("Chapter \(index + 1)")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.mutedText)
-                Text(chapter.title)
+                Text(words(chapter.title))
                     .font(.system(size: 25, weight: .semibold))
                     .tracking(-0.5)
                     .foregroundStyle(AppTheme.ink)
@@ -117,21 +122,22 @@ struct BriefingReaderView: View {
 
     @ViewBuilder
     private func blockView(_ block: BriefingBlock) -> some View {
+        let resolved = block.resolved(for: familyID)
         switch block.kind {
         case .p:
-            Text(block.text ?? "")
+            Text(words(resolved.text))
                 .font(.reading(18))
                 .lineSpacing(7)
                 .foregroundStyle(AppTheme.ink.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)
         case .h:
-            Text(block.text ?? "")
+            Text(words(resolved.text))
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(AppTheme.ink)
                 .padding(.top, 10)
                 .fixedSize(horizontal: false, vertical: true)
         case .quote:
-            Text(block.text ?? "")
+            Text(words(resolved.text))
                 .font(.system(size: 24, weight: .medium))
                 .tracking(-0.4)
                 .lineSpacing(4)
@@ -145,10 +151,10 @@ struct BriefingReaderView: View {
                 Text("Example")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(briefing.topic.color)
-                Text(block.title ?? "")
+                Text(words(resolved.title))
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
-                Text(block.text ?? "")
+                Text(words(resolved.text))
                     .font(.reading(16))
                     .lineSpacing(5)
                     .foregroundStyle(AppTheme.ink.opacity(0.82))
@@ -172,7 +178,7 @@ struct BriefingReaderView: View {
             }
         case .protocol:
             VStack(alignment: .leading, spacing: 14) {
-                Text(block.title ?? "Your week")
+                Text(words(block.title ?? "Your week"))
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                 ForEach(Array((block.steps ?? []).enumerated()), id: \.offset) { index, step in
@@ -182,7 +188,7 @@ struct BriefingReaderView: View {
                             .foregroundStyle(AppTheme.background)
                             .frame(width: 24, height: 24)
                             .background(Circle().fill(briefing.topic.color))
-                        Text(step)
+                        Text(words(step))
                             .font(.body)
                             .foregroundStyle(AppTheme.ink.opacity(0.9))
                             .fixedSize(horizontal: false, vertical: true)
