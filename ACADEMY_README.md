@@ -37,6 +37,16 @@ The Foundation-only parts are tested locally with `tools/engine-harness.sh`.
 | Mistake replay | interview: replays / angry / goes quiet, or focus flagged in ≥2 reflections | Reset after mistakes |
 | Pressure & confidence | interview: tenses up / hides, or confidence flagged in ≥2 reflections | Confidence under pressure |
 
+| Load spike | this week's load (minutes × effort; practice and competitions included) ≥1.5× the three weeks before | — (coach explains) |
+| Short nights → practice | practices after nights under 7½ h rated ≥0.6 lower (≥3 of each) | — |
+| Irregular sleep | night-to-night swing (SD) ≥0.9 h over two weeks | — |
+| Stress and sleep | stressful days (≥4/5) sleep ≥30 min less | — |
+
+Every insight carries a trend: the same analysis run as of three weeks earlier — **New**,
+**Improving · was …**, **Growing · was …** or steady. The athlete's sport sets the words
+("matches", "races") and whether the speed insight runs (sport families,
+`content/src/academy/families.js`).
+
 "Strong pattern" needs three or more occurrences (or interview and data agreeing). What's
 working (consistency, sleep base, strength carrying into speed) is shown without a briefing.
 

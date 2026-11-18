@@ -8,7 +8,8 @@ import Foundation
 enum TwinInputBuilder {
     static func input(athlete: Athlete, state: AcademyState, now: Date = .now, calendar: Calendar = .current) -> TwinInput {
         let mornings = athlete.checkIns.map {
-            TwinInput.Morning(date: $0.date, sleepHours: $0.sleepHours.flatMap { $0 > 0 ? $0 : nil }, energy: $0.energy, soreness: $0.soreness)
+            TwinInput.Morning(date: $0.date, sleepHours: $0.sleepHours.flatMap { $0 > 0 ? $0 : nil }, energy: $0.energy, soreness: $0.soreness,
+                              stress: $0.stress)
         }
         let lifts = athlete.sessions.flatMap { session in
             session.sets.compactMap { set -> TwinInput.Lift? in
@@ -30,8 +31,13 @@ enum TwinInputBuilder {
             guard let date = day(reflection.day, calendar: calendar) else { return nil }
             return TwinInput.Reflect(date: date.addingTimeInterval(20 * 3600), feeling: reflection.feeling, needsWork: reflection.needsWork ?? [])
         }
+        let practices = PracticeLogStore.logs.compactMap { log -> TwinInput.Practice? in
+            guard let date = day(log.day, calendar: calendar) else { return nil }
+            return TwinInput.Practice(date: date.addingTimeInterval(17 * 3600), went: log.went, hard: log.hard, minutes: log.minutes)
+        }
+        let loads = athlete.sessions.map { TwinInput.Load(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE) }
         return TwinInput(mornings: mornings, games: athlete.competitions.map(\.date), sessions: athlete.sessions.map(\.startedAt),
-                         lifts: lifts, tests: results, reflections: reflections, intake: state.intake,
+                         lifts: lifts, tests: results, reflections: reflections, practices: practices, loads: loads, intake: state.intake,
                          sportSlug: athlete.activeSport?.sportSlug, now: now)
     }
 

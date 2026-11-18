@@ -11,12 +11,45 @@ public struct TwinInput: Sendable {
         /// 1…5 scales (check-in): energy 5 = great, soreness 5 = high.
         public var energy: Int
         public var soreness: Int
+        /// 1 calm … 5 very stressed (0: not asked).
+        public var stress: Int
 
-        public init(date: Date, sleepHours: Double?, energy: Int, soreness: Int) {
+        public init(date: Date, sleepHours: Double?, energy: Int, soreness: Int, stress: Int = 0) {
             self.date = date
             self.sleepHours = sleepHours
             self.energy = energy
             self.soreness = soreness
+            self.stress = stress
+        }
+    }
+
+    /// A team or club practice the athlete logged.
+    public struct Practice: Sendable {
+        public var date: Date
+        /// 1 badly … 5 great.
+        public var went: Int
+        /// 1 easy … 5 exhausting.
+        public var hard: Int
+        public var minutes: Int?
+
+        public init(date: Date, went: Int, hard: Int, minutes: Int?) {
+            self.date = date
+            self.went = went
+            self.hard = hard
+            self.minutes = minutes
+        }
+    }
+
+    /// A logged session: how long and how hard (RPE 1–10, when given).
+    public struct Load: Sendable {
+        public var date: Date
+        public var minutes: Int
+        public var rpe: Int?
+
+        public init(date: Date, minutes: Int, rpe: Int?) {
+            self.date = date
+            self.minutes = minutes
+            self.rpe = rpe
         }
     }
 
@@ -72,6 +105,8 @@ public struct TwinInput: Sendable {
     public var lifts: [Lift]
     public var tests: [Test]
     public var reflections: [Reflect]
+    public var practices: [Practice]
+    public var loads: [Load]
     /// Intake answers: question id → option id or free text.
     public var intake: [String: String]
     /// The athlete's sport: its words ("matches", "races") and whether speed decides.
@@ -79,13 +114,16 @@ public struct TwinInput: Sendable {
     public var now: Date
 
     public init(mornings: [Morning] = [], games: [Date] = [], sessions: [Date] = [], lifts: [Lift] = [], tests: [Test] = [],
-                reflections: [Reflect] = [], intake: [String: String] = [:], sportSlug: String? = nil, now: Date = .now) {
+                reflections: [Reflect] = [], practices: [Practice] = [], loads: [Load] = [], intake: [String: String] = [:],
+                sportSlug: String? = nil, now: Date = .now) {
         self.mornings = mornings
         self.games = games
         self.sessions = sessions
         self.lifts = lifts
         self.tests = tests
         self.reflections = reflections
+        self.practices = practices
+        self.loads = loads
         self.intake = intake
         self.sportSlug = sportSlug
         self.now = now
@@ -135,12 +173,38 @@ public struct TwinInsight: Sendable, Hashable, Identifiable {
     public var reason: String
     /// Something that works — no briefing.
     public var positive: Bool
+    /// The size of the pattern, comparable over time (bigger = stronger pattern).
+    public var measure: Double? = nil
+    /// The measure as the athlete reads it ("58 minutes").
+    public var measureText: String? = nil
+    /// How it compares with three weeks ago.
+    public var trend: TwinTrend? = nil
 
     public var id: String { kind.rawValue }
     public var briefing: Briefing? { positive ? nil : AcademyContent.briefing(for: kind) }
 
     /// Why the coach assigned the briefing, in the athlete's own numbers.
     public var why: String { briefing?.why(filling: values) ?? reason }
+}
+
+/// How an insight moved since the twin last looked (three weeks earlier).
+public enum TwinTrend: Sendable, Hashable {
+    /// Not there three weeks ago.
+    case new
+    /// Smaller than it was ("was 1 h 20 min").
+    case improving(was: String)
+    /// Bigger than it was.
+    case worsening(was: String)
+    case steady
+
+    public var label: String {
+        switch self {
+        case .new: "New"
+        case .improving(let was): "Improving · was \(was)"
+        case .worsening(let was): "Growing · was \(was)"
+        case .steady: "Steady"
+        }
+    }
 }
 
 /// What the twin knows right now.
@@ -169,9 +233,36 @@ public enum TwinAnalysis {
     /// How far back the twin looks.
     public static let windowDays = 56
 
+    /// How far back "three weeks ago" is for trends.
+    public static let trendDays = 21
+
     public static func report(_ input: TwinInput, calendar: Calendar = .current) -> TwinReport {
+        var report = analyse(input, calendar: calendar)
+        // The same analysis as the twin would have run three weeks ago.
+        var earlier = input
+        earlier.now = calendar.date(byAdding: .day, value: -trendDays, to: input.now) ?? input.now
+        let before = analyse(earlier, calendar: calendar)
+        let knewEnough = before.counts.checkIns >= 7 || before.counts.sessions >= 4
+        report.insights = report.insights.map { insight in
+            var insight = insight
+            insight.trend = trend(insight, before.insights.first { $0.kind == insight.kind }, knewEnough: knewEnough)
+            return insight
+        }
+        return report
+    }
+
+    static func trend(_ now: TwinInsight, _ then: TwinInsight?, knewEnough: Bool) -> TwinTrend? {
+        guard let then else { return knewEnough ? .new : nil }
+        guard let a = now.measure, let b = then.measure, b > 0 else { return .steady }
+        if a <= b * 0.8, let was = then.measureText { return .improving(was: was) }
+        if a >= b * 1.2, let was = then.measureText { return .worsening(was: was) }
+        return .steady
+    }
+
+    static func analyse(_ input: TwinInput, calendar: Calendar) -> TwinReport {
         let context = Context(input: input, calendar: calendar)
-        let issues = [sleepBeforeGames(context), recoveryAfterGames(context), strengthAndSpeed(context), gameDayFuel(context),
+        let issues = [sleepBeforeGames(context), recoveryAfterGames(context), loadSpike(context), strengthAndSpeed(context),
+                      gameDayFuel(context), sleepAffectsPractice(context), irregularSleep(context), stressAndSleep(context),
                       pressureConfidence(context), mistakeReplay(context)].compactMap { $0 }
         let found = issues.filter { !$0.positive }
             .enumerated()
@@ -233,7 +324,8 @@ public enum TwinAnalysis {
 
     static func duration(_ hours: Double) -> String {
         let minutes = Int((hours * 60).rounded())
-        return minutes < 60 ? "\(minutes) minutes" : "\(minutes / 60) h \(minutes % 60) min"
+        if minutes < 60 { return "\(minutes) minutes" }
+        return minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes / 60) h \(minutes % 60) min"
     }
 
     static func one(_ value: Double) -> String { String(format: "%.1f", value) }
@@ -266,7 +358,7 @@ public enum TwinAnalysis {
                                    unit: "h", caption: "Sleep each night · highlighted: the night before a \(c.event)"),
             values: c.family.tokens.merging(["sleepGap": gapText, "gameCount": "\(eves.count)"]) { $1 },
             reason: "You slept \(gapText) less before your last \(eves.count) \(c.events) than on other nights.",
-            positive: false)
+            positive: false, measure: gap, measureText: gapText)
     }
 
     static func recoveryAfterGames(_ c: Context) -> TwinInsight? {
@@ -289,7 +381,7 @@ public enum TwinAnalysis {
                                    unit: "/5", caption: "Soreness each morning · highlighted: the days after a \(c.event)"),
             values: c.family.tokens.merging(["sorenessDays": span, "gameCount": "\(dayOne.count)"]) { $1 },
             reason: "Your soreness stays high for \(span) after \(c.events).",
-            positive: false)
+            positive: false, measure: after - normal, measureText: "\(one(after)) of 5")
     }
 
     static func gameDayFuel(_ c: Context) -> TwinInsight? {
@@ -309,7 +401,7 @@ public enum TwinAnalysis {
                                            unit: "/5", caption: "Energy each morning · highlighted: \(c.event) days"),
                     values: c.family.tokens.merging(["energyGap": "\(one(gap)) points", "gameCount": "\(game.count)"]) { $1 },
                     reason: "Your energy dips on \(c.event) days.",
-                    positive: false)
+                    positive: false, measure: gap, measureText: "\(one(gap)) points")
             }
         }
         guard let food = c.input.intake["gameFood"], food == "nothing" || food == "small" else { return nil }
@@ -383,7 +475,7 @@ public enum TwinAnalysis {
                                    comparison: runs.map { TwinPoint(date: c.day($0.date), value: (firstRun.value - $0.value) / firstRun.value * 100) }),
             values: c.family.tokens.merging(["strengthGain": gainText, "sprintChange": sprintChange]) { $1 },
             reason: "Your \(lift) is up \(gainText), your sprint shows \(sprintChange).",
-            positive: false)
+            positive: false, measure: best.gain - max(0, faster), measureText: gainText)
     }
 
     static func reflectionEvidence(_ c: Context, marking area: String, caption: String) -> TwinEvidence? {
@@ -450,6 +542,112 @@ public enum TwinAnalysis {
             positive: false)
     }
 
+    // MARK: Patterns the coach explains
+
+    /// Training load: minutes × effort (RPE 1–10; practice "how hard" 1–5 doubled; a
+    /// competition counts as an hour at 8). This week against the three before.
+    static func weeklyLoads(_ c: Context, weeks: Int = 4) -> [Double] {
+        let today = c.day(c.input.now)
+        return (0..<weeks).reversed().map { week -> Double in
+            guard let end = c.calendar.date(byAdding: .day, value: -7 * week + 1, to: today),
+                  let begin = c.calendar.date(byAdding: .day, value: -7, to: end) else { return 0 }
+            func inWeek(_ d: Date) -> Bool { d >= begin && d < end }
+            let sessions = c.input.loads.filter { inWeek($0.date) }.map { Double($0.minutes) * Double($0.rpe ?? 5) }
+            let practices = c.input.practices.filter { inWeek($0.date) }.map { Double($0.minutes ?? 90) * Double($0.hard * 2) }
+            let games = c.gameDays.filter { inWeek($0) }.map { _ in 60.0 * 8 }
+            return (sessions + practices + games).reduce(0, +)
+        }
+    }
+
+    static func loadSpike(_ c: Context) -> TwinInsight? {
+        let loads = weeklyLoads(c)
+        guard let current = loads.last else { return nil }
+        let before = loads.dropLast()
+        let active = before.filter { $0 > 0 }
+        guard active.count >= 2 else { return nil }
+        let usual = mean(Array(before))
+        guard usual > 0 else { return nil }
+        let ratio = current / usual
+        guard ratio >= 1.5 else { return nil }
+        let percent = Int(((ratio - 1) * 100).rounded())
+        let today = c.day(c.input.now)
+        let points = loads.enumerated().map { index, load in
+            TwinPoint(date: c.calendar.date(byAdding: .day, value: -7 * (loads.count - 1 - index), to: today) ?? today,
+                      value: load, marked: index == loads.count - 1)
+        }
+        return TwinInsight(
+            kind: .loadSpike,
+            headline: "Your training load jumped \(percent)% this week.",
+            detail: "Big jumps are when injuries happen most. Sleep a little more, keep the next few days lighter if you can, and tell your coach if anything starts to hurt.",
+            strength: ratio >= 1.8 ? .strong : .emerging,
+            basis: "4 weeks of sessions",
+            evidence: TwinEvidence(style: .bars, points: points, unit: "",
+                                   caption: "Training load each week (minutes × effort) · highlighted: this week"),
+            values: c.family.tokens, reason: "Your load jumped \(percent)% this week.", positive: false,
+            measure: ratio - 1, measureText: "+\(percent)%")
+    }
+
+    static func sleepAffectsPractice(_ c: Context) -> TwinInsight? {
+        var short: [Double] = [], long: [Double] = []
+        var points: [TwinPoint] = []
+        for practice in c.input.practices where practice.date >= c.start && practice.date <= c.input.now {
+            guard let hours = c.mornings.first(where: { c.calendar.isDate($0.date, inSameDayAs: practice.date) })?.sleepHours else { continue }
+            if hours < 7.5 { short.append(Double(practice.went)) } else { long.append(Double(practice.went)) }
+            points.append(TwinPoint(date: practice.date, value: Double(practice.went), marked: hours < 7.5))
+        }
+        guard short.count >= 3, long.count >= 3 else { return nil }
+        let drop = mean(long) - mean(short)
+        guard drop >= 0.6 else { return nil }
+        return TwinInsight(
+            kind: .sleepAffectsPractice,
+            headline: "After nights under 7½ hours, you rate your practice \(one(drop)) points lower.",
+            detail: "Short nights: \(one(mean(short))) of 5. Longer nights: \(one(mean(long))) of 5. Sleep is where practice turns into progress — and it shows the next day.",
+            strength: short.count >= 5 ? .strong : .emerging,
+            basis: "\(short.count + long.count) practices",
+            evidence: TwinEvidence(style: .bars, points: Array(points.suffix(16)), unit: "/5",
+                                   caption: "How each practice went · highlighted: after a night under 7½ hours"),
+            values: c.family.tokens, reason: "Your practice suffers after short nights.", positive: false,
+            measure: drop, measureText: "\(one(drop)) points")
+    }
+
+    static func irregularSleep(_ c: Context) -> TwinInsight? {
+        let nights = c.mornings.suffix(14).compactMap(\.sleepHours).filter { $0 > 0 }
+        guard nights.count >= 7 else { return nil }
+        let average = mean(nights)
+        let spread = (nights.map { ($0 - average) * ($0 - average) }.reduce(0, +) / Double(nights.count)).squareRoot()
+        guard spread >= 0.9, let low = nights.min(), let high = nights.max() else { return nil }
+        return TwinInsight(
+            kind: .irregularSleep,
+            headline: "Your sleep swings from \(one(low)) to \(one(high)) hours.",
+            detail: "Your body clock likes a rhythm. The same wake-up time most days — weekends too — steadies your energy more than catching up on Sunday.",
+            strength: spread >= 1.2 ? .strong : .emerging,
+            basis: "\(nights.count) nights",
+            evidence: TwinEvidence(style: .bars,
+                                   points: c.mornings.suffix(14).compactMap { m in m.sleepHours.map { TwinPoint(date: m.date, value: $0) } },
+                                   unit: "h", caption: "Sleep each night, last two weeks"),
+            values: c.family.tokens, reason: "Your sleep is irregular.", positive: false,
+            measure: spread, measureText: "\(one(spread)) h swing")
+    }
+
+    static func stressAndSleep(_ c: Context) -> TwinInsight? {
+        let recent = c.mornings.suffix(21).filter { $0.stress > 0 && ($0.sleepHours ?? 0) > 0 }
+        let tense = recent.filter { $0.stress >= 4 }, calm = recent.filter { $0.stress < 4 }
+        guard tense.count >= 3, calm.count >= 4 else { return nil }
+        let gap = mean(calm.compactMap(\.sleepHours)) - mean(tense.compactMap(\.sleepHours))
+        guard gap >= 0.5 else { return nil }
+        return TwinInsight(
+            kind: .stressAndSleep,
+            headline: "Stressful days cost you \(duration(gap)) of sleep.",
+            detail: "On \(tense.count) stressful days in three weeks you slept less. A short wind-down — phone away, write tomorrow's list, slow breathing — protects the night. If stress stays heavy, talk to someone you trust.",
+            strength: tense.count >= 5 ? .strong : .emerging,
+            basis: "\(recent.count) check-ins",
+            evidence: TwinEvidence(style: .bars,
+                                   points: recent.map { TwinPoint(date: $0.date, value: $0.sleepHours ?? 0, marked: $0.stress >= 4) },
+                                   unit: "h", caption: "Sleep each night · highlighted: stressful days"),
+            values: c.family.tokens, reason: "Stress is eating into your sleep.", positive: false,
+            measure: gap, measureText: duration(gap))
+    }
+
     // MARK: What's working
 
     static func consistentTraining(_ c: Context) -> TwinInsight? {
@@ -495,7 +693,11 @@ public enum TwinAnalysis {
         }
         if let first = insights.first {
             parts.append("What matters most right now: \(lowercasedStart(first.headline))")
-            if let briefing = first.briefing { parts.append("Read “\(briefing.title)” this week.") }
+            if let briefing = first.briefing {
+                parts.append("Read “\(briefing.title)” this week.")
+            } else if let next = insights.dropFirst().first(where: { $0.briefing != nil }), let briefing = next.briefing {
+                parts.append("Then read “\(briefing.title)”.")
+            }
         } else {
             parts.append("Nothing in your data is holding you back right now — keep the habits that got you here.")
         }

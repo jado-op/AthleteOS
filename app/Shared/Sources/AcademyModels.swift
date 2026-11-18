@@ -24,6 +24,8 @@ public enum BriefingTopic: String, Codable, CaseIterable, Sendable {
 /// The insights the twin can find. Each has a briefing that answers it.
 public enum TwinInsightKind: String, Codable, CaseIterable, Sendable {
     case sleepBeforeGames, recoveryAfterGames, gameDayFuel, strengthNotSpeed, mistakeReplay, pressureConfidence
+    /// Patterns the coach explains without a briefing (yet).
+    case loadSpike, irregularSleep, sleepAffectsPractice, stressAndSleep
     /// Things that are working — no briefing needed.
     case consistentTraining, sleepBase, strengthRising
 }

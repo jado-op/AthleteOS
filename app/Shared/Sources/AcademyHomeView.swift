@@ -20,9 +20,9 @@ extension BriefingTopic {
 extension TwinInsightKind {
     var topic: BriefingTopic? {
         switch self {
-        case .sleepBeforeGames, .recoveryAfterGames, .sleepBase: .recovery
-        case .strengthNotSpeed, .strengthRising, .consistentTraining: .strength
-        case .mistakeReplay, .pressureConfidence: .mind
+        case .sleepBeforeGames, .recoveryAfterGames, .sleepBase, .irregularSleep, .sleepAffectsPractice: .recovery
+        case .strengthNotSpeed, .strengthRising, .consistentTraining, .loadSpike: .strength
+        case .mistakeReplay, .pressureConfidence, .stressAndSleep: .mind
         case .gameDayFuel: .fuel
         }
     }
@@ -249,6 +249,14 @@ struct AcademyHomeView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+            if let trend = insight.trend, trend != .steady {
+                Text(trend.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(trendColor(trend))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(trendColor(trend).opacity(0.12), in: Capsule())
+            }
             Text(insight.detail)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -286,6 +294,14 @@ struct AcademyHomeView: View {
         .padding(.vertical, 20)
         .overlay(alignment: .bottom) {
             if !last { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
+        }
+    }
+
+    private func trendColor(_ trend: TwinTrend) -> Color {
+        switch trend {
+        case .improving: AppTheme.green
+        case .worsening: AppTheme.orange
+        case .new, .steady: AppTheme.brightRed
         }
     }
 

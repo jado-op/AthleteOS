@@ -251,4 +251,52 @@ final class TwinAnalysisTests: XCTestCase {
             }
         }
     }
+
+    // MARK: Deeper patterns
+
+    func testALoadSpikeIsFound() {
+        // Three steady weeks of 60 min at RPE 6, then a week of long hard sessions.
+        var loads: [TwinInput.Load] = []
+        for back in stride(from: 22, through: 8, by: -2) { loads.append(.init(date: day(back), minutes: 60, rpe: 6)) }
+        for back in [6, 5, 4, 3, 2, 1] { loads.append(.init(date: day(back), minutes: 90, rpe: 8)) }
+        let report = TwinAnalysis.report(TwinInput(loads: loads, now: now), calendar: calendar)
+        let spike = report.insights.first { $0.kind == .loadSpike }
+        XCTAssertNotNil(spike)
+        XCTAssertEqual(spike?.strength, .strong)
+        XCTAssertEqual(spike?.evidence?.points.last?.marked, true)
+        XCTAssertNil(spike?.briefing)
+        // Steady weeks: nothing.
+        let steady = (1...24).filter { $0.isMultiple(of: 2) }.map { TwinInput.Load(date: day($0), minutes: 60, rpe: 6) }
+        XCTAssertNil(TwinAnalysis.report(TwinInput(loads: steady, now: now), calendar: calendar).insights.first { $0.kind == .loadSpike })
+    }
+
+    func testShortNightsAndPracticeQuality() {
+        let mornings = (1...14).map { TwinInput.Morning(date: day($0), sleepHours: $0.isMultiple(of: 2) ? 6.5 : 8.5, energy: 4, soreness: 2) }
+        let practices = (1...14).map { TwinInput.Practice(date: day($0, hour: 17), went: $0.isMultiple(of: 2) ? 2 : 4, hard: 3, minutes: 90) }
+        let report = TwinAnalysis.report(TwinInput(mornings: mornings, practices: practices, now: now), calendar: calendar)
+        let insight = report.insights.first { $0.kind == .sleepAffectsPractice }
+        XCTAssertEqual(insight?.headline, "After nights under 7½ hours, you rate your practice 2.0 points lower.")
+        XCTAssertNotNil(report.insights.first { $0.kind == .irregularSleep })
+    }
+
+    func testStressfulDaysCostSleep() {
+        let mornings = (1...14).map { back in
+            TwinInput.Morning(date: day(back), sleepHours: back % 3 == 0 ? 6.8 : 8.3, energy: 4, soreness: 2, stress: back % 3 == 0 ? 5 : 2)
+        }
+        let insight = TwinAnalysis.report(TwinInput(mornings: mornings, now: now), calendar: calendar).insights.first { $0.kind == .stressAndSleep }
+        XCTAssertEqual(insight?.headline, "Stressful days cost you 1 h 30 min of sleep.")
+    }
+
+    func testTrendsCompareWithThreeWeeksAgo() {
+        // Six weeks: game eves were very short early on, much better lately.
+        let games = [4, 11, 18, 25, 32, 39]
+        let mornings = (1...42).map { back -> TwinInput.Morning in
+            let eve = games.contains(back)
+            return TwinInput.Morning(date: day(back), sleepHours: eve ? (back > 21 ? 6.4 : 7.8) : 8.4, energy: 4, soreness: 2)
+        }
+        let report = TwinAnalysis.report(TwinInput(mornings: mornings, games: games.map { day($0, hour: 16) }, now: now), calendar: calendar)
+        let sleep = report.insights.first { $0.kind == .sleepBeforeGames }
+        guard case .improving(let was)? = sleep?.trend else { return XCTFail("expected improving, got \(String(describing: sleep?.trend))") }
+        XCTAssertEqual(was, "2 h")
+    }
 }
