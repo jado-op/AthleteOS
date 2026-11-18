@@ -43,6 +43,25 @@ public enum AcademyStore {
         return next
     }
 
+    /// The twin is born: its look, the athlete's goals, and the starting point
+    /// from the eight baseline answers (question id → chosen option).
+    public static func born(_ state: AcademyState, appearance: TwinAppearance, goals: [TwinPillar],
+                            baseline: [AcademyQuestion], answers: [String: Int], at date: Date) -> AcademyState {
+        var next = state
+        next.appearance = appearance
+        next.goals = Array(goals.prefix(3))
+        if next.bornAt == nil {
+            for question in baseline {
+                guard let chosen = answers[question.id], question.options.indices.contains(chosen) else { continue }
+                for spec in question.options[chosen].effects {
+                    next.ledger.append(TwinEffect(date: date, source: "baseline/\(question.id)", spec: spec))
+                }
+            }
+            next.bornAt = date
+        }
+        return next
+    }
+
     /// Lessons finished on the day of `date` (for a future daily limit).
     public static func finished(on date: Date, in state: AcademyState, calendar: Calendar = .current) -> Int {
         state.completed.values.filter { calendar.isDate($0, inSameDayAs: date) }.count

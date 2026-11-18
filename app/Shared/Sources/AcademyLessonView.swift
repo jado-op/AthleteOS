@@ -177,78 +177,8 @@ struct AcademyLessonView: View {
     }
 
     private func questionView(_ question: AcademyQuestion) -> some View {
-        let chosen = answers[question.id]
-        let revealed = question.kind == .knowledge && chosen != nil
-        return VStack(alignment: .leading, spacing: 18) {
-            Text(question.kind == .knowledge ? "Check" : "About you — no right answer")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(question.kind == .knowledge ? lesson.pillar.color : AppTheme.purple)
-            Text(question.prompt)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(spacing: 10) {
-                ForEach(Array(question.options.enumerated()), id: \.offset) { optionIndex, option in
-                    Button {
-                        // A knowledge check locks after the first answer; a reflection can be changed.
-                        guard !revealed else { return }
-                        withAnimation(.easeInOut(duration: 0.2)) { answers[question.id] = optionIndex }
-                    } label: {
-                        optionRow(option.text, state: rowState(question, optionIndex, chosen: chosen, revealed: revealed))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            if revealed, let chosen, let explain = question.explain {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(question.options[chosen].correct ? "Right." : "Not quite.")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    Text(explain)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .transition(.opacity)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    enum RowState { case plain, selected, right, wrong }
-
-    private func rowState(_ question: AcademyQuestion, _ option: Int, chosen: Int?, revealed: Bool) -> RowState {
-        if revealed {
-            if option == question.correctIndex { return .right }
-            return option == chosen ? .wrong : .plain
-        }
-        return option == chosen ? .selected : .plain
-    }
-
-    private func optionRow(_ text: String, state: RowState) -> some View {
-        let edge: Color = switch state {
-        case .plain: Color.white.opacity(0.10)
-        case .selected: AppTheme.brightRed.opacity(0.8)
-        case .right: AppTheme.green.opacity(0.8)
-        case .wrong: Color.white.opacity(0.28)
-        }
-        return HStack(spacing: 12) {
-            Text(text)
-                .font(.body.weight(.medium))
-                .foregroundStyle(state == .wrong ? AppTheme.secondaryText : AppTheme.ink)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            switch state {
-            case .right: Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green)
-            case .selected: Image(systemName: "circle.inset.filled").foregroundStyle(AppTheme.brightRed)
-            case .wrong, .plain: EmptyView()
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-        .glassSurface(cornerRadius: 18)
-        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(edge, lineWidth: 1) }
+        AcademyQuestionCard(question: question, accent: lesson.pillar.color,
+                            chosen: Binding(get: { answers[question.id] }, set: { answers[question.id] = $0 }))
     }
 
     // MARK: End
@@ -257,8 +187,10 @@ struct AcademyLessonView: View {
         let deltas = TwinScoring.deltas(from: finish.before, to: finish.after)
         return ScrollView {
             VStack(spacing: 24) {
-                DigitalTwinView(state: TwinVisualState(appearance: finish.look, sportSlug: sportSlug, snapshot: finish.after, mode: .levelUp))
-                    .frame(height: 340)
+                DigitalTwinView(state: TwinVisualState(appearance: finish.look, sportSlug: sportSlug, snapshot: finish.after, mode: .levelUp,
+                                                       gains: Dictionary(deltas.map { ($0.pillar, $0.change) }, uniquingKeysWith: +)))
+                    .frame(height: 460)
+                    .padding(.horizontal, -24)
                 VStack(spacing: 8) {
                     if let first = deltas.first {
                         Text(TwinScoring.line(for: first))

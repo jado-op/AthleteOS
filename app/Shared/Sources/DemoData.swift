@@ -121,6 +121,22 @@ public enum DemoData {
         }
     }
 
+    /// A twin born three weeks ago with three lessons behind it.
+    private static func seedAcademy(now: Date, calendar: Calendar) {
+        let day = { (back: Int) in calendar.date(byAdding: .day, value: -back, to: now) ?? now }
+        let baseline = AcademyContent.baseline
+        let answers = Dictionary(uniqueKeysWithValues: baseline.enumerated().map { ($0.element.id, $0.offset % 3 == 2 ? 1 : 0) })
+        var state = AcademyStore.born(AcademyState(), appearance: TwinAppearance(build: .athletic, skin: TwinAppearance.skinTones[2],
+                                                                                hair: TwinAppearance.hairColours[1]),
+                                      goals: [.body, .mind], baseline: baseline, answers: answers, at: day(21))
+        for (back, id) in [(14, "body-sprint-chain"), (9, "recovery-sleep"), (4, "legends-not-picked"), (2, "mind-after-a-mistake")] {
+            guard let lesson = AcademyContent.lesson(id) else { continue }
+            let picks = Dictionary(uniqueKeysWithValues: lesson.questions.map { ($0.id, $0.correctIndex ?? 0) })
+            state = AcademyStore.completing(lesson, answers: picks, in: state, at: day(back))
+        }
+        AcademyStore.save(state)
+    }
+
     /// Campus, Mindset, tests and the schedule, so every screen looks lived-in.
     private static func seedProgress(now: Date, calendar: Calendar) {
         let defaults = UserDefaults.standard
@@ -149,6 +165,8 @@ public enum DemoData {
         CampusLog.record(xp: 40, lesson: true, perfect: true, review: false, streak: 6, on: now)
         for id in lessons { CampusReview.schedule(id, today: calendar.date(byAdding: .day, value: -4, to: now) ?? now) }
         CampusBadges.award(CampusStats(learned: Set(lessons), xp: 85, bestStreak: 6, perfectLessons: 1, reviews: 0), today: now)
+
+        seedAcademy(now: now, calendar: calendar)
 
         MindsetStore.goals = [
             SeasonGoal(text: "Make the starting line-up", area: .performance),

@@ -40,3 +40,23 @@ export const LEGEND_TRAITS = [
   { id: 'vision', title: 'Vision', detail: 'Knows the picture before the ball arrives.' },
   { id: 'composure', title: 'Composure', detail: 'Resets after a mistake and plays the next action.' },
 ];
+
+/** Which anatomical muscles (the muscle map's slugs) make up each body area on the twin. */
+export const AREA_MUSCLES = {
+  thighBack: ['biceps-femoris', 'semitendinosus', 'semimembranosus'],
+  thighFront: ['rectus-femoris', 'vastus-lateralis', 'vastus-medialis', 'sartorius'],
+  thigh: ['adductors'],
+  glutes: ['gluteus-maximus', 'gluteus-medius'],
+  abs: ['rectus-abdominis', 'obliques-external'],
+  lowerBack: ['erector-spinae', 'quadratus-lumborum'],
+  upperBack: ['trapezius-upper', 'trapezius-middle', 'trapezius-lower', 'rhomboids', 'latissimus-dorsi'],
+  chest: ['pectoralis-major', 'serratus-anterior'],
+  shoulderCap: ['deltoid-anterior', 'deltoid-lateral', 'deltoid-posterior'],
+  upperArmFront: ['biceps-brachii', 'brachialis'],
+  upperArmBack: ['triceps-brachii'],
+  forearm: ['forearm-flexors', 'forearm-extensors', 'brachioradialis'],
+  neck: ['sternocleidomastoid', 'neck-extensors'],
+  shinBack: ['gastrocnemius', 'soleus'],
+  shinFront: ['tibialis-anterior', 'peroneals'],
+  foot: ['foot-intrinsics'],
+};

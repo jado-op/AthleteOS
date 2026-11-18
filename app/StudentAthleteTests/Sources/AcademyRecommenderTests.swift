@@ -166,4 +166,33 @@ final class AcademyRecommenderTests: XCTestCase {
         XCTAssertNil(SupportResources.resource(region: "ZZ").phone)
         XCTAssertNil(SupportResources.resource(region: nil).phone)
     }
+
+    // MARK: Birth and the body map
+
+    func testTheTwinIsBornOnceFromTheBaseline() {
+        let baseline = AcademyContent.baseline
+        XCTAssertEqual(baseline.count, 8)
+        let answers = Dictionary(uniqueKeysWithValues: baseline.map { ($0.id, 0) })
+        let look = TwinAppearance(build: .strong, skin: TwinAppearance.skinTones[4])
+        var state = AcademyStore.born(AcademyState(), appearance: look, goals: [.mind, .fuel, .body, .legends],
+                                      baseline: baseline, answers: answers, at: day)
+        XCTAssertEqual(state.appearance, look)
+        XCTAssertEqual(state.goals, [.mind, .fuel, .body])
+        XCTAssertEqual(state.bornAt, day)
+        let twin = TwinScoring.snapshot(state.ledger, sportAreas: [])
+        for pillar in TwinPillar.allCases { XCTAssertGreaterThan(twin.score(pillar).total, 0, pillar.rawValue) }
+        let count = state.ledger.count
+        // Changing the look later never adds the baseline again.
+        state = AcademyStore.born(state, appearance: .standard, goals: [], baseline: baseline, answers: answers, at: day)
+        XCTAssertEqual(state.ledger.count, count)
+        XCTAssertEqual(state.bornAt, day)
+    }
+
+    func testBodyAreasMapToRealMusclesOnTheMap() {
+        XCTAssertTrue(AcademyContent.muscles(forArea: "thighBack").contains("biceps-femoris"))
+        XCTAssertEqual(AcademyContent.area(ofMuscle: "gastrocnemius"), "shinBack")
+        let glow = AcademyContent.muscleGlow(["glutes": 0.6, "thighBack": 0.3])
+        XCTAssertEqual(glow["gluteus-maximus"], 0.6)
+        XCTAssertEqual(glow["semitendinosus"], 0.3)
+    }
 }

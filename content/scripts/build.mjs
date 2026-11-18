@@ -35,7 +35,8 @@ import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
 import { GUIDES, SOURCES, validateGuides } from '../src/guides/index.js';
 import { LESSONS as ACADEMY_LESSONS } from '../src/academy/lessons.js';
-import { academyPayload, validateAcademy } from '../src/academy/validate.js';
+import { BASELINE as ACADEMY_BASELINE } from '../src/academy/baseline.js';
+import { academyPayload, validateAcademy, validateBaseline } from '../src/academy/validate.js';
 import {
   generatedHeader, swiftArray, swiftDict, swiftDoubleLiteral,
   swiftStringArrayLiteral, swiftStringLiteral,
@@ -692,11 +693,11 @@ function buildPacks() {
 
 /** The Academy's lessons, body-area tables and legend traits (docs/ACADEMY-PLAN.md). */
 function genAcademySwift() {
-  const problems = validateAcademy(ACADEMY_LESSONS);
+  const problems = [...validateAcademy(ACADEMY_LESSONS), ...validateBaseline(ACADEMY_BASELINE)];
   if (problems.length) {
     throw new Error(`academy lessons are invalid:\n  ${problems.join('\n  ')}`);
   }
-  const json = JSON.stringify(academyPayload(ACADEMY_LESSONS));
+  const json = JSON.stringify(academyPayload(ACADEMY_LESSONS, ACADEMY_BASELINE));
   if (json.includes('"#')) throw new Error('academy lessons contain "#, which would end the raw Swift string');
   return `${generatedHeader('content/src/academy')}import Foundation
 

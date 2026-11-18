@@ -8,7 +8,8 @@
  */
 import { SOURCES } from '../guides/sources.js';
 import { SPORTS } from '../sports.js';
-import { BODY_AREAS, LEGEND_TRAITS, PHASES, PILLARS, SIDES, SPORT_BODY_AREAS } from './model.js';
+import { AREA_MUSCLES, BODY_AREAS, LEGEND_TRAITS, PHASES, PILLARS, SIDES, SPORT_BODY_AREAS } from './model.js';
+import { MUSCLES } from '../muscles.js';
 
 /** Never in Academy text, whatever the sentence around it says. */
 export const BANNED = [
@@ -59,6 +60,33 @@ function checkEffect(e, where, problems, lessonPillar) {
   if (lessonPillar && e.pillar !== lessonPillar) problems.push(`${where}: effect on ${e.pillar} in a ${lessonPillar} lesson`);
 }
 
+
+function checkQuestion(q, at, qids, problems, lessonPillar) {
+  const where = `${at}/${q.id}`;
+  if (!q.id || qids.has(q.id)) problems.push(`${where}: question ids must be unique`);
+  qids.add(q.id);
+  if (!['knowledge', 'reflection'].includes(q.kind)) problems.push(`${where}: kind must be knowledge or reflection`);
+  if (!q.prompt?.trim()) problems.push(`${where}: missing prompt`);
+  const options = q.options ?? [];
+  if (options.length < 2 || options.length > 4) problems.push(`${where}: needs 2–4 options`);
+  const correct = options.filter((o) => o.correct === true).length;
+  if (q.kind === 'knowledge') {
+    if (correct !== 1) problems.push(`${where}: a knowledge check has exactly one right answer`);
+    if (!q.explain?.trim()) problems.push(`${where}: a knowledge check explains its answer`);
+    for (const o of options) {
+      if (o.correct !== true && (o.effects ?? []).length) problems.push(`${where}: a wrong answer changes nothing`);
+      for (const e of o.effects ?? []) if (e.side !== 'knowledge') problems.push(`${where}: quiz answers build knowledge, not habits`);
+    }
+  } else if (q.kind === 'reflection') {
+    if (correct !== 0) problems.push(`${where}: a reflection has no right answer`);
+    for (const o of options) for (const e of o.effects ?? []) if (e.side !== 'habits') problems.push(`${where}: reflections build habits & mindset`);
+  }
+  for (const o of options) {
+    if (!o.text?.trim()) problems.push(`${where}: an option needs text`);
+    for (const e of o.effects ?? []) checkEffect(e, where, problems, lessonPillar);
+  }
+}
+
 /** Every problem in the lessons, as readable lines (empty = valid). */
 export function validateAcademy(lessons) {
   const problems = [];
@@ -102,31 +130,7 @@ export function validateAcademy(lessons) {
     if (questions.length < 2 || questions.length > 4) problems.push(`${at}: needs 2–4 questions, has ${questions.length}`);
     if (!questions.some((q) => q.kind === 'knowledge')) problems.push(`${at}: needs at least one knowledge check`);
     const qids = new Set();
-    for (const q of questions) {
-      const where = `${at}/${q.id}`;
-      if (!q.id || qids.has(q.id)) problems.push(`${where}: question ids must be unique`);
-      qids.add(q.id);
-      if (!['knowledge', 'reflection'].includes(q.kind)) problems.push(`${where}: kind must be knowledge or reflection`);
-      if (!q.prompt?.trim()) problems.push(`${where}: missing prompt`);
-      const options = q.options ?? [];
-      if (options.length < 2 || options.length > 4) problems.push(`${where}: needs 2–4 options`);
-      const correct = options.filter((o) => o.correct === true).length;
-      if (q.kind === 'knowledge') {
-        if (correct !== 1) problems.push(`${where}: a knowledge check has exactly one right answer`);
-        if (!q.explain?.trim()) problems.push(`${where}: a knowledge check explains its answer`);
-        for (const o of options) {
-          if (o.correct !== true && (o.effects ?? []).length) problems.push(`${where}: a wrong answer changes nothing`);
-          for (const e of o.effects ?? []) if (e.side !== 'knowledge') problems.push(`${where}: quiz answers build knowledge, not habits`);
-        }
-      } else if (q.kind === 'reflection') {
-        if (correct !== 0) problems.push(`${where}: a reflection has no right answer`);
-        for (const o of options) for (const e of o.effects ?? []) if (e.side !== 'habits') problems.push(`${where}: reflections build habits & mindset`);
-      }
-      for (const o of options) {
-        if (!o.text?.trim()) problems.push(`${where}: an option needs text`);
-        for (const e of o.effects ?? []) checkEffect(e, where, problems, lesson.pillar);
-      }
-    }
+    for (const q of questions) checkQuestion(q, at, qids, problems, lesson.pillar);
     if (!Array.isArray(lesson.completion) || lesson.completion.length === 0) problems.push(`${at}: finishing a lesson must move the twin (completion)`);
     for (const e of lesson.completion ?? []) {
       checkEffect(e, `${at}/completion`, problems, lesson.pillar);
@@ -162,8 +166,29 @@ export function validateAcademy(lessons) {
   return problems;
 }
 
+/** Problems in the birth questions and the area → muscle table. */
+export function validateBaseline(baseline) {
+  const problems = [];
+  if (baseline.length !== 8) problems.push(`baseline: needs 8 questions, has ${baseline.length}`);
+  const qids = new Set();
+  for (const q of baseline) {
+    checkQuestion(q, 'baseline', qids, problems, null);
+    for (const text of [q.prompt, q.explain ?? '', ...(q.options ?? []).map((o) => o.text)]) {
+      for (const [pattern, what] of BANNED) if (pattern.test(text)) problems.push(`baseline/${q.id}: not for the Academy (${what})`);
+    }
+  }
+  const pillars = new Set(baseline.flatMap((q) => q.options.flatMap((o) => o.effects.map((e) => e.pillar))));
+  for (const p of PILLARS) if (!pillars.has(p)) problems.push(`baseline: nothing for ${p}`);
+  const slugs = new Set(MUSCLES.map((m) => m.slug));
+  for (const area of BODY_AREAS) {
+    if (!AREA_MUSCLES[area]?.length) problems.push(`area muscles: ${area} has none`);
+    for (const m of AREA_MUSCLES[area] ?? []) if (!slugs.has(m)) problems.push(`area muscles: unknown muscle ${m}`);
+  }
+  return problems;
+}
+
 /** The JSON the app decodes (AcademyContent.swift). */
-export function academyPayload(lessons) {
+export function academyPayload(lessons, baseline = []) {
   return {
     lessons: lessons.map((l) => ({
       id: l.id,
@@ -190,5 +215,13 @@ export function academyPayload(lessons) {
     })),
     sportAreas: SPORT_BODY_AREAS,
     traits: LEGEND_TRAITS,
+    areaMuscles: AREA_MUSCLES,
+    baseline: baseline.map((q) => ({
+      id: q.id,
+      kind: q.kind,
+      prompt: q.prompt,
+      explain: q.explain ?? null,
+      options: q.options.map((o) => ({ text: o.text, correct: o.correct === true, effects: o.effects ?? [] })),
+    })),
   };
 }

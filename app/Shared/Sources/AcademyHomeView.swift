@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The Academy tab (docs/ACADEMY-PLAN.md): the Digital Twin as the hero, the
-/// next three lessons with the reason for each, the six pillars, and the
-/// always-available "Need to talk to someone?".
+/// The Academy tab (docs/ACADEMY-PLAN.md): the Digital Twin on its stage as
+/// the hero, one clear next lesson, the six pillars, before vs now, and the
+/// always-available "Need to talk to someone?". Before the twin exists, the
+/// stage shows its outline and one button: create it.
 struct AcademyHomeView: View {
     let athlete: Athlete
 
@@ -10,8 +11,11 @@ struct AcademyHomeView: View {
     @State private var target: TwinTarget?
     @State private var playing: AcademyLesson?
     @State private var showingSupport = false
+    @State private var showingBirth = false
+    @State private var showingCompare = false
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
+    private var born: Bool { state.bornAt != nil }
 
     private var learner: AcademyLearner {
         AcademyLearner(
@@ -26,19 +30,48 @@ struct AcademyHomeView: View {
         TwinScoring.snapshot(state.ledger, sportAreas: AcademyContent.areas(forSport: sportSlug))
     }
 
+    /// "Your twin · Soccer · Midfielder"
+    private var eyebrow: String {
+        var parts = ["Your twin"]
+        if let slug = sportSlug {
+            parts.append(AthleteStats.sportName(athlete))
+            if let position = athlete.activeSport?.positionSlug,
+               let name = allSportsBySlug[slug]?.positions.first(where: { $0.slug == position })?.name {
+                parts.append(name)
+            }
+        }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         let twin = snapshot
         let recommendations = AcademyRecommender.recommend(AcademyContent.lessons, snapshot: twin, learner: learner)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 48) {
-                    VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 40) {
+                    VStack(alignment: .leading, spacing: 0) {
                         header
-                        hero(twin)
-                        pillarGrid(twin)
+                        DigitalTwinView(state: TwinVisualState(appearance: state.look, sportSlug: sportSlug, snapshot: twin,
+                                                               dormant: !born)) { tapped in
+                            if born {
+                                AcademyEvent.log(.bodyZoneTapped)
+                                target = tapped
+                            } else {
+                                showingBirth = true
+                            }
+                        }
+                        .frame(height: 500)
+                        .padding(.horizontal, -20)
                     }
-                    nextSection(recommendations)
+                    if born {
+                        if let first = recommendations.first { nextCard(first) } else { upToDate }
+                    } else {
+                        birthCard
+                    }
+                    let more = born ? Array(recommendations.dropFirst()) : recommendations
+                    if !more.isEmpty { lessonRows(more, title: born ? "Also for you" : "Lessons") }
                     pillarList(twin)
+                    if born { compareRow }
                     supportRow
                 }
                 .padding(.horizontal, 20)
@@ -51,6 +84,8 @@ struct AcademyHomeView: View {
         .onAppear {
             state = AcademyStore.load()
             AcademyEvent.log(.twinViewed)
+            // Screenshots: `-tab academy -sheet birth` opens the twin's birth.
+            if DemoData.initialTab == .academy, DemoData.initialSheet == "birth" { showingBirth = true }
         }
         .sheet(item: $target) { target in
             AcademyAreaSheet(target: target, snapshot: twin, learner: learner) { lesson in
@@ -60,95 +95,157 @@ struct AcademyHomeView: View {
             .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
+        .sheet(isPresented: $showingCompare) {
+            TwinCompareSheet(state: state, sportSlug: sportSlug)
+        }
         .fullScreenCover(item: $playing, onDismiss: { state = AcademyStore.load() }) { lesson in
             AcademyLessonView(lesson: lesson, sportSlug: sportSlug)
+        }
+        .fullScreenCover(isPresented: $showingBirth, onDismiss: { state = AcademyStore.load() }) {
+            AcademyBirthView(sportSlug: sportSlug, summary: eyebrow)
         }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            ProfileButton(name: athlete.displayName)
-            Text("Academy")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                ProfileButton(name: athlete.displayName)
+                Text("Academy")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+            }
+            Text(eyebrow)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .padding(.leading, 52)
         }
         .padding(.top, 8)
     }
 
-    private func hero(_ twin: TwinSnapshot) -> some View {
-        VStack(spacing: 6) {
-            DigitalTwinView(state: TwinVisualState(appearance: state.look, sportSlug: sportSlug, snapshot: twin)) { tapped in
-                AcademyEvent.log(.bodyZoneTapped)
-                target = tapped
-            }
-            .frame(height: 420)
-            Text(state.ledger.isEmpty ? "Every lesson you finish shapes your twin." : "Tap your twin to see each area.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.mutedText)
+    // MARK: The one next step
+
+    private var birthCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Create your twin")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.ink)
+            Text("Two minutes: how it looks, what you want to grow, eight honest answers. Only you can see it.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { showingBirth = true } label: { HeroCTALabel("Create my twin") }
+                .buttonStyle(.primary)
+                .padding(.top, 8)
         }
-        .frame(maxWidth: .infinity)
+        .cardStyle(padding: 18)
     }
 
-    /// The six pillars as small glass blocks: a big number, the pillar's name.
-    private func pillarGrid(_ twin: TwinSnapshot) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-            ForEach(TwinPillar.allCases) { pillar in
-                Button { target = .pillar(pillar) } label: {
-                    GlassMetric(value: "\(twin.score(pillar).total)", label: pillar.title,
-                                height: pillar.rawValue.count.isMultiple(of: 2) ? 72 : 80, accent: pillar.color)
-                }
-                .buttonStyle(.plain)
-            }
+    private func nextCard(_ recommendation: AcademyRecommendation) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Next for you", systemImage: recommendation.lesson.pillar.systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(recommendation.lesson.pillar.color)
+            Text(recommendation.lesson.title)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(recommendation.reason) · \(recommendation.lesson.minutes) min")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            Button { playing = recommendation.lesson } label: { HeroCTALabel("Start") }
+                .buttonStyle(.primary)
+                .padding(.top, 10)
         }
+        .padding(18)
+        .glassSurface(tint: recommendation.lesson.pillar.color)
     }
 
-    @ViewBuilder
-    private func nextSection(_ recommendations: [AcademyRecommendation]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionHeader("Next for you")
-            if recommendations.isEmpty {
-                Text("You've finished every lesson for now. New ones arrive with updates.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(recommendations.enumerated()), id: \.element.id) { index, recommendation in
-                        Button { playing = recommendation.lesson } label: {
-                            ListRow(systemImage: recommendation.lesson.pillar.systemImage, color: recommendation.lesson.pillar.color,
-                                    title: recommendation.lesson.title,
-                                    detail: "\(recommendation.reason) · \(recommendation.lesson.minutes) min")
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.vertical, 6)
-                        if index < recommendations.count - 1 { Divider().padding(.leading, 54).opacity(0.5) }
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 4)
-                .glassSurface(tint: AppTheme.brand)
-            }
+    private var upToDate: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("You're up to date")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+            Text("You've finished every lesson for now. New ones arrive with updates.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
-    private func pillarList(_ twin: TwinSnapshot) -> some View {
+    private func lessonRows(_ recommendations: [AcademyRecommendation], title: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader("Pillars", subtitle: "Knowledge from lessons, habits from your own answers.")
+            SectionHeader(title)
             VStack(spacing: 0) {
-                ForEach(TwinPillar.allCases) { pillar in
-                    Button { target = .pillar(pillar) } label: {
-                        ListRow(systemImage: pillar.systemImage, color: pillar.color, title: pillar.title, detail: pillar.subtitle) {
-                            Text("\(twin.score(pillar).total)")
-                                .font(.headline.monospacedDigit())
-                                .foregroundStyle(AppTheme.ink)
-                        }
+                ForEach(recommendations) { recommendation in
+                    Button { playing = recommendation.lesson } label: {
+                        ListRow(systemImage: recommendation.lesson.pillar.systemImage, color: recommendation.lesson.pillar.color,
+                                title: recommendation.lesson.title,
+                                detail: "\(recommendation.reason) · \(recommendation.lesson.minutes) min")
                     }
                     .buttonStyle(.plain)
                     .padding(.vertical, 6)
                 }
             }
         }
+    }
+
+    // MARK: Pillars, before vs now, support
+
+    private func pillarList(_ twin: TwinSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader("Pillars", subtitle: "Knowledge from lessons, habits from your own answers.")
+            VStack(spacing: 0) {
+                ForEach(TwinPillar.allCases) { pillar in
+                    Button { target = .pillar(pillar) } label: { pillarRow(pillar, score: twin.score(pillar)) }
+                        .buttonStyle(.plain)
+                        .disabled(!born)
+                }
+            }
+        }
+    }
+
+    private func pillarRow(_ pillar: TwinPillar, score: TwinPillarScore) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: pillar.systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(pillar.color)
+                .frame(width: 40, height: 40)
+                .background(pillar.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(pillar.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                    Spacer(minLength: 8)
+                    Text(born ? "\(score.total)" : "–")
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                }
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(pillar.color.opacity(0.85))
+                            .frame(width: proxy.size.width * CGFloat(score.total) / CGFloat(TwinScoring.maximum))
+                    }
+                }
+                .frame(height: 4)
+                Text(pillar.subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private var compareRow: some View {
+        Button { showingCompare = true } label: {
+            ListRow(systemImage: "arrow.left.and.right", color: AppTheme.brightRed, title: "Before vs now",
+                    detail: "Your twin when it was born, and today")
+        }
+        .buttonStyle(.plain)
     }
 
     private var supportRow: some View {

@@ -10,14 +10,16 @@ athlete's own figure — that those lessons and their honest answers build. The 
 | What | Where |
 | --- | --- |
 | Lessons (data) | `content/src/academy/lessons.js` |
-| Pillars, body areas per sport, legend traits | `content/src/academy/model.js` |
+| The twin's birth: eight baseline questions | `content/src/academy/baseline.js` |
+| Pillars, body areas per sport, area → muscles, legend traits | `content/src/academy/model.js` |
 | Seed validator (structure + safety) | `content/src/academy/validate.js`, tests in `content/test/academy.test.js` |
 | Generated for the app | `app/Shared/Sources/Generated/AcademyContent.swift` (by `npm run build` in `content/`) |
 | Models, decoding | `app/Shared/Sources/AcademyModels.swift` |
 | Twin scoring (0–100, knowledge vs habits) | `TwinScoring.swift`, tests `TwinScoringTests.swift` |
 | Recommendations (top 3 + reason) | `AcademyRecommender.swift`, tests `AcademyRecommenderTests.swift` |
 | Storage, events, access flag | `AcademyStore.swift` |
-| The twin | `DigitalTwinView.swift` (`TwinVisualState` in, nothing else) |
+| The twin: anatomical hologram (the muscle map's front/back body), pillar gauges wired to the body | `DigitalTwinView.swift` (`TwinVisualState` in, nothing else) |
+| Twin birth (goals, look, baseline, reveal), before vs now | `AcademyBirthView.swift` |
 | Screens | `AcademyHomeView.swift`, `AcademyLessonView.swift` |
 | "Need to talk to someone?" per country | `SupportResources.swift` |
 

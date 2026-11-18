@@ -88,3 +88,12 @@ test('the payload keeps every lesson, option and effect', () => {
   assert.equal(first.minAge, 13);
   assert.ok(first.questions.every((q) => q.options.every((o) => typeof o.correct === 'boolean')));
 });
+
+test('the birth questions are valid and touch every pillar', async () => {
+  const { BASELINE } = await import('../src/academy/baseline.js');
+  const { validateBaseline } = await import('../src/academy/validate.js');
+  assert.deepEqual(validateBaseline(BASELINE), []);
+  const payload = academyPayload(LESSONS, BASELINE);
+  assert.equal(payload.baseline.length, 8);
+  assert.ok(Object.keys(payload.areaMuscles).length >= 16);
+});

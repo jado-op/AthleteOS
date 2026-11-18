@@ -200,8 +200,12 @@ public struct AcademyContentPack: Codable, Sendable {
     /// Sport slug (or "default") → the body regions that matter most, in order.
     public let sportAreas: [String: [String]]
     public let traits: [LegendTrait]
+    /// Body area → the muscle map's muscle slugs that draw it on the twin.
+    public let areaMuscles: [String: [String]]
+    /// The eight questions asked once when the twin is born.
+    public let baseline: [AcademyQuestion]
 
-    public static let empty = AcademyContentPack(lessons: [], sportAreas: [:], traits: [])
+    public static let empty = AcademyContentPack(lessons: [], sportAreas: [:], traits: [], areaMuscles: [:], baseline: [])
 }
 
 public enum AcademyContent {
@@ -219,6 +223,27 @@ public enum AcademyContent {
 
     public static func trait(_ id: String) -> LegendTrait? {
         pack.traits.first { $0.id == id }
+    }
+
+    public static var baseline: [AcademyQuestion] { pack.baseline }
+
+    /// The muscle map's muscles that draw a body area.
+    public static func muscles(forArea area: String, pack: AcademyContentPack = AcademyContent.pack) -> [String] {
+        pack.areaMuscles[area] ?? []
+    }
+
+    /// The body area a muscle belongs to (the first that lists it).
+    public static func area(ofMuscle slug: String, pack: AcademyContentPack = AcademyContent.pack) -> String? {
+        pack.areaMuscles.keys.sorted().first { pack.areaMuscles[$0]?.contains(slug) == true }
+    }
+
+    /// Muscle slug → glow 0…1, from the twin's body areas.
+    public static func muscleGlow(_ areas: [String: Double], pack: AcademyContentPack = AcademyContent.pack) -> [String: Double] {
+        var out: [String: Double] = [:]
+        for (area, level) in areas {
+            for muscle in muscles(forArea: area, pack: pack) { out[muscle] = max(out[muscle] ?? 0, level) }
+        }
+        return out
     }
 
     /// The body regions the twin lights up first for this sport.
