@@ -505,48 +505,6 @@ public extension ButtonStyle where Self == SecondaryButtonStyle {
     static var secondary: SecondaryButtonStyle { SecondaryButtonStyle() }
 }
 
-/// The floating red "+" (or a labelled capsule).
-public struct FloatingActionButton: View {
-    let systemImage: String
-    let title: String?
-    let accessibilityLabel: String
-    let action: () -> Void
-
-    /// With a `title` it's a labelled capsule, so what it does is never a guess.
-    public init(systemImage: String = "plus", title: String? = nil, accessibilityLabel: String, action: @escaping () -> Void) {
-        self.systemImage = systemImage
-        self.title = title
-        self.accessibilityLabel = accessibilityLabel
-        self.action = action
-    }
-
-    public var body: some View {
-        Button(action: action) {
-            if let title {
-                Label(title, systemImage: systemImage)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .frame(height: 60)
-                    .glassCapsule()
-                    .overlay { Capsule().strokeBorder(AppTheme.brightRed.opacity(0.55), lineWidth: 1) }
-                    .shadow(color: AppTheme.brand.opacity(0.4), radius: 16, x: 0, y: 6)
-            } else {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 66, height: 66)
-                    .background { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
-                    .background(AppTheme.brand.opacity(0.28), in: Circle())
-                    .overlay { Circle().strokeBorder(AppTheme.brightRed.opacity(0.6), lineWidth: 1) }
-                    .shadow(color: AppTheme.brand.opacity(0.45), radius: 16, x: 0, y: 6)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-}
-
 // MARK: - Popup buttons
 //
 // One rule for every popup: top left an ✕ closes it (anything not saved is
@@ -731,103 +689,6 @@ public struct RingStatCard: View {
         .cardStyle(padding: 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(value)" + (caption.map { ". \($0)" } ?? ""))
-    }
-}
-
-// MARK: - Week strip
-
-/// The row of seven day circles across the top of the home screen.
-public struct WeekStrip: View {
-    @Binding var selection: Date
-    let marked: Set<Date>
-    /// Game days get a red dot instead of the orange training one.
-    let gameDays: Set<Date>
-
-    public init(selection: Binding<Date>, marked: Set<Date>, gameDays: Set<Date> = []) {
-        _selection = selection
-        self.marked = marked
-        self.gameDays = gameDays
-    }
-
-    private var days: [Date] {
-        let calendar = Calendar.current
-        let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selection))
-            ?? calendar.startOfDay(for: selection)
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-    }
-
-    public var body: some View {
-        HStack(spacing: 0) {
-            ForEach(days, id: \.self) { day in
-                dayCell(day)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-
-    private func dayCell(_ day: Date) -> some View {
-        let calendar = Calendar.current
-        let isSelected = calendar.isDate(day, inSameDayAs: selection)
-        let isToday = calendar.isDateInToday(day)
-        let isMarked = marked.contains(calendar.startOfDay(for: day))
-        let isGame = gameDays.contains(calendar.startOfDay(for: day))
-        return Button {
-            selection = day
-        } label: {
-            VStack(spacing: 6) {
-                Text(day.formatted(.dateTime.weekday(.narrow)))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(AppTheme.secondaryText)
-                Text(day.formatted(.dateTime.day()))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
-                    .frame(width: 36, height: 36)
-                    .background {
-                        if isSelected {
-                            Circle().fill(AppTheme.accent)
-                        } else if isToday {
-                            Circle().strokeBorder(AppTheme.ink, lineWidth: 1.5)
-                        } else {
-                            Circle().strokeBorder(AppTheme.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                        }
-                    }
-                Circle()
-                    .fill(isGame ? AppTheme.brand : (isMarked ? AppTheme.orange : .clear))
-                    .frame(width: 5, height: 5)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + (isGame ? ", game day" : (isMarked ? ", has training" : "")))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-/// What the week strip's dots mean, in words under it.
-public struct WeekStripLegend: View {
-    public init() {}
-
-    public var body: some View {
-        HStack(spacing: 14) {
-            item(AppTheme.orange, "Workout")
-            item(AppTheme.brand, "Game")
-            HStack(spacing: 5) {
-                Circle().strokeBorder(AppTheme.ink, lineWidth: 1.5).frame(width: 10, height: 10)
-                Text("Today")
-            }
-            Spacer(minLength: 0)
-            Text("Tap a day to see it")
-        }
-        .font(.caption2)
-        .foregroundStyle(AppTheme.secondaryText)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Orange dot: workout day. Red dot: game day. Tap a day to see its plan.")
-    }
-
-    private func item(_ color: Color, _ text: String) -> some View {
-        HStack(spacing: 5) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(text)
-        }
     }
 }
 
@@ -1172,31 +1033,6 @@ public struct SectionHeader<Trailing: View>: View {
             }
         }
         .padding(.top, 10)
-    }
-}
-
-/// A small numbered step label ("1  Check in first").
-public struct StepLabel: View {
-    let number: Int
-    let text: String
-
-    public init(_ number: Int, _ text: String) {
-        self.number = number
-        self.text = text
-    }
-
-    public var body: some View {
-        HStack(spacing: 10) {
-            Text("\(number)")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(AppTheme.brand.opacity(0.3), in: Circle())
-                .overlay { Circle().strokeBorder(AppTheme.brightRed.opacity(0.6), lineWidth: 1) }
-            Text(text)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-        }
     }
 }
 

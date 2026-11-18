@@ -378,10 +378,7 @@ enum WeeklyPlan {
         let basePosition = athleteSport.positionSlug.flatMap { slug in
             sportInfo.positions.first { $0.slug == slug }?.qualityProfile
         }
-        // A running off-season program leads with its goal (7).
-        let program = ProgramStore.active
-        let struggles: [Struggle] = program.map { running in [running.goal] + Array(Struggles.selected.filter { $0 != running.goal }.prefix(1)) }
-            ?? Struggles.selected
+        let struggles: [Struggle] = Struggles.selected
         let positionProfile = struggles.isEmpty ? basePosition
             : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
         let custom = PlanCustomizationStore.load()
@@ -395,7 +392,7 @@ enum WeeklyPlan {
             seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))", variant: variant),
             timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
             sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
-            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek ?? program?.gymDaysPerWeek,
+            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
             experience: TrainingExperience.current, avoid: avoid, painAreas: painAreas
         )
     }

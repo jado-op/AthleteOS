@@ -402,6 +402,8 @@ public final class SkillBlock {
     }
 }
 
+/// Unused, kept for store compatibility (the weekly coach report was cut;
+/// removing the model would change the SwiftData schema).
 @Model
 public final class CoachReport {
     @Attribute(.unique) public var id: String

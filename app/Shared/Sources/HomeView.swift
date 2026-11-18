@@ -67,7 +67,7 @@ struct HomeView: View {
     /// The widget being held while arranging, and where the board is in reordering it.
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mindset, tests, windDown, seasonReview, tournament
+        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mindset, tests, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -385,9 +385,6 @@ struct HomeView: View {
                     }
                 case .tournament:
                     TournamentModeView(onHotelWorkout: { selectedTab = .workout })
-                case .windDown:
-                    WindDownView(bedtime: bedtimeTonight.map { Bedtime.label($0.minutes) },
-                                 gameTomorrow: athlete.competitions.contains { calendar.isDateInTomorrow($0.date) })
                 case .seasonReview:
                     if let sport = athlete.activeSport {
                         SeasonReviewSheet(athlete: athlete, sport: sport, sessions: allSessions)
@@ -541,7 +538,6 @@ struct HomeView: View {
         case .exerciseProgress: ExerciseProgressListView(sessions: allSessions, catalogue: catalogue)
         case .dataExport: DataExportView(athlete: athlete, sessions: allSessions)
         case .reminders: RemindersSheet(athlete: athlete)
-        case .downloads: DownloadsSheet(athlete: athlete)
         case .health: HealthPermissionView()
         case .help: HelpCenterView()
         case .team: MyTeamView()
@@ -556,7 +552,6 @@ struct HomeView: View {
         case .library: LibraryView(athlete: athlete)
         case .sportGuide: SportGuideView(athlete: athlete)
         case .support: SupportSheet()
-        case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
         case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
         case .skill(let slug):
             ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialSkillSlug: slug)
@@ -1478,9 +1473,6 @@ struct HomeView: View {
                         .font(.telemetry(13))
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                Button { activeSheet = .windDown } label: { HeroCTALabel("Wind down") }
-                    .buttonStyle(.secondary)
-                    .frame(maxWidth: 240)
             }
         }
         .frame(maxWidth: .infinity)
@@ -1497,10 +1489,6 @@ struct HomeView: View {
             Text("Everything else can wait until morning.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
-            Button { activeSheet = .windDown } label: { Label("Wind down", systemImage: "wind") }
-                .buttonStyle(.secondary)
-                .frame(maxWidth: 260)
-                .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
     }

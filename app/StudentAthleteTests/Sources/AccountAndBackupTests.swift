@@ -155,6 +155,7 @@ final class AccountAndBackupTests: XCTestCase {
         XCTAssertEqual(CloudSync.settingGroup(of: "dayStatus.v1"), "app")
         XCTAssertNil(CloudSync.settingGroup(of: "cloud.meta"), "sync bookkeeping never syncs itself")
         XCTAssertNil(CloudSync.settingGroup(of: "healthPermissionAsked"), "per-device permission prompts stay per device")
+        XCTAssertNil(CloudSync.settingGroup(of: "mindset.goals"), "cut features (season goals) are no longer backed up")
         XCTAssertLessThanOrEqual(CloudSync.documentKeys.count, 50, "the server takes at most 50 documents per write")
     }
 

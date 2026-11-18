@@ -175,10 +175,6 @@ public enum DemoData {
 
         seedAcademy(now: now, calendar: calendar)
 
-        MindsetStore.goals = [
-            SeasonGoal(text: "Make the starting line-up", area: .performance),
-            SeasonGoal(text: "Stay calm on big moments", area: .confidence),
-        ]
         let wins = [("Won every header in the second half", "Scan before the ball arrives"),
                     ("Stayed calm after missing the penalty", "Pick my spot early"),
                     ("Finished all my sprints", "Eat something before practice")]
@@ -187,7 +183,6 @@ public enum DemoData {
                 MindsetStore.saveReflection(win: entry.0, lesson: entry.1, feeling: 4, on: day)
             }
         }
-        if let first = MindsetStore.goals.first { MindsetStore.setFocusDone(first.id, true) }
         MindsetStore.logRoutine(.breathing, on: now)
 
         let firstTest = calendar.date(byAdding: .day, value: -44, to: now) ?? now

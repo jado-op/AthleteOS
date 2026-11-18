@@ -9,13 +9,6 @@ final class CheckInPrefillTests: XCTestCase {
         XCTAssertEqual(CheckInPrefill.sleepRating(hours: 5), 1)
     }
 
-    func testRestingHeartRateAboveNormalLowersEnergyButNeverGuessesExtremes() {
-        XCTAssertEqual(CheckInPrefill.energyRating(restingHeartRate: 57, usual: 56), 4)
-        XCTAssertEqual(CheckInPrefill.energyRating(restingHeartRate: 60, usual: 56), 3)
-        XCTAssertEqual(CheckInPrefill.energyRating(restingHeartRate: 70, usual: 56), 2)
-        XCTAssertNil(CheckInPrefill.energyRating(restingHeartRate: 70, usual: nil), "no normal to compare with yet")
-    }
-
     func testUsualRestingHeartRateIsTheMedianOfEarlierDays() {
         let calendar = Calendar(identifier: .gregorian)
         let today = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25))!

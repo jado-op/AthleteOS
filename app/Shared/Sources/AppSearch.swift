@@ -39,8 +39,8 @@ enum AppSearchTarget: Hashable {
     case tab(AppTab)
     // Settings and tools (Me, Workout, Campus)
     case sports, season, equipment, experience, name, reports, checkIns, exerciseProgress, dataExport
-    case reminders, downloads, health, help, team, coach, parent, goals, trends, library, sportGuide
-    case newGymPlan, upgrade, support
+    case reminders, health, help, team, coach, parent, goals, trends, library, sportGuide
+    case upgrade, support
     case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
     case sportPosition
     case skill(String)
@@ -106,17 +106,14 @@ enum AppSearch {
         function("Training experience", "Beginner, intermediate, experienced", "figure.strengthtraining.traditional", ["experience", "level", "beginner", "advanced", "lifting"], .experience),
         function("Your name", "How the app greets you", "person.text.rectangle", ["name", "profile"], .name),
         function("Development Goals", "What you want to get better at", "target", ["goals", "improve", "weakness", "struggles", "development"], .goals),
-        function("New gym plan", "Generate one or build your own", "arrow.clockwise", ["new plan", "gym plan", "generate", "randomize", "build", "change plan"], .newGymPlan),
         function("Exercise library", "Every exercise and drill, with how it looks", "books.vertical.fill", ["library", "exercises", "drills", "catalogue", "browse", "how to"], .library),
         function("Sport guide", "Know your sport and position", "book.fill", ["guide", "rules", "position", "sport", "know"], .sportGuide),
-        function("Habit badges", "Rest, honest check-ins, speaking up — in Progress", "rosette", ["badges", "awards", "achievements"], .tab(.progress)),
         function("Trends", "Sleep, load and balance over time", "chart.xyaxis.line", ["trends", "charts", "sleep", "load", "balance", "graph"], .trends),
         function("Exercise progress", "Charts for every exercise", "chart.line.uptrend.xyaxis", ["progress", "charts", "strength", "weights", "exercise"], .exerciseProgress),
         function("Past check-ins", "Every morning check-in", "sun.max.fill", ["check-ins", "history", "sleep", "readiness"], .checkIns),
         function("Reports", "Season report, PDF, recruiting", "doc.richtext", ["report", "pdf", "recruiting", "college", "coach", "season card"], .reports),
         function("Export my data", "Download everything as JSON", "square.and.arrow.up", ["export", "data", "download", "json", "backup"], .dataExport),
         function("Reminders", "Check-in, reflection and bedtime reminders", "bell.fill", ["reminders", "notifications", "alerts", "bedtime"], .reminders),
-        function("Downloads for offline use", "Sports and exercise pictures on this phone", "arrow.down.circle.fill", ["offline", "downloads", "packs", "storage"], .downloads),
         function("Apple Health", "Sleep, heart rate and workouts", "heart.fill", ["health", "apple health", "healthkit", "heart rate", "watch", "sleep"], .health),
         function("My team", "Join your team with a code", "person.3.fill", ["team", "join", "code", "teammates"], .team),
         function("Coach mode", "For coaches", "whistle.fill", ["coach", "team", "athletes", "assign"], .coach),

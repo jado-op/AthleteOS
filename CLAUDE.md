@@ -133,7 +133,7 @@ Reading files, CI logs or the GitHub API needs no lock.
   paused, pain). Website images are real screenshots only (`website/screens.py` from the
   `screenshots` workflow artifact, `website/dashboard-shot.mjs` for the dashboard); publish
   with `sh website/deploy.sh`. Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
-- Sport atmosphere = abstract geometry at 2–8% opacity (`SportAtmosphere`), never photos.
+- Sport atmosphere = abstract geometry at 2–8% opacity (retired; no sport geometry), never photos.
 - V6 component levels: one **hero** per screen (big type, open), **information panels**
   (glass) for important data, flat **utility rows** for the rest — not every block in a
   card. Sentence case, not all-caps (eyebrows, buttons, labels). Big numbers, few icons,

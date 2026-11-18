@@ -1,7 +1,8 @@
 import XCTest
 
-/// Building a new gym plan: it really is new, and ♻︎ swaps one exercise for
-/// another that fits the same spot, the athlete's equipment and level.
+/// PlanGenerator's alternatives: a plan that avoids the last one's exercises, and
+/// ♻︎ (also used by the pain filter) swaps one exercise for another that fits
+/// the same spot, the athlete's equipment and level.
 final class NewGymPlanTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
     private func day(_ d: Int) -> Date { calendar.date(from: DateComponents(year: 2026, month: 6, day: d))! }

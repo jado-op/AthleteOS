@@ -580,11 +580,11 @@ struct AcademyHomeView: View {
         .buttonStyle(.plain)
     }
 
-    /// Reflection, goals, breathing and visualization: the mind tools.
+    /// Reflection, breathing and visualization: the mind tools.
     private var mindsetRow: some View {
         Button { showingMindset = true } label: {
             ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mindset tools",
-                    detail: "Evening reflection, season goals, breathing, visualization")
+                    detail: "Evening reflection, breathing, visualization")
         }
         .buttonStyle(.plain)
     }

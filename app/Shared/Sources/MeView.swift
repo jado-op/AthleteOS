@@ -57,7 +57,7 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, downloads, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency
+        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency
         var id: String { rawValue }
     }
 
@@ -153,8 +153,6 @@ struct MeView: View {
                                 detail: weightUnitRaw == WeightUnit.lb.rawValue ? "lb · tap for kg" : "kg · tap for lb") {
                             weightUnitRaw = weightUnitRaw == WeightUnit.lb.rawValue ? WeightUnit.kg.rawValue : WeightUnit.lb.rawValue
                         }
-                        menuDivider
-                        menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .downloads }
                     }
 
                     #if os(iOS) && !APP_EXTENSION
@@ -258,7 +256,6 @@ struct MeView: View {
                 case .dataExport: DataExportView(athlete: athlete, sessions: sessions)
                 case .shared: SharedByMeView()
                 case .reminders: RemindersSheet(athlete: athlete)
-                case .downloads: DownloadsSheet(athlete: athlete)
                 case .health: HealthPermissionView()
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()

@@ -132,7 +132,7 @@ struct ProgressTabView: View {
     }
 
     enum ProgressSheet: String, Identifiable {
-        case schedule, calendars, addGame, addTraining, history, tests, trends, exercises, checkIns, reports
+        case history, tests, trends, exercises, checkIns, reports
         var id: String { rawValue }
     }
 
@@ -215,9 +215,6 @@ struct ProgressTabView: View {
                     thirtyDaysSection
                     statsSection
                     workoutsSection
-                    // Habits, quietly, at the end (gamification comes last).
-                    HabitBadgesSection(athlete: athlete, sessions: sessions)
-                        .padding(.top, 20)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -247,10 +244,6 @@ struct ProgressTabView: View {
             }
             .sheet(item: $sheet, onDismiss: { revision += 1 }) { sheet in
                 switch sheet {
-                case .schedule: PracticeScheduleSheet { onPlanInputsChanged() }
-                case .calendars: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
-                case .addGame: AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
-                case .addTraining: ExtraPracticeSheet { onPlanInputsChanged() }
                 case .history: SessionHistoryView()
                 case .tests: BenchmarksView(sportSlug: sportSlug)
                 case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
@@ -759,36 +752,6 @@ struct ProgressTabView: View {
         }
     }
 
-    // MARK: Schedule & events
-
-    private var practiceSummary: String {
-        let symbols = calendar.shortWeekdaySymbols
-        let times = PracticeTimes.all
-        return PracticeSchedule.weekdays.sorted { ($0 + 5) % 7 < ($1 + 5) % 7 }
-            .map { day in symbols[day - 1] + (times[day].map { " \($0.label)" } ?? "") }
-            .joined(separator: ", ")
-    }
-
-    private func row(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme.fill, in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(AppTheme.ink)
-                    Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondaryText).lineLimit(2)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
-            }
-            .cardStyle(padding: 14)
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: Workouts
 
     private var workoutsSection: some View {
@@ -862,19 +825,6 @@ struct ProgressTabView: View {
         case .mobility: "Stretching & mobility"
         case .travel: "Travel workout"
         case .coach: "From your coach"
-        }
-    }
-}
-
-/// A small dot before a line of text.
-private struct InsightLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle().fill(AppTheme.ink).frame(width: 6, height: 6).alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-            configuration.title
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -1218,73 +1168,7 @@ struct PracticeLogSheet: View {
     }
 }
 
-// MARK: - Practice days & times
-
-struct PracticeScheduleSheet: View {
-    let onSaved: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var days = PracticeSchedule.weekdays
-    @State private var times = PracticeTimes.all
-
-    var body: some View {
-        StepScaffold(title: "Practice days & times", subtitle: "Tap the days you have team practice and set when it is. Workouts are planned around it.",
-                     onClose: { dismiss() }, onConfirm: save) {
-            VStack(spacing: 10) {
-                ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { weekday in
-                    dayRow(weekday)
-                }
-            }
-        }
-    }
-
-    private func dayRow(_ weekday: Int) -> some View {
-        let on = days.contains(weekday)
-        return VStack(alignment: .leading, spacing: 10) {
-            Button {
-                if on { days.remove(weekday) } else {
-                    days.insert(weekday)
-                    if times[weekday] == nil { times[weekday] = PracticeTime(start: 16 * 60, end: 18 * 60) }
-                }
-            } label: {
-                OptionRow(title: Calendar.current.weekdaySymbols[weekday - 1], subtitle: on ? times[weekday]?.label ?? "Practice" : "No practice",
-                          systemImage: on ? "sportscourt.fill" : "circle", isSelected: on)
-            }
-            .buttonStyle(.plain)
-            if on {
-                HStack {
-                    DatePicker("From", selection: minutes(weekday, \.start), displayedComponents: .hourAndMinute)
-                    DatePicker("To", selection: minutes(weekday, \.end), displayedComponents: .hourAndMinute)
-                }
-                .font(.subheadline.weight(.semibold))
-                .tint(AppTheme.accent)
-                .padding(.horizontal, 6)
-            }
-        }
-    }
-
-    private func minutes(_ weekday: Int, _ keyPath: WritableKeyPath<PracticeTime, Int>) -> Binding<Date> {
-        Binding(
-            get: {
-                let value = times[weekday]?[keyPath: keyPath] ?? 16 * 60
-                return Calendar.current.date(bySettingHour: value / 60, minute: value % 60, second: 0, of: .now) ?? .now
-            },
-            set: { date in
-                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-                var time = times[weekday] ?? PracticeTime(start: 16 * 60, end: 18 * 60)
-                time[keyPath: keyPath] = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-                times[weekday] = time
-            }
-        )
-    }
-
-    private func save() {
-        PracticeSchedule.weekdays = days
-        PracticeTimes.all = times.filter { days.contains($0.key) }
-        onSaved()
-        dismiss()
-    }
-}
+// MARK: - Extra training
 
 /// A one-off team training (a weekend session, a camp day).
 struct ExtraPracticeSheet: View {

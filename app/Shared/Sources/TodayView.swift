@@ -5,8 +5,6 @@ struct LiveSessionLaunch: Identifiable {
     let id = UUID()
     let planned: GeneratedSession?
     var kind: WorkoutKind? = nil
-    /// Training together: the partner session's code (see PartnerWorkouts).
-    var partnerCode: String? = nil
     /// An interrupted workout to carry on (app closed, phone died).
     var resuming: Session? = nil
 }

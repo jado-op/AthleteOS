@@ -516,13 +516,3 @@ struct PlanStepRow: View {
         return parts.joined(separator: ", ")
     }
 }
-
-/// "Why? →": the text first, the icon after it.
-struct TrailingIconLabel: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.title
-            configuration.icon.font(.caption.weight(.bold))
-        }
-    }
-}

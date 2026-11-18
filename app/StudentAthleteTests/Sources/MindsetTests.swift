@@ -1,10 +1,9 @@
 import XCTest
 
-/// The Mindset level: reflections, season goals and their weekly focus,
-/// and the pre-game routines.
+/// The Mindset level: reflections and the pre-game routines.
 final class MindsetTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
-    private let keys = ["mindset.reflections", "mindset.goals", "mindset.focusDone", "mindset.routines", "mindset.cueWord"]
+    private let keys = ["mindset.reflections", "mindset.routines", "mindset.cueWord"]
 
     override func setUp() {
         super.setUp()
@@ -25,32 +24,6 @@ final class MindsetTests: XCTestCase {
         XCTAssertEqual(MindsetStore.reflections.count, 2, "a second one the same evening replaces the first")
         XCTAssertEqual(MindsetStore.reflection(on: evening, calendar: calendar)?.win, "Stayed calm again")
         XCTAssertEqual(MindsetStore.reflectionStreak(now: evening, calendar: calendar), 2)
-    }
-
-    func testGoalsGiveAWeeklyFocusThatChanges() {
-        MindsetStore.goals = [
-            SeasonGoal(text: "Start every game", area: .performance),
-            SeasonGoal(text: "Stay calm", area: .confidence),
-            SeasonGoal(text: "Bounce back", area: .confidence),
-            SeasonGoal(text: "One too many", area: .team),
-        ]
-        XCTAssertEqual(MindsetStore.goals.count, MindsetEngine.maxGoals)
-        let thisWeek = MindsetEngine.weeklyFocus(goals: MindsetStore.goals, weekStart: evening, calendar: calendar)
-        let nextWeek = MindsetEngine.weeklyFocus(goals: MindsetStore.goals, weekStart: evening.addingTimeInterval(7 * 86_400), calendar: calendar)
-        XCTAssertEqual(thisWeek.count, 3)
-        XCTAssertNotEqual(thisWeek[1].text, thisWeek[2].text, "two goals in the same area get different focus points")
-        XCTAssertNotEqual(thisWeek[0].text, nextWeek[0].text, "a new focus every week")
-    }
-
-    func testTheWeeksMindsetLevelCountsEverything() {
-        MindsetStore.goals = [SeasonGoal(text: "Stay calm", area: .confidence)]
-        MindsetStore.saveReflection(win: "w", lesson: "l", feeling: nil, on: evening, calendar: calendar)
-        let goal = MindsetStore.goals[0]
-        MindsetStore.setFocusDone(goal.id, true, week: evening, calendar: calendar)
-        MindsetStore.logRoutine(.breathing, on: evening, calendar: calendar)
-        let progress = MindsetStore.weekProgress(now: evening, calendar: calendar)
-        XCTAssertEqual(progress.target, 5 + 1 + 1)
-        XCTAssertEqual(progress.done, 3)
     }
 
     func testBreathingPhasesAndVisualizationLength() {

@@ -36,43 +36,6 @@ enum Duo {
     ]
 }
 
-/// A Duolingo button: a colored slab sitting on a darker lip; pressing pushes it down onto the lip.
-struct ChunkyButtonStyle: ButtonStyle {
-    var fill: Color = Duo.green
-    var lip: Color = Duo.greenLip
-    var foreground: Color = .white
-    var height: CGFloat = 56
-
-    func makeBody(configuration: Configuration) -> some View {
-        ChunkyBody(configuration: configuration, fill: fill, lip: lip, foreground: foreground, height: height)
-    }
-
-    private struct ChunkyBody: View {
-        let configuration: Configuration
-        let fill: Color, lip: Color, foreground: Color, height: CGFloat
-        @Environment(\.isEnabled) private var isEnabled
-
-        var body: some View {
-            let pressed = configuration.isPressed
-            let top = isEnabled ? fill : Duo.lockedFill
-            let under = isEnabled ? lip : Duo.lockedLip
-            configuration.label
-                .font(.headline.weight(.heavy))
-                .textCase(.uppercase)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.horizontal, 16)
-                .foregroundStyle(isEnabled ? foreground : Duo.lockedGlyph)
-                .frame(maxWidth: .infinity, minHeight: height)
-                .background(top, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .offset(y: pressed ? 4 : 0)
-                .background(under.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)).offset(y: 4))
-                .padding(.bottom, 4)
-                .animation(.easeOut(duration: 0.08), value: pressed)
-        }
-    }
-}
-
 /// An answer tile: white with a gray border and lip; blue when selected, green/red once checked.
 struct AnswerTile: View {
     enum State { case idle, selected, correct, wrong, done }

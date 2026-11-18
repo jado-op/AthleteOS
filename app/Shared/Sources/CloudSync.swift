@@ -32,6 +32,9 @@ public enum CloudSync {
     ]
     /// Whole families of athlete keys, including ones later features add.
     static let settingsPrefixes = ["campus.", "schedule.", "plans.", "progress.", "profile.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league.", "academyTwin."]
+    /// Keys of cut features (season goals, off-season program, training
+    /// together): no longer backed up or restored, and cleared from this phone.
+    static let retiredKeys: Set<String> = ["mindset.goals", "mindset.focusDone", "plans.program", "league.partnerNickname"]
 
     static func isSettingKey(_ key: String) -> Bool {
         settingGroup(of: key) != nil
@@ -41,6 +44,7 @@ public enum CloudSync {
     /// Campus lesson finished on one phone and practice days changed on
     /// another both survive.
     static func settingGroup(of key: String) -> String? {
+        if retiredKeys.contains(key) { return nil }
         if let prefix = settingsPrefixes.first(where: { key.hasPrefix($0) }) { return String(prefix.dropLast()) }
         return settingsKeys.contains(key) ? "app" : nil
     }
@@ -396,20 +400,20 @@ public enum CloudSync {
         var week: String
         var campusLessons: Int
         var reflections: Int
-        var focusDone: Int
-        var focusTotal: Int
+        /// Season goals were cut: always nil now (the parent page hides the line).
+        var focusDone: Int?
+        var focusTotal: Int?
         var testHeadline: String?
     }
 
     static func weekSummary(athlete: Athlete, now: Date) -> WeekSummaryDoc {
-        let focus = MindsetEngine.weeklyFocus(goals: MindsetStore.goals, weekStart: now)
         let tests = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug)
         return WeekSummaryDoc(
             week: CampusLog.weekKey(now),
             campusLessons: CampusLog.lessons(inWeekOf: now),
             reflections: MindsetStore.reflectionDays(inWeekOf: now),
-            focusDone: focus.filter { MindsetStore.isFocusDone($0.goal.id, week: now) }.count,
-            focusTotal: focus.count,
+            focusDone: nil,
+            focusTotal: nil,
             testHeadline: BenchmarkMath.headline(BenchmarkStore.results, tests: tests)
         )
     }
@@ -535,6 +539,7 @@ public enum CloudSync {
 
     static func retireMealsBackupOnce() {
         let defaults = UserDefaults.standard
+        for key in retiredKeys { defaults.removeObject(forKey: key) }
         guard !defaults.bool(forKey: mealsRetiredKey) else { return }
         var meta = loadMeta()
         meta["meals"] = nil

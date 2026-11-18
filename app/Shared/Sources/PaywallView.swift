@@ -410,52 +410,6 @@ public struct PaywallView: View {
     }
 }
 
-/// An inline upsell for a gated spot (Cal AI-style card, never an
-/// interstitial — §4: "no interstitial paywall thrown up mid-session").
-public struct ProUpsellCard: View {
-    let athlete: Athlete
-    let feature: ProFeature
-    let message: String
-    @State private var showingPaywall = false
-
-    public init(athlete: Athlete, feature: ProFeature, message: String) {
-        self.athlete = athlete
-        self.feature = feature
-        self.message = message
-    }
-
-    public var body: some View {
-        Button {
-            showingPaywall = true
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "crown.fill")
-                    .foregroundStyle(AppTheme.onAccent)
-                    .frame(width: 40, height: 40)
-                    .background(AppTheme.accent, in: Circle())
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(feature.proDescription)
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            .cardStyle(padding: 16)
-        }
-        .buttonStyle(.plain)
-        .sheet(isPresented: $showingPaywall) {
-            PaywallView(athlete: athlete, highlight: feature)
-        }
-    }
-}
-
 /// Me tab row: shows Pro status, opens the paywall or Apple's manage screen,
 /// and §18's non-blocking billing-retry banner.
 public struct SubscriptionRow: View {

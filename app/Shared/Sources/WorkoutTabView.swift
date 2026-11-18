@@ -17,8 +17,6 @@ struct WorkoutTabView: View {
     @State private var preview: PreviewBox?
     @State private var showingImprove = false
     @State private var showingMuscles = false
-    @State private var showingProgram = false
-    @State private var showingTogether = false
     @State private var showingLibrary = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
@@ -30,7 +28,6 @@ struct WorkoutTabView: View {
     @State private var myWorkouts = MyWorkoutsStore.load()
     @State private var custom = PlanCustomizationStore.load()
     @State private var showingWorkoutsPaywall = false
-    @State private var confirmingNewPlan = false
     /// "Train as planned instead": one choice for today, shared by Home and Workout.
     @AppStorage(ReadinessOverride.key) private var readinessOverrideDay = ""
     private var readinessOverridden: Bool {
@@ -198,14 +195,7 @@ struct WorkoutTabView: View {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
             }
             .fullScreenCover(item: $liveLaunch) { launch in
-                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind, partnerCode: launch.partnerCode)
-            }
-            // A new plan: generate it (randomize, swap single exercises) or build it yourself.
-            .sheet(isPresented: $confirmingNewPlan) {
-                NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3) {
-                    custom = PlanCustomizationStore.load()
-                    onPlanInputsChanged()
-                }
+                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
         }
     }
@@ -438,7 +428,7 @@ struct WorkoutTabView: View {
     }
 
     /// Everything that isn't today's session, in one list: the other modes,
-    /// a skill or chosen muscles, training together, an off-season program.
+    /// a skill or chosen muscles, the exercise library.
     /// Today's drills from saved skill plans.
     private var skillPlanDays: [SkillPlanDay] {
         guard !catalogue.itemsBySlug.isEmpty, status != .sick, status != .concussion else { return [] }
@@ -499,39 +489,16 @@ struct WorkoutTabView: View {
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
-                Button { showingTogether = true } label: {
-                    ListRow(systemImage: "person.2.fill", color: AppTheme.ink, title: "Train together",
-                            detail: "Same workout with a partner or teammates")
-                }
-                .buttonStyle(.plain)
-                Divider().padding(.leading, 54)
                 Button { showingLibrary = true } label: {
                     ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
                             detail: "Every exercise and drill, with how it looks")
                 }
                 .buttonStyle(.plain)
-                Divider().padding(.leading, 54)
-                Button { showingProgram = true } label: {
-                    ListRow(systemImage: "calendar.badge.clock", color: AppTheme.ink, title: "Off-season program",
-                            detail: ProgramStore.active.map { "\($0.goal.title) · week \($0.week() ?? 1) of \($0.weeks)" } ?? "One goal, 4–8 weeks, tested at both ends")
-                }
-                .buttonStyle(.plain)
             }
             .cardStyle(padding: 12)
         }
-        .sheet(isPresented: $showingProgram) {
-            ProgramsView(onChanged: onPlanInputsChanged)
-        }
         .sheet(isPresented: $showingLibrary) {
             LibraryView(athlete: athlete)
-        }
-        .sheet(isPresented: $showingTogether) {
-            TrainTogetherSheet(todays: recommendedSession) { session, code in
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(500))
-                    liveLaunch = LiveSessionLaunch(planned: session, kind: .gym, partnerCode: code)
-                }
-            }
         }
     }
 
@@ -627,7 +594,7 @@ struct WorkoutTabView: View {
         onPlanInputsChanged()
     }
 
-    /// The plan's settings in one place: the week's shape, a new plan, and the workouts the athlete changed.
+    /// The plan's settings in one place: the week's shape and the workouts the athlete changed.
     private var customizeSection: some View {
         let settings = custom.settings
         let dayNames = Calendar.current.shortWeekdaySymbols
@@ -643,12 +610,7 @@ struct WorkoutTabView: View {
                     ListRow(systemImage: "calendar", color: AppTheme.ink, title: "Gym days and length", detail: summary)
                 }
                 .buttonStyle(.plain)
-                Divider().padding(.leading, 54)
-                Button { confirmingNewPlan = true } label: {
-                    ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
-                            detail: "Generate one or build it yourself")
-                }
-                .buttonStyle(.plain)
+                // Only for athletes who built a new plan before that sheet was cut (focus cut).
                 if planVariant > 0 {
                     Divider().padding(.leading, 54)
                     Button {

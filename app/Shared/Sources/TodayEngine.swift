@@ -13,9 +13,8 @@ enum TodayEngine {
     }
 
     static func goals() -> [Capacity] {
-        let program = ProgramStore.active.map { [$0.goal] } ?? []
         var out: [Capacity] = []
-        for struggle in program + Struggles.selected {
+        for struggle in Struggles.selected {
             let capacity: Capacity?
             switch struggle {
             case .acceleration: capacity = .acceleration

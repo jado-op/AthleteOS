@@ -7,16 +7,13 @@ extension MindsetRoutine: Identifiable {
     public var id: String { rawValue }
 }
 
-/// The Mindset hub: this week's progress, the evening reflection, season
-/// goals with their weekly focus, and the game-day routines.
+/// The Mindset hub: the evening reflection and the game-day routines.
 struct MindsetView: View {
     let sportName: String
     let onOpenCampus: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var goals = MindsetStore.goals
     @State private var reflections = MindsetStore.reflections
-    @State private var editingGoals = false
     @State private var reflecting = false
     @State private var routine: MindsetRoutine?
     @State private var showingPaywall = false
@@ -24,15 +21,12 @@ struct MindsetView: View {
     /// Bumped after any change so the week's numbers redraw.
     @State private var revision = 0
 
-    private var focus: [FocusPoint] { MindsetEngine.weeklyFocus(goals: goals, weekStart: .now) }
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Mindset", subtitle: "Evening reflection, season goals and a game-day routine.")
+                    ScreenTitle("Mindset", subtitle: "Evening reflection and a game-day routine.")
                     reflectionSection
-                    goalsSection
                     gameDaySection
                     MentalSkillsSection()
                     SeasonReviewsSection()
@@ -53,14 +47,6 @@ struct MindsetView: View {
                     reflections = MindsetStore.reflections
                     revision += 1
                     reflecting = false
-                }
-            }
-            .sheet(isPresented: $editingGoals) {
-                SeasonGoalsSheet(goals: goals) { updated in
-                    MindsetStore.goals = updated
-                    goals = MindsetStore.goals
-                    revision += 1
-                    editingGoals = false
                 }
             }
             .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .visualization)
@@ -109,56 +95,6 @@ struct MindsetView: View {
                 .foregroundStyle(AppTheme.ink)
         }
         .font(.subheadline)
-    }
-
-    // MARK: - Goals
-
-    private var goalsSection: some View {
-        _ = revision
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Season goals", subtitle: goals.isEmpty
-                ? "Up to three goals. One small step for each, every week."
-                : "This week's focus for each goal — tick it off when you've done it.")
-            ForEach(focus) { point in
-                focusRow(point)
-            }
-            if goals.isEmpty {
-                Button { editingGoals = true } label: { Label("Set my season goals", systemImage: "flag.fill") }
-                    .buttonStyle(.primary)
-            } else {
-                Button { editingGoals = true } label: { Label("Change my goals", systemImage: "flag.fill") }
-                    .buttonStyle(.secondary)
-            }
-        }
-    }
-
-    private func focusRow(_ point: FocusPoint) -> some View {
-        let done = MindsetStore.isFocusDone(point.goal.id)
-        return Button {
-            MindsetStore.setFocusDone(point.goal.id, !done)
-            revision += 1
-        } label: {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(done ? AppTheme.green : AppTheme.secondaryText)
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(point.goal.text, systemImage: point.goal.area.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Text(point.text)
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                        .strikethrough(done)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .cardStyle(padding: 16)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(point.text). \(done ? "Done" : "Not done yet")")
     }
 
     // MARK: - Game day
@@ -566,103 +502,6 @@ struct ReflectionSheet: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 completion?.reflected = true
                 step = .done
-            }
-        }
-    }
-}
-
-// MARK: - Goals
-
-/// Up to three season goals: pick what it's about, then say it your way.
-struct SeasonGoalsSheet: View {
-    @State var goals: [SeasonGoal]
-    let onSave: ([SeasonGoal]) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var area: GoalArea = .performance
-    @State private var text = ""
-
-    var body: some View {
-        StepScaffold(
-            title: "Season goals",
-            subtitle: "Up to three. Each week you get one small thing to do for each goal.",
-            onClose: { dismiss() }, onConfirm: { onSave(goals) }
-        ) {
-            if !goals.isEmpty {
-                VStack(spacing: 10) {
-                    ForEach(goals) { goal in
-                        HStack(spacing: 12) {
-                            Image(systemName: goal.area.systemImage)
-                                .foregroundStyle(AppTheme.brand)
-                                .frame(width: 40, height: 40)
-                                .background(AppTheme.brand.opacity(0.12), in: Circle())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(goal.text)
-                                    .font(.headline)
-                                    .foregroundStyle(AppTheme.ink)
-                                Text(goal.area.title)
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.secondaryText)
-                            }
-                            Spacer(minLength: 0)
-                            Button { goals.removeAll { $0.id == goal.id } } label: {
-                                Image(systemName: "trash")
-                                    .foregroundStyle(AppTheme.red)
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Remove goal")
-                        }
-                        .cardStyle(padding: 12)
-                    }
-                }
-            }
-
-            if goals.count < MindsetEngine.maxGoals {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(goals.isEmpty ? "What's your first goal about?" : "Add another goal")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    WrapLayout(spacing: 8) {
-                        ForEach(GoalArea.allCases) { value in
-                            Button { area = value } label: {
-                                Label(value.title, systemImage: value.systemImage)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(area == value ? AppTheme.onAccent : AppTheme.ink)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(area == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    TextField("Your goal, in your words", text: $text, axis: .vertical)
-                        .lineLimit(1...3)
-                        .padding(16)
-                        .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    Text("Ideas:")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                    ForEach(area.examples, id: \.self) { example in
-                        Button { text = example } label: {
-                            Label(example, systemImage: "plus.circle")
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.accent)
-                                .multilineTextAlignment(.leading)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Button {
-                        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { return }
-                        goals.append(SeasonGoal(text: trimmed, area: area))
-                        text = ""
-                    } label: {
-                        Label("Add this goal", systemImage: "plus")
-                    }
-                    .buttonStyle(.secondary)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
             }
         }
     }

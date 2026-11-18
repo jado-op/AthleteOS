@@ -264,24 +264,3 @@ struct EquipmentChooser: View {
         }
     }
 }
-
-struct CoachChooser: View {
-    @Binding var selection: Bool?
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Button {
-                selection = true
-            } label: {
-                OptionRow(title: "Yes, I train with a coach", subtitle: "Unlocks coached lifts like the power clean", systemImage: "person.2.fill", isSelected: selection == true)
-            }
-            .buttonStyle(.plain)
-            Button {
-                selection = false
-            } label: {
-                OptionRow(title: "Not right now", subtitle: "You'll only get moves that are safe to learn on your own — change this any time", systemImage: "person.fill", isSelected: selection == false)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-}
