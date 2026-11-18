@@ -67,8 +67,15 @@ public enum CloudSync {
         retireMealsBackupOnce()
         // Deletions first ("Delete twin" made offline), so they can't come back.
         for key in pendingDeletes {
-            guard (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
-            pendingDeletes.removeAll { $0 == key }
+            if (try? await apiClient.deleteState(key, sessionToken: token)) != nil {
+                pendingDeletes.removeAll { $0 == key }
+            } else if key == "meals" {
+                // The retired meal log: best effort, tried again next time —
+                // it never holds up the rest of the backup.
+                continue
+            } else {
+                return false
+            }
         }
         // "Delete twin": a marker (a date, no content) so the athlete's other
         // phones delete their copy too instead of pushing it back.
