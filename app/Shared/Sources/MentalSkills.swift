@@ -128,38 +128,51 @@ public enum MentalSkillFeedback {
     }
 }
 
-/// Mindset → Mental skills: the list, quiet about anything declined.
-struct MentalSkillsSection: View {
+/// Academy → Mental skills: practice options, quiet about anything declined,
+/// and "Talking it through" drafts. (Reflection lives on Home; breathing and
+/// visualization in the Competitions hub's game prep.)
+struct MentalSkillsView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var open: MentalSkill?
     @State private var revision = 0
     @State private var drafting = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Mental skills", subtitle: "Optional practice. Say no thanks any time.")
-            let _ = revision
-            VStack(spacing: 0) {
-                ForEach(MentalSkill.allCases.filter { !MentalSkillFeedback.isDeclined($0) }) { skill in
-                    Button { open = skill } label: {
-                        ListRow(systemImage: "brain.head.profile", color: AppTheme.ink, title: skill.title,
-                                detail: MentalSkillFeedback.isRetired(skill) ? "You said it didn't help — set aside" : skill.oneLine)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    ScreenTitle("Mental skills", subtitle: "Optional practice. Say no thanks any time.")
+                    let _ = revision
+                    VStack(spacing: 0) {
+                        ForEach(MentalSkill.allCases.filter { !MentalSkillFeedback.isDeclined($0) }) { skill in
+                            Button { open = skill } label: {
+                                ListRow(systemImage: "brain.head.profile", color: AppTheme.ink, title: skill.title,
+                                        detail: MentalSkillFeedback.isRetired(skill) ? "You said it didn't help — set aside" : skill.oneLine)
+                            }
+                            .buttonStyle(.plain)
+                            Divider().padding(.leading, 54)
+                        }
+                        Button { drafting = true } label: {
+                            ListRow(systemImage: "text.bubble", color: AppTheme.ink, title: "Talking to your coach or a parent",
+                                    detail: "A draft you can change and send yourself")
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    Divider().padding(.leading, 54)
+                    .cardStyle(padding: 12)
                 }
-                Button { drafting = true } label: {
-                    ListRow(systemImage: "text.bubble", color: AppTheme.ink, title: "Talking to your coach or a parent",
-                            detail: "A draft you can change and send yourself")
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .containerRelativeFrame(.horizontal)
             }
-            .cardStyle(padding: 12)
-        }
-        .sheet(item: $open, onDismiss: { revision += 1 }) { skill in
-            MentalSkillSheet(skill: skill)
-        }
-        .sheet(isPresented: $drafting) {
-            ConversationDraftsView()
+            .scrollIndicators(.hidden)
+            .appScreen()
+            .toolbar { CloseToolbarItem { dismiss() } }
+            .sheet(item: $open, onDismiss: { revision += 1 }) { skill in
+                MentalSkillSheet(skill: skill)
+            }
+            .sheet(isPresented: $drafting) {
+                ConversationDraftsView()
+            }
         }
     }
 }

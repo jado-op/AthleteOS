@@ -450,7 +450,7 @@ public enum TwinAnalysis {
         guard c.family.speed, let id = sprints.last?.testID else {
             return TwinInsight(
                 kind: .strengthRising, headline: "Your \(lift) is up \(gainText) in \(weeks) weeks.",
-                detail: c.family.speed ? "Test your sprint (Progress → Tests) so the twin can see whether the strength carries into speed."
+                detail: c.family.speed ? "Test your sprint (Academy → Performances → Tests) so the twin can see whether the strength carries into speed."
                     : "Strength you build now protects you and carries into every part of your sport.",
                 strength: .strong, basis: "\(best.points.count) sessions", evidence: nil, values: [:], reason: "", positive: true)
         }

@@ -33,12 +33,12 @@ enum SportVisibility {
 /// Where a search result goes.
 enum AppSearchTarget: Hashable {
     // Home
-    case checkIn, logWorkout, addGame, history, dayStatus, schedule, reflection, safety, mindset, tests
-    case breathing, visualization, practiceLog
+    case checkIn, logWorkout, addGame, history, dayStatus, schedule, reflection, safety, mentalSkills, tests
+    case competitions, gamePrep, seasonReview, practiceLog
     // Sections
     case tab(AppTab)
     // Settings and tools (Me, Workout, Campus)
-    case sports, season, equipment, experience, name, reports, checkIns, exerciseProgress, dataExport
+    case sports, season, equipment, experience, name, checkIns, exerciseProgress, dataExport
     case reminders, health, help, team, coach, parent, goals, trends, library, sportGuide
     case upgrade, support
     case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
@@ -83,22 +83,22 @@ enum AppSearch {
         function("Morning check-in", "Sleep, energy, soreness, pain, mood", "sun.max.fill", ["readiness", "sleep", "energy", "sore", "soreness", "pain", "mood", "stress", "morning"], .checkIn),
         function("Log a workout", "Start an empty workout and log sets", "plus.circle.fill", ["log", "record", "track", "sets", "reps", "weights", "start", "workout"], .logWorkout),
         function("Log practice", "How practice went, effort and mood", "person.3.fill", ["practice", "team", "training", "effort", "mood", "log"], .practiceLog),
-        function("Add a game", "Games, tournaments and meets", "sportscourt.fill", ["game", "match", "tournament", "meet", "competition", "race", "event"], .addGame),
+        function("Add a game", "Games, tournaments and meets", "sportscourt.fill", ["add game", "match", "tournament", "meet", "race", "event"], .addGame),
+        function("Competitions", "Your next game, results and record", "trophy.fill", ["competition", "competitions", "games", "results", "record", "score", "chance"], .competitions),
         function("Past workouts", "Training History", "clock.arrow.circlepath", ["history", "past", "logged", "sessions", "training history"], .history),
         function("Kind of day", "Normal, sick, travel, holiday", "calendar.day.timeline.left", ["sick", "ill", "travel", "holiday", "vacation", "rest", "status", "day"], .dayStatus),
         function("Practice schedule", "Practice days and times", "calendar.badge.clock", ["schedule", "practice", "times", "days", "calendar", "team"], .schedule),
         function("Evening reflection", "How today went", "moon.stars.fill", ["reflect", "reflection", "evening", "journal", "diary", "went well"], .reflection),
         function("Safety Center", "Pain, head injury, illness", "cross.case.fill", ["safety", "injury", "hurt", "pain", "concussion", "head", "doctor", "sick"], .safety),
-        function("Mindset", "Goals, confidence and routines", "brain.head.profile", ["mindset", "mental", "confidence", "nerves", "focus", "pressure"], .mindset),
-        function("Breathing", "2 minutes to calm down", "wind", ["breathing", "breathe", "calm", "relax", "nerves", "anxiety", "stress"], .breathing),
-        function("Visualization", "See your game before you play", "eye.fill", ["visualize", "visualization", "imagery", "mental", "game"], .visualization),
+        function("Mental skills", "Confidence, focus, talking it through", "brain.head.profile", ["mindset", "mental", "confidence", "focus", "pressure", "self-talk", "talk to coach"], .mentalSkills),
+        function("Game prep", "Breathing and visualization before a game", "wind", ["breathing", "breathe", "calm", "relax", "nerves", "anxiety", "visualize", "visualization", "imagery", "routine"], .gamePrep),
         function("Tests", "Sprint, jump and other benchmarks", "stopwatch.fill", ["test", "benchmark", "sprint", "jump", "speed", "measure", "personal best", "pb"], .tests),
         function("Home", "Today at a glance", "house.fill", ["home", "today", "overview"], .tab(.today)),
         function("Short lessons", "100 quick lessons on training, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
         function("Academy", "Your digital twin, insights and briefings", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "insights", "briefings", "personal best", "pr", "performances"], .tab(.academy)),
         function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .support),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),
-        function("Progress", "Calendar, practice log and events", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
+        function("Progress", "Calendar, practice log and history", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
         function("Me", "Profile and settings", "person.fill", ["me", "profile", "settings", "account"], .tab(.me)),
         function("Sports", "Switch, change or add a sport", "sportscourt.fill", ["sport", "sports", "position", "switch", "change", "add"], .sports),
         function("Season dates", "When your season starts and ends", "calendar", ["season", "dates", "off-season", "in-season", "preseason"], .season),
@@ -108,10 +108,10 @@ enum AppSearch {
         function("Development Goals", "What you want to get better at", "target", ["goals", "improve", "weakness", "struggles", "development"], .goals),
         function("Exercise library", "Every exercise and drill, with how it looks", "books.vertical.fill", ["library", "exercises", "drills", "catalogue", "browse", "how to"], .library),
         function("Sport guide", "Know your sport and position", "book.fill", ["guide", "rules", "position", "sport", "know"], .sportGuide),
-        function("Trends", "Sleep, load and balance over time", "chart.xyaxis.line", ["trends", "charts", "sleep", "load", "balance", "graph"], .trends),
+        function("Trends", "Sleep, load and the last 30 days", "chart.xyaxis.line", ["trends", "charts", "sleep", "load", "graph", "30 days", "month"], .trends),
         function("Exercise progress", "Charts for every exercise", "chart.line.uptrend.xyaxis", ["progress", "charts", "strength", "weights", "exercise"], .exerciseProgress),
         function("Past check-ins", "Every morning check-in", "sun.max.fill", ["check-ins", "history", "sleep", "readiness"], .checkIns),
-        function("Reports", "Season report, PDF, recruiting", "doc.richtext", ["report", "pdf", "recruiting", "college", "coach", "season card"], .reports),
+        function("Season review", "Your season, a PDF report, recruiting profile", "flag.checkered", ["season review", "season", "report", "pdf", "recruiting", "college", "review"], .seasonReview),
         function("Export my data", "Download everything as JSON", "square.and.arrow.up", ["export", "data", "download", "json", "backup"], .dataExport),
         function("Reminders", "Check-in, reflection and bedtime reminders", "bell.fill", ["reminders", "notifications", "alerts", "bedtime"], .reminders),
         function("Apple Health", "Sleep, heart rate and workouts", "heart.fill", ["health", "apple health", "healthkit", "heart rate", "watch", "sleep"], .health),

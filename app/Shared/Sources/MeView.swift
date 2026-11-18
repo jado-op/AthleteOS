@@ -1,13 +1,11 @@
-import Charts
 import SwiftData
 import SwiftUI
 
-/// §15 Tab 5: "Sports and positions, season dates, trends (sleep first —
-/// §11), load chart, history, equipment, coach-supervision toggle,
-/// subscription, HealthKit, export for Pro, privacy policy, terms, and
-/// delete account." Organised the way Cal AI organises its profile: a
-/// profile card, stats, progress charts, then grouped menu cards whose rows
-/// open focused edit sheets.
+/// Me (a sheet from the profile button): the profile with the one streak,
+/// Development Goals, then grouped menu cards whose rows open focused edit
+/// sheets — training setup, health and safety, team and family, settings,
+/// subscription, your data and the account. Trends, tests and exercise
+/// progress live in the Academy (Progress → Trends, Performances).
 struct MeView: View {
     let athlete: Athlete
     let onPlanInputsChanged: () -> Void
@@ -16,7 +14,6 @@ struct MeView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
-    @State private var catalogue = Catalogue()
     @State private var activeSheet: MeSheet?
     @State private var showingDeleteConfirmation = false
     @State private var showingGuestDelete = false
@@ -62,7 +59,6 @@ struct MeView: View {
     }
 
     private var athleteSport: AthleteSport? { athlete.activeSport }
-    @State private var showingPaywall = false
     @AppStorage(WeightUnit.storageKey) private var weightUnitRaw = WeightUnit.current.rawValue
     private var sportInfo: SportInfo? { athleteSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var positionName: String? {
@@ -76,18 +72,6 @@ struct MeView: View {
     }
     private var streak: Int {
         AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: sessions.map(\.startedAt))
-    }
-    private var totalMinutes: Int {
-        sessions.reduce(0) { $0 + $1.minutes }
-    }
-
-    private var coachSessions: [CoachSession] {
-        sessions.map { session in
-            CoachSession(
-                date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
-                sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) }
-            )
-        }
     }
 
     var body: some View {
@@ -235,7 +219,6 @@ struct MeView: View {
             .appScreen(.hero, sportSlug: athleteSport?.sportSlug)
             .toolbar(.hidden, for: .navigationBar)
             .task {
-                catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 if DemoData.initialTab == .me, let name = DemoData.initialSheet { activeSheet = MeSheet(rawValue: name) }
             }
             .onChange(of: activeSheet) { _, sheet in
@@ -269,7 +252,6 @@ struct MeView: View {
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 }
             }
-            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete everything", role: .destructive) { deleteAccount() }
                 Button("Cancel", role: .cancel) {}
@@ -369,12 +351,8 @@ struct MeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            HStack(alignment: .bottom, spacing: 10) {
-                // V6 §21: training first; the streak is there, quietly.
-                GlassMetric(value: "\(sessions.count)", label: "Sessions", height: 92)
-                GlassMetric(value: "\(totalMinutes / 60)", label: "Hours", height: 76)
-                GlassMetric(value: "\(streak)", label: "Day streak", height: 70)
-            }
+            // The one streak (rest never breaks it), there quietly.
+            TelemetryStat("\(streak)", "day streak")
         }
         .padding(.top, 8)
     }
@@ -625,185 +603,6 @@ struct MeView: View {
     }
 }
 
-// MARK: - Trend cards
-
-/// §11: "Chart sleep against training load... make that chart the first
-/// thing on the trends screen."
-/// Sleep, training load and body balance (Progress → Training History → Trends).
-struct TrendsSheet: View {
-    let athlete: Athlete
-    let sessions: [Session]
-    let balance: [MuscleRegion: Double]
-
-    private var missingDays: Int {
-        let calendar = Calendar.current
-        let checkIns = Set(athlete.checkIns.map { DayKey.of($0.date, calendar: calendar) })
-        let trained = Set(sessions.map { DayKey.of($0.startedAt, calendar: calendar) })
-        let practices = Set(PracticeLogStore.logs.map(\.day))
-        return (1...14).filter { offset in
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: .now) else { return false }
-            let key = DayKey.of(day, calendar: calendar)
-            return !checkIns.contains(key) && !trained.contains(key) && !practices.contains(key)
-        }.count
-    }
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Trends", subtitle: "Sleep, training load and body balance.")
-                    SleepTrendCard(checkIns: athlete.checkIns)
-                    LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
-                        LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
-                    }))
-                    if missingDays > 0 {
-                        // Missing isn't zero (Backend Knowledge System §9).
-                        Text("No data on \(missingDays) of the last 14 days. Those days show as empty, but that means unknown, not rest.")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    MuscleBalanceCard(balance: balance)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .containerRelativeFrame(.horizontal)
-            }
-            .appScreen()
-            .toolbar {
-                CloseToolbarItem { dismiss() }
-            }
-        }
-    }
-}
-
-struct SleepTrendCard: View {
-    let checkIns: [CheckIn]
-
-    private var recent: [CheckIn] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now
-        return checkIns.filter { $0.date >= cutoff }.sorted { $0.date < $1.date }
-    }
-
-    private var average: Double? {
-        guard !recent.isEmpty else { return nil }
-        return Double(recent.reduce(0) { $0 + $1.sleepQuality }) / Double(recent.count)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Sleep")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    Text("Last 14 days")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                Spacer()
-                if let average {
-                    Text(average.formatted(.number.precision(.fractionLength(1))))
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text("/ 5 avg")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-            if recent.isEmpty {
-                Text("Check in each morning and your sleep trend appears here. Teen athletes need roughly 8–10 hours — it's the highest-leverage habit there is.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            } else {
-                Chart(recent, id: \.id) { checkIn in
-                    BarMark(
-                        x: .value("Day", checkIn.date, unit: .day),
-                        y: .value("Sleep", checkIn.sleepQuality)
-                    )
-                    .foregroundStyle(AppTheme.purple.gradient)
-                    .cornerRadius(5)
-                }
-                .chartYScale(domain: 0...5)
-                .chartYAxis {
-                    AxisMarks(values: [1, 3, 5]) { _ in
-                        AxisGridLine().foregroundStyle(AppTheme.hairline)
-                        AxisValueLabel()
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 3)) { _ in
-                        AxisValueLabel(format: .dateTime.weekday(.narrow))
-                    }
-                }
-                .frame(height: 150)
-            }
-        }
-        .cardStyle()
-    }
-}
-
-struct LoadTrendCard: View {
-    let summary: LoadSummary
-
-    private var hasData: Bool { summary.daily.contains { $0.load > 0 } }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("How hard you've trained")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    Text("Each bar is a day: how hard it felt × how long. Dashed line = your usual day.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                Spacer()
-                Text("\(summary.acute)")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                Text("this week")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            if hasData {
-                Chart {
-                    ForEach(Array(summary.daily.enumerated()), id: \.offset) { _, day in
-                        BarMark(x: .value("Day", day.date, unit: .day), y: .value("Load", day.load))
-                            .foregroundStyle(AppTheme.orange.gradient)
-                            .cornerRadius(3)
-                    }
-                    RuleMark(y: .value("Weekly average per day", summary.chronicWeekly / 7))
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 7)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    }
-                }
-                .frame(height: 150)
-            }
-            if let message = summary.message {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: summary.isSharpJump ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                        .foregroundStyle(summary.isSharpJump ? AppTheme.amber : AppTheme.green)
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            } else {
-                Text(hasData ? "Your four-week comparison unlocks after three weeks of logging." : "Finish a session and rate how hard it was — your load chart starts there.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .cardStyle()
-    }
-}
-
 // MARK: - Editors
 
 struct SportEditorSheet: View {
@@ -1039,229 +838,6 @@ struct CheckInHistoryView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 50)
         .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-/// The original idea's "track your gym progress": every exercise you've
-/// logged, with its best set, and a chart of that exercise over time.
-struct ExerciseProgressListView: View {
-    let sessions: [Session]
-    let catalogue: Catalogue
-    @Environment(\.dismiss) private var dismiss
-
-    struct ExerciseSummary: Identifiable {
-        let slug: String
-        let name: String
-        let sessionCount: Int
-        let totalSets: Int
-        /// nil when the sets carry no number (done, nothing measured).
-        let best: String?
-        var id: String { slug }
-    }
-
-    private var summaries: [ExerciseSummary] {
-        var bySlug: [String: [SetLog]] = [:]
-        for session in sessions {
-            for set in session.sets {
-                bySlug[set.itemSlug, default: []].append(set)
-            }
-        }
-        return bySlug.map { slug, sets in
-            ExerciseSummary(
-                slug: slug,
-                name: catalogue.item(slug)?.name ?? displayName(forSlug: slug),
-                sessionCount: Set(sets.compactMap { $0.session?.id }).count,
-                totalSets: sets.count,
-                best: ExerciseProgress.bestLabel(sets)
-            )
-        }
-        .sorted { $0.totalSets > $1.totalSets }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ScreenTitle("Exercise progress", subtitle: "Your best sets, and how they've moved.")
-                    if summaries.isEmpty {
-                        Text("Log a session and every exercise you do shows up here with its own progress chart.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .cardStyle()
-                    }
-                    ForEach(summaries) { summary in
-                        NavigationLink {
-                            ExerciseProgressDetailView(slug: summary.slug, name: summary.name, sessions: sessions, item: catalogue.item(summary.slug))
-                        } label: {
-                            HStack(spacing: 14) {
-                                ItemThumbnail(item: catalogue.item(summary.slug), size: 56)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(summary.name)
-                                        .font(.headline)
-                                        .foregroundStyle(AppTheme.ink)
-                                        .multilineTextAlignment(.leading)
-                                    Text("\(countedNoun(summary.sessionCount, "session")) · \(countedNoun(summary.totalSets, "set"))")
-                                        .font(.caption)
-                                        .foregroundStyle(AppTheme.secondaryText)
-                                }
-                                Spacer(minLength: 0)
-                                if let best = summary.best {
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(best)
-                                            .font(.subheadline.bold())
-                                            .foregroundStyle(AppTheme.ink)
-                                        Text("best")
-                                            .font(.caption2)
-                                            .foregroundStyle(AppTheme.secondaryText)
-                                    }
-                                }
-                            }
-                            .cardStyle(padding: 12)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(20)
-            }
-            .appScreen()
-            .toolbar {
-                CloseToolbarItem { dismiss() }
-            }
-        }
-    }
-}
-
-enum ExerciseProgress {
-    /// The single number that best describes a set for this kind of dose.
-    static func value(_ set: SetLog) -> Double {
-        if let weight = set.weightKg, weight > 0 { return WeightUnit.current.value(kg: weight) }
-        if let reps = set.reps { return Double(reps) }
-        if let seconds = set.seconds { return Double(seconds) }
-        if let distance = set.distanceM { return distance }
-        return Double(set.contacts ?? 0)
-    }
-
-    static func unit(_ sets: [SetLog]) -> String {
-        if sets.contains(where: { ($0.weightKg ?? 0) > 0 }) { return WeightUnit.current.rawValue }
-        if sets.contains(where: { $0.reps != nil }) { return "reps" }
-        if sets.contains(where: { $0.seconds != nil }) { return "s" }
-        if sets.contains(where: { $0.distanceM != nil }) { return "m" }
-        return "contacts"
-    }
-
-    /// nil when no set has a number above zero — "0 contacts best" says nothing.
-    static func bestLabel(_ sets: [SetLog]) -> String? {
-        let best = sets.map(value).max() ?? 0
-        guard best > 0 else { return nil }
-        return "\(best.formatted(.number.precision(.fractionLength(0...1)))) \(unit(sets))"
-    }
-}
-
-struct ExerciseProgressDetailView: View {
-    let slug: String
-    let name: String
-    let sessions: [Session]
-    let item: CatalogueItem?
-
-    struct Point: Identifiable {
-        let date: Date
-        let value: Double
-        let sets: Int
-        var id: Date { date }
-    }
-
-    private var sets: [SetLog] {
-        sessions.flatMap(\.sets).filter { $0.itemSlug == slug }
-    }
-
-    private var points: [Point] {
-        sessions
-            .filter { session in session.sets.contains { $0.itemSlug == slug } }
-            .map { session in
-                let mine = session.sets.filter { $0.itemSlug == slug }
-                return Point(date: session.startedAt, value: mine.map(ExerciseProgress.value).max() ?? 0, sets: mine.count)
-            }
-            .sorted { $0.date < $1.date }
-    }
-
-    private var unit: String { ExerciseProgress.unit(sets) }
-
-    private var change: Double? {
-        guard let first = points.first?.value, let last = points.last?.value, points.count >= 2, first > 0 else { return nil }
-        return last / first - 1
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScreenTitle(name, subtitle: "\(countedNoun(points.count, "session"))\(ExerciseProgress.bestLabel(sets).map { " · best \($0)" } ?? "")")
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text((points.last?.value ?? 0).formatted(.number.precision(.fractionLength(0...1))))
-                            .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(AppTheme.ink)
-                        Text(unit)
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                        Spacer()
-                        if let change {
-                            Tag("\(change >= 0 ? "+" : "")\(Int((change * 100).rounded()))% since first", color: change >= 0 ? AppTheme.green : AppTheme.secondaryText)
-                        }
-                    }
-                    Chart(points) { point in
-                        LineMark(x: .value("Date", point.date), y: .value("Best", point.value))
-                            .foregroundStyle(AppTheme.ink)
-                            .interpolationMethod(.catmullRom)
-                        PointMark(x: .value("Date", point.date), y: .value("Best", point.value))
-                            .foregroundStyle(AppTheme.brand)
-                        AreaMark(x: .value("Date", point.date), y: .value("Best", point.value))
-                            .foregroundStyle(AppTheme.brand.opacity(0.08).gradient)
-                            .interpolationMethod(.catmullRom)
-                    }
-                    .frame(height: 200)
-                }
-                .cardStyle()
-
-                if let item {
-                    NavigationLink {
-                        ItemDetailView(item: item)
-                    } label: {
-                        HStack {
-                            Label("How to do it", systemImage: "play.circle.fill")
-                                .font(.headline)
-                                .foregroundStyle(AppTheme.ink)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
-                        .cardStyle(padding: 16)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                SectionTitle("History")
-                ForEach(points.reversed()) { point in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(point.date.formatted(.dateTime.weekday(.abbreviated).month().day()))
-                                .font(.subheadline.bold())
-                                .foregroundStyle(AppTheme.ink)
-                            Text(countedNoun(point.sets, "set"))
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
-                        Spacer()
-                        Text("\(point.value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.ink)
-                    }
-                    .cardStyle(padding: 14)
-                }
-            }
-            .padding(20)
-        }
-        .appScreen()
     }
 }
 

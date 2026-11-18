@@ -47,8 +47,11 @@ struct AcademyHomeView: View {
     @State private var interviewStart: String?
     @State private var showingSupport = false
     @State private var confirmingDelete = false
-    @State private var showingMindset = false
+    @State private var showingMentalSkills = false
     @State private var showingTests = false
+    @State private var showingExerciseProgress = false
+    @State private var showingExerciseProgressPaywall = false
+    @State private var catalogue = Catalogue()
     @ObservedObject private var navigation = AcademyNavigation.shared
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
@@ -94,7 +97,7 @@ struct AcademyHomeView: View {
                     if state.intakeDoneAt != nil { whoYouAre.padding(.top, 48) }
                     library.padding(.top, 48)
                     lessonsRow.padding(.top, 8)
-                    mindsetRow.padding(.top, 4)
+                    mentalSkillsRow.padding(.top, 4)
                     supportRow.padding(.top, 36)
                     if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
                         privacyRow.padding(.top, 28)
@@ -129,8 +132,12 @@ struct AcademyHomeView: View {
         .sheet(isPresented: $showingTests, onDismiss: reload) {
             BenchmarksView(sportSlug: sportSlug)
         }
-        .sheet(isPresented: $showingMindset, onDismiss: reload) {
-            MindsetView(sportName: AthleteStats.sportName(athlete)) {}
+        .sheet(isPresented: $showingExerciseProgress) {
+            ExerciseProgressListView(sessions: athlete.sessions.sorted { $0.startedAt > $1.startedAt }, catalogue: catalogue)
+        }
+        .proFeature(isPresented: $showingExerciseProgressPaywall, athlete: athlete, feature: .exerciseProgress)
+        .sheet(isPresented: $showingMentalSkills) {
+            MentalSkillsView()
         }
         .confirmationDialog("Delete your twin?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete twin", role: .destructive) {
@@ -450,12 +457,9 @@ struct AcademyHomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 SpaceSection(number(.performances), "Performances") {
-                    HStack(spacing: 16) {
-                        Button("Run a test") { showingTests = true }
-                        Button("Add") { addingPerformance = true }
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
+                    Button("Add") { addingPerformance = true }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.brightRed)
                 }
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
@@ -485,6 +489,25 @@ struct AcademyHomeView: View {
                     .foregroundStyle(AppTheme.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            // Where the numbers come from: the tests, and every logged exercise.
+            VStack(spacing: 0) {
+                Button { showingTests = true } label: {
+                    ListRow(systemImage: "stopwatch", color: AppTheme.brightRed, title: "Tests", detail: "Sprint, jump and more · every 6–8 weeks")
+                }
+                .buttonStyle(.plain)
+                Button {
+                    if ProAccess.isPro {
+                        if catalogue.itemsBySlug.isEmpty { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
+                        showingExerciseProgress = true
+                    } else {
+                        showingExerciseProgressPaywall = true
+                    }
+                } label: {
+                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AppTheme.brightRed, title: "Exercise progress", detail: "Each lift over time")
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 6)
         }
     }
 
@@ -580,11 +603,12 @@ struct AcademyHomeView: View {
         .buttonStyle(.plain)
     }
 
-    /// Reflection, breathing and visualization: the mind tools.
-    private var mindsetRow: some View {
-        Button { showingMindset = true } label: {
-            ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mindset tools",
-                    detail: "Evening reflection, breathing, visualization")
+    /// Mental skills (practice options) and "Talking it through" drafts.
+    /// Reflection lives on Home; breathing and visualization in game prep.
+    private var mentalSkillsRow: some View {
+        Button { showingMentalSkills = true } label: {
+            ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mental skills",
+                    detail: "Confidence, focus, talking it through")
         }
         .buttonStyle(.plain)
     }

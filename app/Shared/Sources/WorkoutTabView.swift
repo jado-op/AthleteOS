@@ -113,7 +113,6 @@ struct WorkoutTabView: View {
                         .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
                     skillDrillsToday
                     weekSection
-                    GamesAndEventsSection(athlete: athlete, onPlanInputsChanged: onPlanInputsChanged)
                     moreWorkouts
                     // What the athlete's training has done to their body so far (gym second).
                     MuscleTrainingSection(athlete: athlete, catalogue: catalogue)

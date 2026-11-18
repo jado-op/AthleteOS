@@ -132,7 +132,7 @@ struct ProgressTabView: View {
     }
 
     enum ProgressSheet: String, Identifiable {
-        case history, tests, trends, exercises, checkIns, reports
+        case history, trends, checkIns, seasonReview
         var id: String { rawValue }
     }
 
@@ -149,15 +149,6 @@ struct ProgressTabView: View {
     }
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
-
-    private var coachSessions: [CoachSession] {
-        sessions.map { session in
-            CoachSession(
-                date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
-                sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) }
-            )
-        }
-    }
 
     // MARK: Marks
 
@@ -212,7 +203,6 @@ struct ProgressTabView: View {
                     summaryCard
                     calendarCard
                     practiceSection
-                    thirtyDaysSection
                     statsSection
                     workoutsSection
                 }
@@ -245,16 +235,12 @@ struct ProgressTabView: View {
             .sheet(item: $sheet, onDismiss: { revision += 1 }) { sheet in
                 switch sheet {
                 case .history: SessionHistoryView()
-                case .tests: BenchmarksView(sportSlug: sportSlug)
-                case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
-                case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
+                case .trends:
+                    TrendsSheet(athlete: athlete, sessions: sessions) {
+                        withAnimation { AcademyNavigation.shared.page = .twin }
+                    }
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
-                case .reports:
-                    #if os(iOS)
-                    ReportsSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
-                    #else
-                    EmptyView()
-                    #endif
+                case .seasonReview: SeasonReviewSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
                 }
             }
             .proFeature(item: $paywall, athlete: athlete)
@@ -350,55 +336,6 @@ struct ProgressTabView: View {
             day = calendar.date(byAdding: .day, value: 1, to: day) ?? interval.end
         }
         return result
-    }
-
-    // MARK: Last 30 days
-
-    private var thirtyDaysSection: some View {
-        _ = revision
-        let summary = ProgressInsights.lastThirtyDays(
-            sessions: sessions.map { (date: $0.startedAt, minutes: $0.minutes) },
-            practiceDays: PracticeLogStore.logs.map(\.day),
-            checkIns: athlete.checkIns.map { ProgressInsights.CheckInPoint(date: $0.date, sleepHours: $0.sleepHours, energy: $0.energy, soreness: $0.soreness) },
-            needsWork: MindsetStore.reflections.compactMap(\.needsWork),
-            calendar: calendar
-        )
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Last 30 days")
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 6) {
-                    figure("\(summary.trainingDays)", "training days")
-                    figure("\(summary.minutes / 60)h \(summary.minutes % 60)m", "in workouts")
-                    figure(summary.averageSleep.map { String(format: "%.1f h", $0) } ?? "–", "avg sleep")
-                }
-                // What the numbers mean is the twin's job (one analyst, not two).
-                Button { withAnimation { AcademyNavigation.shared.page = .twin } } label: {
-                    HStack(spacing: 6) {
-                        Text("What your twin sees in them")
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
-                }
-                .buttonStyle(.plain)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardStyle(padding: 20)
-        }
-    }
-
-    private func figure(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func monthTotals(for date: Date, _ all: [String: DayMarks]) -> (workouts: Int, practices: Int, mobility: Int) {
@@ -779,20 +716,8 @@ struct ProgressTabView: View {
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
-                Button {
-                    if ProAccess.isPro { sheet = .exercises } else { paywall = .exerciseProgress }
-                } label: {
-                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AppTheme.ink, title: "Exercise progress", detail: "Each lift over time")
-                }
-                .buttonStyle(.plain)
-                Divider().padding(.leading, 54)
-                Button { sheet = .tests } label: {
-                    ListRow(systemImage: "stopwatch.fill", color: AppTheme.ink, title: "Tests", detail: "Every 6–8 weeks")
-                }
-                .buttonStyle(.plain)
-                Divider().padding(.leading, 54)
                 Button { sheet = .trends } label: {
-                    ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Sleep, load, balance")
+                    ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Last 30 days, sleep, load")
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
@@ -801,8 +726,8 @@ struct ProgressTabView: View {
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
-                Button { sheet = .reports } label: {
-                    ListRow(systemImage: "doc.richtext", color: AppTheme.ink, title: "Reports", detail: "Season card, PDF, recruiting profile")
+                Button { sheet = .seasonReview } label: {
+                    ListRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Season review", detail: "Your season, PDF, recruiting")
                 }
                 .buttonStyle(.plain)
             }
@@ -1164,48 +1089,6 @@ struct PracticeLogSheet: View {
             note: level == .exact && !trimmed.isEmpty ? trimmed : nil,
             intent: intent, enjoyment: enjoyment
         ))
-        dismiss()
-    }
-}
-
-// MARK: - Extra training
-
-/// A one-off team training (a weekend session, a camp day).
-struct ExtraPracticeSheet: View {
-    let onSaved: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var date = Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
-    @State private var title = "Team training"
-    @State private var start = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: .now) ?? .now
-    @State private var end = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: .now) ?? .now
-
-    var body: some View {
-        StepScaffold(title: "Add a training", subtitle: "An extra team session. It counts as a practice day, so your gym workout moves off it.",
-                     onClose: { dismiss() }, onConfirm: save) {
-            DatePicker("Day", selection: $date, displayedComponents: .date)
-                .font(.headline)
-                .tint(AppTheme.accent)
-            TextField("What is it?", text: $title)
-                .font(.title3)
-                .padding(16)
-                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            HStack {
-                DatePicker("From", selection: $start, displayedComponents: .hourAndMinute)
-                DatePicker("To", selection: $end, displayedComponents: .hourAndMinute)
-            }
-            .font(.subheadline.weight(.semibold))
-            .tint(AppTheme.accent)
-        }
-    }
-
-    private func save() {
-        let calendar = Calendar.current
-        func minutes(_ date: Date) -> Int { calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date) }
-        let trimmed = title.trimmingCharacters(in: .whitespaces)
-        ExtraPractices.all = ExtraPractices.all + [ExtraPractice(day: DayKey.of(date), title: trimmed.isEmpty ? "Team training" : trimmed,
-                                                               time: PracticeTime(start: minutes(start), end: max(minutes(end), minutes(start) + 15)))]
-        onSaved()
         dismiss()
     }
 }

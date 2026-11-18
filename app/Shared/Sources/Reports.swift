@@ -130,7 +130,7 @@ public struct RecruitingDetails: Codable, Sendable, Equatable {
 }
 
 #if os(iOS)
-/// Renders a view to a one-page PDF or a picture, for sharing.
+/// Renders a view to a one-page PDF, for sharing.
 @MainActor
 enum ReportRenderer {
     static let pageSize = CGSize(width: 595, height: 842)
@@ -150,12 +150,6 @@ enum ReportRenderer {
             written = true
         }
         return written ? url : nil
-    }
-
-    static func image<Content: View>(_ content: Content) -> Image? {
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 3
-        return renderer.uiImage.map { Image(uiImage: $0) }
     }
 }
 
@@ -228,144 +222,6 @@ struct ReportPage: View {
                 }
             }
         }
-    }
-}
-
-/// The season in one shareable picture ("Wrapped" for athletes).
-struct SeasonCard: View {
-    let report: AthleteReport
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Text("MY SEASON").font(.system(size: 14, weight: .heavy)).tracking(2).foregroundStyle(.white.opacity(0.6))
-            Text(report.sport).font(.system(size: 40, weight: .bold))
-            big("\(report.workouts)", "workouts")
-            big("\(report.minutes)", "minutes of training")
-            big("\(report.practices)", "team practices")
-            if let test = report.tests.first(where: { $0.change != nil }) {
-                big(test.change ?? "", test.name.lowercased())
-            }
-            if let top = report.topExercise {
-                Text("Most done: \(top)").font(.system(size: 17, weight: .semibold))
-            }
-            Spacer()
-            Text("AthleteOS").font(.system(size: 15, weight: .bold)).foregroundStyle(Color(hex: "#8B5CF6"))
-        }
-        .padding(32)
-        .frame(width: 360, height: 640, alignment: .topLeading)
-        .foregroundStyle(.white)
-        .background(.black)
-    }
-
-    private func big(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(value).font(.system(size: 44, weight: .heavy))
-            Text(label).font(.system(size: 15)).foregroundStyle(.white.opacity(0.7))
-        }
-    }
-}
-#endif
-
-#if os(iOS)
-/// Me → Reports: the season card to share, a PDF for a coach or parent,
-/// and (Pro) a recruiting profile.
-struct ReportsSheet: View {
-    let athlete: Athlete
-    let sessions: [Session]
-    let catalogue: Catalogue
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var details = RecruitingDetails.saved
-    @State private var showingPaywall = false
-    @State private var editingProfile = false
-
-    private var from: Date {
-        if let sport = athlete.activeSport, sport.seasonStart < .now { return sport.seasonStart }
-        return Calendar.current.date(byAdding: .month, value: -3, to: .now) ?? .now
-    }
-
-    private var report: AthleteReport {
-        let sport = athlete.activeSport
-        let info = sport.flatMap { allSportsBySlug[$0.sportSlug] }
-        let position = sport?.positionSlug.flatMap { slug in info?.positions.first { $0.slug == slug }?.name }
-        let names = sessions.flatMap { $0.sets.map(\.itemSlug) }.map { catalogue.item($0)?.name ?? displayName(forSlug: $0) }
-        return AthleteReport.make(AthleteReport.Input(
-            name: athlete.displayName, sport: info?.name ?? "My sport", position: position,
-            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            sessionDates: sessions.map(\.startedAt), sessionMinutes: sessions.map(\.minutes), exerciseNames: names,
-            practiceDays: PracticeLogStore.logs.map(\.day), checkInDates: athlete.checkIns.map(\.date),
-            sleepHours: athlete.checkIns.filter { $0.date >= from }.compactMap(\.sleepHours),
-            lessons: CampusProgress.newLessonDates().filter { $0 >= from }.count,
-            results: BenchmarkStore.results, tests: BenchmarkCatalog.tests(for: sport?.sportSlug)
-        ), from: from, to: .now)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Reports", subtitle: "Your season, to share or print.")
-                    let current = report
-                    SeasonCard(report: current)
-                        .scaleEffect(0.8)
-                        .frame(width: 288, height: 512)
-                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                        .frame(maxWidth: .infinity)
-                    if let image = ReportRenderer.image(SeasonCard(report: current)) {
-                        ShareLink(item: image, preview: SharePreview("My season", image: image)) {
-                            Label("Share my season", systemImage: "square.and.arrow.up")
-                        }
-                        .buttonStyle(.primary)
-                    }
-                    if let pdf = ReportRenderer.pdf(ReportPage(report: current), fileName: "AthleteOS report.pdf") {
-                        ShareLink(item: pdf) {
-                            Label("PDF for a coach or parent", systemImage: "doc.richtext")
-                        }
-                        .buttonStyle(.secondary)
-                    }
-
-                    SectionHeader("Recruiting profile", subtitle: "Tests, training and your details, for college coaches.")
-                    if ProAccess.isPro {
-                        recruitingCard(current)
-                    } else {
-                        Button("See what Pro adds") { showingPaywall = true }
-                            .buttonStyle(.secondary)
-                    }
-                }
-                .padding(20)
-            }
-            .appScreen()
-            .toolbar {
-                CloseToolbarItem { dismiss() }
-            }
-            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .dataExport)
-        }
-    }
-
-    @ViewBuilder
-    private func recruitingCard(_ current: AthleteReport) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Stepper(value: Binding(get: { details.graduationYear ?? Calendar.current.component(.year, from: .now) + 1 },
-                                   set: { details.graduationYear = $0 }), in: 2024...2040) {
-                Text("Class of \(details.graduationYear.map(String.init) ?? "—")")
-            }
-            Stepper(value: Binding(get: { details.heightCm ?? 170 }, set: { details.heightCm = $0 }), in: 120...230) {
-                Text("Height: \(details.heightCm.map { Measure.height(cm: $0) } ?? "—")")
-            }
-            TextField("School (optional)", text: Binding(get: { details.school ?? "" }, set: { details.school = $0.isEmpty ? nil : $0 }))
-            TextField("Highlight video link (optional)", text: Binding(get: { details.highlights ?? "" }, set: { details.highlights = $0.isEmpty ? nil : $0 }))
-                .textInputAutocapitalization(.never)
-                .keyboardType(.URL)
-            Text("Only in the file you share. Don't add a phone number or address.")
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-            if let pdf = ReportRenderer.pdf(ReportPage(report: current, recruiting: details), fileName: "AthleteOS profile.pdf") {
-                ShareLink(item: pdf) { Label("Share profile (PDF)", systemImage: "square.and.arrow.up") }
-                    .buttonStyle(.primary)
-            }
-        }
-        .cardStyle()
-        .onChange(of: details) { _, new in RecruitingDetails.saved = new }
     }
 }
 #endif

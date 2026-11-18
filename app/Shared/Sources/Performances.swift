@@ -1,7 +1,7 @@
 import Foundation
 
 /// A performance the twin holds: a best and its history. Lifts and tests come
-/// in by themselves (logged sets, Progress → Tests); anything else the
+/// in by themselves (logged sets, Performances → Tests); anything else the
 /// athlete adds by hand (CustomPerformance).
 public struct PerformanceRecord: Sendable, Hashable, Identifiable {
     public enum Source: Sendable, Hashable {

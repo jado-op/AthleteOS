@@ -28,13 +28,11 @@ final class SnapshotTests: XCTestCase {
         return image
     }
 
-    func testSeasonCardAndReportPageRender() throws {
+    func testReportPageRenders() throws {
         let report = AthleteReport(name: "Sam", sport: "Soccer", position: "Midfielder", age: 16, from: .now.addingTimeInterval(-90 * 86_400),
                                    to: .now, workouts: 34, minutes: 1_210, practices: 40, checkIns: 80, averageSleep: 8.1, lessons: 12,
                                    longestStreak: 19, tests: [.init(name: "Vertical jump", best: "48 cm", change: "4 cm higher")],
                                    topExercise: "Split squat")
-        let card = try XCTUnwrap(render("season-card", SeasonCard(report: report), height: 640))
-        XCTAssertEqual(card.size.height, 642, accuracy: 2)
         let page = try XCTUnwrap(render("report-page", ReportPage(report: report).frame(height: 842), height: 842))
         XCTAssertGreaterThan(page.size.height, 800)
     }

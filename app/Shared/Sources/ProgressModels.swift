@@ -394,7 +394,7 @@ public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
         case .movementQuality: "More single-leg control, landing and trunk work."
         case .sportSkill: "Skill plans for your sport, first in Workout."
         case .recovery: "Evening mobility and sleep habits."
-        case .confidence: "Mindset tools first: breathing and a reset routine."
+        case .confidence: "Game prep first: breathing and a reset routine."
         case .focus: "Short lessons on focus and pre-performance routines."
         }
     }

@@ -1,11 +1,20 @@
 import SwiftData
 import SwiftUI
 
-/// The competition hub: the next one (countdown and the athlete's own read of
-/// their chance), what to work on until then, the last result, the record.
+/// Where the hub opens: the overview, straight on the add-a-game form
+/// (Home's "+"), or on game prep (Home's game-day "Get your head ready").
+enum CompetitionHubFocus {
+    case overview, addGame, gamePrep
+}
+
+/// The competition hub — the one place for games: the next one (countdown and
+/// the athlete's own read of their chance), adding one, what's coming up, game
+/// prep (breathing, visualization), what to work on until then, the last
+/// result, the record.
 struct CompetitionHubView: View {
     let athlete: Athlete
     var onChanged: () -> Void = {}
+    var opening: CompetitionHubFocus = .overview
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -14,9 +23,11 @@ struct CompetitionHubView: View {
     @State private var editingResult = false
     @State private var reading: Briefing?
     @State private var adding = false
-    @State private var newDate = Calendar.current.date(byAdding: .day, value: 3, to: .now) ?? .now
-    @State private var newNote = ""
     @State private var leaned = false
+    @State private var routine: MindsetRoutine?
+    @State private var showingVisualizationPaywall = false
+    /// Bumped after a game is added, so the lists redraw.
+    @State private var revision = 0
 
     private var family: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
     /// Over once it has started and had two hours (midnight = time unknown:
@@ -26,7 +37,8 @@ struct CompetitionHubView: View {
         let start = GameTime.start(game.date, usualMinutes: UserDefaults.standard.object(forKey: GameTime.usualStartKey) as? Int ?? GameTime.defaultUsualMinutes)
         return calendar.startOfDay(for: game.date) < calendar.startOfDay(for: .now) || start.addingTimeInterval(2 * 3600) < .now
     }
-    private var next: Competition? { AthleteStats.upcomingCompetitions(athlete).first { !isOver($0) } }
+    private var upcoming: [Competition] { _ = revision; return AthleteStats.upcomingCompetitions(athlete).filter { !isOver($0) } }
+    private var next: Competition? { upcoming.first }
     private var past: [Competition] {
         athlete.competitions.filter(isOver).sorted { $0.date > $1.date }
     }
@@ -46,14 +58,40 @@ struct CompetitionHubView: View {
         twinInsights = TwinAnalysis.report(input).insights.map(\.kind)
     }
 
+    /// Sections in the order they show; numbered by what is actually on screen.
+    private enum Section: CaseIterable { case next, comingUp, gamePrep, focus, last, record }
+
+    /// Game prep comes right under the next game on game day, and when the
+    /// hub was opened for it.
+    private var sections: [Section] {
+        let prepFirst = opening == .gamePrep || daysToNext == 0
+        var shown: [Section] = [.next]
+        if prepFirst { shown.append(.gamePrep) }
+        if upcoming.count > 1 { shown.append(.comingUp) }
+        if !prepFirst { shown.append(.gamePrep) }
+        shown += [.focus, .last]
+        if !past.isEmpty { shown.append(.record) }
+        return shown
+    }
+
+    private func number(_ section: Section) -> Int {
+        (sections.firstIndex(of: section) ?? 0) + 1
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 34) {
-                    nextSection
-                    focusSection
-                    lastSection
-                    if !past.isEmpty { historySection }
+                    ForEach(sections, id: \.self) { section in
+                        switch section {
+                        case .next: nextSection
+                        case .comingUp: comingUpSection
+                        case .gamePrep: gamePrepSection
+                        case .focus: focusSection
+                        case .last: lastSection
+                        case .record: historySection
+                        }
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
@@ -67,6 +105,7 @@ struct CompetitionHubView: View {
             }
             .onAppear {
                 if let next { chance = Double(CompetitionStore.outlooks()[next.id]?.chance ?? 50) }
+                if opening == .addGame { adding = true }
                 loadTwinInsights()
             }
             .fullScreenCover(item: $reading) { briefing in
@@ -85,10 +124,23 @@ struct CompetitionHubView: View {
 
     private var nextSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(1, "Next \(family.event)") {
-                if let next { Text(next.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())) }
+            SpaceSection(number(.next), "Next \(family.event)") {
+                if adding {
+                    Button("Cancel") { adding = false }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.brightRed)
+                } else if let next {
+                    Text(next.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()))
+                }
             }
-            if let next, let days = daysToNext {
+            if adding {
+                AddGameForm(athlete: athlete, family: family) {
+                    adding = false
+                    revision += 1
+                    if let next { chance = Double(CompetitionStore.outlooks()[next.id]?.chance ?? 50) }
+                    onChanged()
+                }
+            } else if let next, let days = daysToNext {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(days == 0 ? "Today" : days == 1 ? "Tomorrow" : "\(days)")
                         .font(days > 1 ? .telemetry(56, weight: .medium) : .system(size: 44, weight: .semibold))
@@ -120,8 +172,8 @@ struct CompetitionHubView: View {
                 }
                 .padding(16)
                 .glassSurface(cornerRadius: 18)
-            } else if adding {
-                addForm
+                Button { adding = true } label: { Text("Add a \(family.event)") }
+                    .buttonStyle(.secondary)
             } else {
                 Text("Nothing planned yet.")
                     .font(.subheadline)
@@ -132,29 +184,94 @@ struct CompetitionHubView: View {
         }
     }
 
-    private var addForm: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            DatePicker("When", selection: $newDate, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
-                .foregroundStyle(AppTheme.ink)
-            TextField("Opponent or event (optional)", text: $newNote)
-                .padding(14)
-                .glassSurface(cornerRadius: 14)
-            Button {
-                modelContext.insert(Competition(sportSlug: athlete.activeSport?.sportSlug ?? "general", date: newDate, kind: .game,
-                                                isHome: true, notes: newNote.isEmpty ? nil : newNote, athlete: athlete))
-                try? modelContext.save()
-                adding = false
-                onChanged()
-            } label: { HeroCTALabel("Save") }
-                .buttonStyle(.primary)
+    // MARK: Coming up
+
+    /// Everything planned after the next one (added here, by Tell AthleteOS
+    /// or from a team calendar).
+    private var comingUpSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SpaceSection(number(.comingUp), "Coming up") { Text("\(upcoming.count - 1)") }
+            ForEach(Array(upcoming.dropFirst().prefix(8))) { game in
+                HStack(spacing: 12) {
+                    Text(game.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                        .font(.telemetry(12))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 96, alignment: .leading)
+                    Text([kindWord(game.kind), game.isHome ? "Home" : "Away", game.notes].compactMap { $0 }.joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 8)
+            }
         }
+    }
+
+    private func kindWord(_ kind: CompetitionKind) -> String {
+        switch kind {
+        case .tournament: "Tournament"
+        case .meet: family.event == "game" ? "Meet" : (family.tokens["Event"] ?? "Meet")
+        case .game: family.tokens["Event"] ?? "Game"
+        }
+    }
+
+    // MARK: Game prep
+
+    /// Nerves mean you care: two minutes of breathing (free), the guided
+    /// visualization (Pro), and what went well lately, to read before it starts.
+    private var gamePrepSection: some View {
+        let wins = MindsetStore.reflections.map(\.win).filter { !$0.isEmpty }.prefix(3)
+        return VStack(alignment: .leading, spacing: 12) {
+            SpaceSection(number(.gamePrep), "Game prep")
+            Text("Nerves are normal — they mean you care. These get you calm and sharp.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 0) {
+                Button { routine = .breathing } label: {
+                    ListRow(systemImage: "wind", color: AppTheme.purple, title: "2-minute breathing", detail: "Calm your nerves or lock in")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button {
+                    if ProAccess.isPro { routine = .visualization } else { showingVisualizationPaywall = true }
+                } label: {
+                    ListRow(systemImage: "eye", color: AppTheme.purple, title: "Visualization", detail: "5 minutes: play the \(family.event) in your head first")
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .glassSurface(cornerRadius: 18)
+            if !wins.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Went well lately")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.mutedText)
+                    ForEach(Array(wins.enumerated()), id: \.offset) { _, win in
+                        Text(win)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink)
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+        .fullScreenCover(item: $routine) { routine in
+            switch routine {
+            case .breathing: BreathingView()
+            case .visualization: VisualizationView(sportName: AthleteStats.sportName(athlete))
+            }
+        }
+        .proFeature(isPresented: $showingVisualizationPaywall, athlete: athlete, feature: .visualization)
     }
 
     // MARK: Until the next one
 
     private var focusSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SpaceSection(2, "Until the next one") { Text("\(focus.count) things") }
+            SpaceSection(number(.focus), "Until the next one") { Text("\(focus.count) things") }
             ForEach(Array(focus.enumerated()), id: \.element.id) { index, point in
                 HStack(alignment: .top, spacing: 14) {
                     Text(String(format: "%02d", index + 1))
@@ -201,7 +318,7 @@ struct CompetitionHubView: View {
 
     private var lastSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(3, "Last \(family.event)") {
+            SpaceSection(number(.last), "Last \(family.event)") {
                 if let last { Text(last.date.formatted(.dateTime.day().month(.abbreviated))) }
             }
             if let last {
@@ -249,7 +366,7 @@ struct CompetitionHubView: View {
         let known = past.compactMap { results[$0.id] }
         let record = CompetitionCoach.record(known)
         return VStack(alignment: .leading, spacing: 12) {
-            SpaceSection(4, "Record") {
+            SpaceSection(number(.record), "Record") {
                 Text("\(record.wins)–\(record.draws)–\(record.losses)")
             }
             ForEach(past.prefix(8)) { competition in
@@ -270,6 +387,108 @@ struct CompetitionHubView: View {
                 .padding(.vertical, 6)
             }
         }
+    }
+}
+
+/// The one add-a-game form (§10: "Add a game → the week visibly
+/// rearranges"): the day, the start time when known, the type, home or away,
+/// and a note. Shown inside the Competitions hub.
+struct AddGameForm: View {
+    let athlete: Athlete
+    let family: SportFamily
+    let onSaved: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var day = Calendar.current.date(byAdding: .day, value: 3, to: .now) ?? .now
+    @State private var knowsTime = false
+    @State private var time = Calendar.current.date(bySettingHour: 15, minute: 0, second: 0, of: .now) ?? .now
+    @State private var kind: CompetitionKind = .game
+    @State private var isHome = true
+    @State private var notes = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Your week rearranges around it — heavy work early, sharp and fresh on the day.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            DatePicker("Day", selection: $day, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
+                .labelsHidden()
+                .calendarDatePickerStyle()
+                .tint(AppTheme.brightRed)
+                .padding(10)
+                .glassSurface(cornerRadius: 18)
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("I know the start time", isOn: $knowsTime)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .tint(AppTheme.brightRed)
+                if knowsTime {
+                    DatePicker("Starts at", selection: $time, displayedComponents: .hourAndMinute)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                }
+            }
+            group("Type") {
+                HStack(spacing: 8) {
+                    chip(family.tokens["Event"] ?? "Game", on: kind == .game) { kind = .game }
+                    chip("Tournament", on: kind == .tournament) { kind = .tournament }
+                    chip("Meet", on: kind == .meet) { kind = .meet }
+                }
+            }
+            group("Where") {
+                HStack(spacing: 8) {
+                    chip("Home", on: isHome) { isHome = true }
+                    chip("Away", on: !isHome) { isHome = false }
+                }
+            }
+            group("Note") {
+                TextField("Opponent or event (optional)", text: $notes)
+                    .padding(14)
+                    .glassSurface(cornerRadius: 14)
+            }
+            Button(action: save) { HeroCTALabel("Save") }
+                .buttonStyle(.primary)
+        }
+    }
+
+    /// Midnight means "time unknown" (the usual start time is used then).
+    private var date: Date {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard knowsTime else { return start }
+        let minutes = calendar.component(.hour, from: time) * 60 + calendar.component(.minute, from: time)
+        return calendar.date(byAdding: .minute, value: max(1, minutes), to: start) ?? start
+    }
+
+    private func save() {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        modelContext.insert(Competition(sportSlug: athlete.activeSport?.sportSlug ?? "general", date: date, kind: kind, isHome: isHome,
+                                        notes: trimmed.isEmpty ? nil : trimmed, athlete: athlete))
+        try? modelContext.save()
+        onSaved()
+    }
+
+    private func group<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
+            content()
+        }
+    }
+
+    private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+                .foregroundStyle(on ? Color(rgb: 0x0B0B14) : AppTheme.ink)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 36)
+                .frame(maxWidth: .infinity)
+                .background(Capsule().fill(on ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.04)))
+                .overlay { Capsule().strokeBorder(Color.white.opacity(on ? 0 : 0.12), lineWidth: 1) }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -403,6 +622,19 @@ extension View {
     func navigationBarTitleDisplayModeInline() -> some View {
         #if os(iOS)
         navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+}
+
+extension View {
+    /// A month-grid date picker on iPhone; watchOS has no graphical style, so
+    /// it keeps the platform default there.
+    @ViewBuilder
+    func calendarDatePickerStyle() -> some View {
+        #if os(iOS)
+        datePickerStyle(.graphical)
         #else
         self
         #endif

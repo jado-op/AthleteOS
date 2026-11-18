@@ -306,7 +306,7 @@ struct HelpCenterView: View {
         ("Why did my workout change?",
          "If your morning check-in shows poor sleep or high soreness, workouts get lighter. You can always switch back to the full ones."),
         ("How do games change my week?",
-         "Add it with the + on Home, Workout → Games & events, or just tell AthleteOS (“game on Saturday”). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
+         "Add it with the + on Home, the trophy on Home (your games, results and game prep), or just tell AthleteOS (“game on Saturday”). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
         ("What do the colours in the calendar mean?",
          "Violet: a workout. Orange: team practice. Yellow: the extra workout after practice. Cyan: stretching and mobility. Green: a game. A day with several gets a split dot; outlined means planned; a ring marks a game."),
         ("How do I log team practice?",

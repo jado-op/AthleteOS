@@ -154,3 +154,25 @@ public enum MuscleWorkoutGenerator {
         }
     }
 }
+
+/// How the coach says a region in a sentence ("Targets your quads").
+extension MuscleRegion {
+    /// How the coach says it in a sentence: "your quads", "your core".
+    var coachName: String {
+        switch self {
+        case .neck: "neck"
+        case .shoulder: "shoulders"
+        case .upperBack: "upper back"
+        case .chest: "chest"
+        case .lowerBack: "lower back"
+        case .arm: "arms"
+        case .forearm: "forearms"
+        case .trunk: "core"
+        case .hip: "hips"
+        case .quadriceps: "quads"
+        case .hamstrings: "hamstrings"
+        case .calf: "calves"
+        case .foot: "feet"
+        }
+    }
+}

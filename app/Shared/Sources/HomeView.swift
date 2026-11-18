@@ -39,6 +39,8 @@ struct HomeView: View {
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var activeSheet: HomeSheet?
     @State private var showingCompetitions = false
+    /// Where the Competitions hub opens (overview, add a game, game prep).
+    @State private var hubOpening: CompetitionHubFocus = .overview
     @State private var showingTell = false
     @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
@@ -56,7 +58,6 @@ struct HomeView: View {
     @State private var showingWhy = false
     @State private var preview: PreviewBox?
     @State private var loaded = false
-    @State private var routine: MindsetRoutine?
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// The coach's latest announcement (closed ones stay closed).
     @State private var announcement = TeamAnnouncements.current
@@ -67,7 +68,7 @@ struct HomeView: View {
     /// The widget being held while arranging, and where the board is in reordering it.
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mindset, tests, seasonReview, tournament
+        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -331,7 +332,7 @@ struct HomeView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingCompetitions, onDismiss: refreshAfterChange) {
-                CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged)
+                CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged, opening: hubOpening)
             }
             .sheet(isPresented: $showingTell, onDismiss: refreshAfterChange) {
                 TellView(athlete: athlete, onChanged: onPlanInputsChanged)
@@ -373,7 +374,8 @@ struct HomeView: View {
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:
-                    AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+                    // The one add-a-game form lives in the Competitions hub.
+                    CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged, opening: .addGame)
                 case .history:
                     SessionHistoryView()
                 case .dayStatus:
@@ -386,13 +388,11 @@ struct HomeView: View {
                 case .tournament:
                     TournamentModeView(onHotelWorkout: { selectedTab = .workout })
                 case .seasonReview:
-                    if let sport = athlete.activeSport {
-                        SeasonReviewSheet(athlete: athlete, sport: sport, sessions: allSessions)
-                    }
+                    SeasonReviewSheet(athlete: athlete, sessions: allSessions, catalogue: catalogue)
                 case .safety:
                     SafetyCenterView()
-                case .mindset:
-                    MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .academy }
+                case .mentalSkills:
+                    MentalSkillsView()
                 case .tests:
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
@@ -415,12 +415,6 @@ struct HomeView: View {
                 SessionPreviewSheet(session: box.session, catalogue: catalogue) {
                     preview = nil
                     liveLaunch = LiveSessionLaunch(planned: box.session, kind: box.kind)
-                }
-            }
-            .fullScreenCover(item: $routine, onDismiss: { revision += 1 }) { routine in
-                switch routine {
-                case .breathing: BreathingView()
-                case .visualization: VisualizationView(sportName: AthleteStats.sportName(athlete))
                 }
             }
             .fullScreenCover(item: $liveLaunch) { launch in
@@ -472,11 +466,12 @@ struct HomeView: View {
         case .schedule: activeSheet = .schedule
         case .reflection: activeSheet = .reflection
         case .safety: activeSheet = .safety
-        case .mindset: activeSheet = .mindset
+        case .mentalSkills: activeSheet = .mentalSkills
+        case .seasonReview: activeSheet = .seasonReview
+        case .competitions: openHub(.overview)
+        case .gamePrep: openHub(.gamePrep)
         case .tests: activeSheet = .tests
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
-        case .breathing: routine = .breathing
-        case .visualization: routine = .visualization
         case .tab(let tab): selectedTab = tab
         case .lesson(let id):
             CampusLaunch.shared.pendingLessonID = id
@@ -528,12 +523,6 @@ struct HomeView: View {
         case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
         case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
         case .name: NameEditorSheet(athlete: athlete)
-        case .reports:
-            #if os(iOS)
-            ReportsSheet(athlete: athlete, sessions: allSessions, catalogue: catalogue)
-            #else
-            EmptyView()
-            #endif
         case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
         case .exerciseProgress: ExerciseProgressListView(sessions: allSessions, catalogue: catalogue)
         case .dataExport: DataExportView(athlete: athlete, sessions: allSessions)
@@ -544,11 +533,7 @@ struct HomeView: View {
         case .coach: CoachView()
         case .parent: ParentSummaryView()
         case .goals: StrugglesSheet(onSaved: onPlanInputsChanged)
-        case .trends:
-            TrendsSheet(athlete: athlete, sessions: allSessions, balance: CoachEngine.muscleBalance(sessions: allSessions.map { session in
-                CoachSession(date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
-                             sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) })
-            }, catalogue: catalogue))
+        case .trends: TrendsSheet(athlete: athlete, sessions: allSessions)
         case .library: LibraryView(athlete: athlete)
         case .sportGuide: SportGuideView(athlete: athlete)
         case .support: SupportSheet()
@@ -581,6 +566,12 @@ struct HomeView: View {
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
         case .addGame: activeSheet = .addGame
         }
+    }
+
+    /// The Competitions hub, opened where it's needed.
+    private func openHub(_ opening: CompetitionHubFocus) {
+        hubOpening = opening
+        showingCompetitions = true
     }
 
     // MARK: - Top
@@ -644,7 +635,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Tell AthleteOS what's going on")
-            Button { showingCompetitions = true } label: {
+            Button { openHub(.overview) } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "trophy.fill")
                         .foregroundStyle(AppTheme.yellow)
@@ -1264,7 +1255,7 @@ struct HomeView: View {
     private func open(_ step: TodayPlan.Step) {
         switch step {
         case .checkIn: activeSheet = .checkIn
-        case .game: showingCompetitions = true
+        case .game: openHub(.overview)
         case .practice:
             if practiceLogToday != nil || (fixedPoint?.hasBegun(at: minuteNow) ?? false) {
                 searchDestination = SearchBox(target: .practiceLog)
@@ -1326,7 +1317,7 @@ struct HomeView: View {
         }
         // Game day: get the head ready.
         if gameToday != nil && status == .active && phase != .night {
-            rows.append(AnyView(Button { routine = .breathing } label: {
+            rows.append(AnyView(Button { openHub(.gamePrep) } label: {
                 HomeDetailRow(systemImage: "wind", color: AppTheme.purple, title: "Get your head ready") { Text("2 min") }
             }.buttonStyle(.plain)))
         }

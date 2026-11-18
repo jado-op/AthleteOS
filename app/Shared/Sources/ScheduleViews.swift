@@ -19,6 +19,8 @@ struct ScheduleSheet: View {
     @State private var editingPracticeDays = false
     @State private var feedPendingRemoval: CalendarFeed?
     @State private var refreshing = false
+    @State private var extras = ExtraPractices.all
+    @State private var addingTraining = false
     @AppStorage(GameTime.usualStartKey) private var gameStartMinutes = GameTime.defaultUsualMinutes
 
     private var calendar: Calendar { .current }
@@ -36,6 +38,7 @@ struct ScheduleSheet: View {
                     ScreenTitle("Your schedule", subtitle: "Your workouts are built around it: a short one after practice, gym sessions on free days, nothing heavy before games, lighter weeks during exams.")
                     calendarsSection
                     practiceSection
+                    extraTrainingSection
                     gameTimeSection
                     examsSection
                     SchoolHoursSection(onChanged: onChanged)
@@ -62,6 +65,9 @@ struct ScheduleSheet: View {
                     addingCalendar = false
                     onChanged()
                 }
+            }
+            .sheet(isPresented: $addingTraining, onDismiss: { extras = ExtraPractices.all }) {
+                ExtraPracticeSheet { onChanged() }
             }
             .sheet(isPresented: $editingPracticeDays) {
                 PracticeDaysSheet(selection: practiceDays) { days in
@@ -201,6 +207,57 @@ struct ScheduleSheet: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    // MARK: - Extra trainings
+
+    /// One-off team sessions (a weekend training, a camp day): each counts
+    /// as a practice day, so the gym workout moves off it.
+    private var extraTrainingSection: some View {
+        let today = DayKey.of(.now, calendar: calendar)
+        let coming = extras.filter { $0.day >= today }
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Extra trainings", subtitle: "A one-off team session counts as a practice day.")
+            if !coming.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(coming.enumerated()), id: \.element.id) { index, extra in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(extra.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                Text([dayLabel(extra.day), extra.time?.label].compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                            }
+                            Spacer(minLength: 0)
+                            Button {
+                                ExtraPractices.all = ExtraPractices.all.filter { $0.id != extra.id }
+                                extras = ExtraPractices.all
+                                onChanged()
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(extra.title)")
+                        }
+                        if index < coming.count - 1 { Divider().overlay(AppTheme.hairline) }
+                    }
+                }
+                .cardStyle(padding: 14)
+            }
+            Button { addingTraining = true } label: { Label("Add a training", systemImage: "plus") }
+                .buttonStyle(.secondary)
+        }
+    }
+
+    /// "2026-11-21" → "Sat, Nov 21".
+    private func dayLabel(_ key: String) -> String {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return key }
+        return date.formatted(.dateTime.weekday(.abbreviated).month().day())
     }
 
     // MARK: - Game time
@@ -393,7 +450,7 @@ struct AddCalendarSheet: View {
             case .hudl: [
                 "Hudl doesn't publish a calendar link, so it can't be connected.",
                 "If your team also uses TeamSnap, GameChanger, SportsEngine or a school calendar, connect that instead.",
-                "Otherwise add games by hand: Progress → Games & events → Add a game.",
+                "Otherwise add games by hand: the trophy on Home → Add a game.",
             ]
             case .google: [
                 "On a computer, open calendar.google.com and point at the team or school calendar.",
@@ -546,5 +603,47 @@ struct AddCalendarSheet: View {
             }
             checking = false
         }
+    }
+}
+
+// MARK: - Extra training
+
+/// A one-off team training (a weekend session, a camp day).
+struct ExtraPracticeSheet: View {
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var date = Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
+    @State private var title = "Team training"
+    @State private var start = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: .now) ?? .now
+    @State private var end = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: .now) ?? .now
+
+    var body: some View {
+        StepScaffold(title: "Add a training", subtitle: "An extra team session. It counts as a practice day, so your gym workout moves off it.",
+                     onClose: { dismiss() }, onConfirm: save) {
+            DatePicker("Day", selection: $date, displayedComponents: .date)
+                .font(.headline)
+                .tint(AppTheme.accent)
+            TextField("What is it?", text: $title)
+                .font(.title3)
+                .padding(16)
+                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            HStack {
+                DatePicker("From", selection: $start, displayedComponents: .hourAndMinute)
+                DatePicker("To", selection: $end, displayedComponents: .hourAndMinute)
+            }
+            .font(.subheadline.weight(.semibold))
+            .tint(AppTheme.accent)
+        }
+    }
+
+    private func save() {
+        let calendar = Calendar.current
+        func minutes(_ date: Date) -> Int { calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date) }
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        ExtraPractices.all = ExtraPractices.all + [ExtraPractice(day: DayKey.of(date), title: trimmed.isEmpty ? "Team training" : trimmed,
+                                                               time: PracticeTime(start: minutes(start), end: max(minutes(end), minutes(start) + 15)))]
+        onSaved()
+        dismiss()
     }
 }
