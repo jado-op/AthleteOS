@@ -170,9 +170,24 @@ enum TodayEngine {
         let sport = active.flatMap { catalogue.sportsBySlug[$0.sportSlug] ?? allSportsBySlug[$0.sportSlug] }
         let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: date)
         let day = Int(date.timeIntervalSince1970 / 86_400)
+        // The last 7 days: jumps already landed come off the weekly cap, and
+        // yesterday's exercises step back so sessions vary.
+        let weekAgo = date.addingTimeInterval(-7 * 86_400), dayAgo = date.addingTimeInterval(-36 * 3600)
+        var landed = 0
+        var recentSlugs: Set<String> = []
+        for session in athlete.sessions where session.startedAt >= weekAgo && session.startedAt < date {
+            for set in session.sets {
+                if session.startedAt >= dayAgo { recentSlugs.insert(set.itemSlug) }
+                guard let group = catalogue.item(set.itemSlug)?.planProfile.group, group.hasPrefix("jump") else { continue }
+                landed += set.contacts ?? set.reps ?? 0
+            }
+        }
+        let cap = TrainingExperience.current.contactCap(PlanGenerator.weeklyContactCap(age: age))
+        // Equipment: on the road only what needs none.
+        let travelling = DayStatusStore.status(on: date) == .travel || DayStatusStore.status(on: date) == .holiday
         return AthleteKit(catalogue: catalogue, sport: sport, positionSlug: active?.positionSlug, formatSlug: active?.formatSlug,
-                          equipment: Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
-                          contactsLeft: TrainingExperience.current.contactCap(PlanGenerator.weeklyContactCap(age: age)),
+                          equipment: travelling ? ["none"] : Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+                          avoidSlugs: recentSlugs, contactsLeft: max(0, cap - landed),
                           seed: PlanVariant.seed("\(athlete.id)-\(day)"))
     }
 
@@ -249,6 +264,8 @@ enum TodayEngine {
         let status = DayStatusStore.status()
         guard status != .sick, status != .concussion,
               !athlete.competitions.contains(where: { calendar.isDateInToday($0.date) }) else { return nil }
+        // The same rules gate as Home (e.g. head pain: no added training on the Watch either).
+        guard PlanningRules.today(athlete, sessions: athlete.sessions).decision.allowsAddedTraining else { return nil }
         let planned = week?.sessions.first { calendar.isDateInToday($0.date) }
         let sessions = athlete.sessions
         func old(_ session: GeneratedSession) -> GeneratedSession {

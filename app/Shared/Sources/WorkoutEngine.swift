@@ -329,13 +329,17 @@ public enum SessionPlanner {
         // 1. What kind of session.
         var type: SessionType
         var purpose: MobilityPurpose?
-        if day.travelling {
-            add(.travelling)
-            type = .travel
-        } else if day.gameToday {
+        if day.gameToday {
+            // Away or at home: the game decides. Before it a warm-up, after it a wind-down.
             add(.gameToday)
+            if day.travelling { add(.travelling) }
             type = .mobility
-            purpose = .preTraining
+            purpose = day.beforeSession ? .preTraining : (day.evening ? .eveningDownshift : .recovery)
+        } else if day.travelling {
+            add(.travelling)
+            // Travelling never overrides a body that needs to recover.
+            type = mustRecover ? .mobility : .travel
+            if mustRecover { purpose = .recovery }
         } else if let practice = day.practice {
             add(.practiceToday)
             if practice == .hard { add(.hardTeamPractice) }
@@ -372,6 +376,8 @@ public enum SessionPlanner {
             case .gymDevelopment, .afterPractice, .primer, .conditioning:
                 // Asked for training on a day that says otherwise: the safe version of it.
                 if !mustRecover && !day.gameToday { type = requested }
+            case .travel:
+                if mustRecover { type = .mobility; purpose = .recovery } else { type = .travel }
             default:
                 type = requested
             }
@@ -381,9 +387,11 @@ public enum SessionPlanner {
         var legBudget = 3
         if let practice = day.practice {
             let practiceLegs = min(3, max(0, day.demands.practiceLegLoad + (practice == .hard ? 1 : practice == .light ? -1 : 0)))
-            legBudget = max(0, 2 - practiceLegs + (practice == .light ? 1 : 0))
+            // Low-leg-load sports (swimming, golf) still get leg strength after practice.
+            legBudget = max(0, 3 - practiceLegs + (practice == .light ? 1 : 0))
         }
         if avoid.contains(.heavyLowerBody) { legBudget = min(legBudget, 1) }
+        if day.gameToday { legBudget = 0 }
         if day.daysToNextGame == 1 || day.soreLegs || day.readiness == .low { legBudget = min(legBudget, day.practice == nil ? 1 : 0) }
         if legBudget <= 1 { avoid.insert(.highVolumeLowerBody) }
         if legBudget <= 1, day.practice != nil { add(.lowerBodyTrainedRecently) }

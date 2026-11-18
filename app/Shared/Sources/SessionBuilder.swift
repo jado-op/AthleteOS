@@ -6,12 +6,13 @@ import Foundation
 
 /// The parts of a session, in the order they're done.
 public enum SessionBlock: String, Codable, Sendable, CaseIterable {
-    case prep, power, primaryStrength, secondaryStrength, accessory, conditioning, mobility, cooldown
+    case prep, power, skill, primaryStrength, secondaryStrength, accessory, conditioning, mobility, cooldown
 
     public var title: String {
         switch self {
         case .prep: "Movement prep"
         case .power: "Power & speed"
+        case .skill: "Your sport"
         case .primaryStrength: "Main strength"
         case .secondaryStrength: "Secondary strength"
         case .accessory: "Trunk & resilience"
@@ -195,7 +196,7 @@ private struct BuildState {
             if matching.count == poolSize { break }
             if used.contains(candidate.item.slug) { continue }
             if strengthBlock, candidate.item.variant?.tempo == "explosive" { continue }
-            if candidate.item.defaultDose.kind == plyometricDoseKind, contactsLeft < 12 { continue }
+            if Self.landings(candidate.item, candidate.profile, sets: 1) > 0, contactsLeft < Self.landings(candidate.item, candidate.profile, sets: 3) { continue }
             guard filter(candidate.item, candidate.profile) else { continue }
             matching.append(candidate)
         }
@@ -207,10 +208,17 @@ private struct BuildState {
         let quality: String = best?.key ?? ""
         picks.append((item, block, why, quality))
         used.insert(item.slug)
-        if item.defaultDose.kind == plyometricDoseKind {
-            contactsLeft -= (item.defaultDose.contacts ?? 5) * 3
-        }
+        // Charged at the sets it will actually get (power: up to 4).
+        contactsLeft -= Self.landings(item, item.planProfile, sets: block == .power ? (decision.sessionType == .primer ? 2 : 4) : 3)
         return true
+    }
+
+    /// Jump landings for `sets` sets: plyometric contacts, or the reps of a
+    /// jump exercise dosed in reps (countermovement, broad jumps…).
+    static func landings(_ item: CatalogueItem, _ profile: ExerciseProfile, sets: Int) -> Int {
+        if item.defaultDose.kind == plyometricDoseKind { return (item.defaultDose.contacts ?? 5) * sets }
+        if profile.group.hasPrefix("jump"), item.defaultDose.kind == "reps" { return min(item.defaultDose.reps ?? 5, 5) * sets }
+        return 0
     }
 
     @discardableResult
@@ -261,13 +269,30 @@ private struct BuildState {
         }
     }
 
+    /// One drill of the athlete's own sport — for their position when there
+    /// is one (owner's rule: every session has at least one).
+    mutating func skillBlock(why: String) {
+        guard let sport = kit.sport?.slug else { return }
+        if let position = kit.positionSlug,
+           pick(.skill, why: "A drill for your position — the job you do in your sport.", { item, profile in
+               profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.contains(position) ?? false)
+           }) { return }
+        pick(.skill, why: why) { item, profile in
+            profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.isEmpty ?? true)
+        }
+    }
+
     func lowerGroups(_ pattern: String?) -> [String] {
         pattern == "hinge" ? ["hinge-bilateral", "hinge-hip-extension", "single-leg-hip", "hinge-ballistic"]
             : ["squat-bilateral", "single-leg-knee", "single-leg-lateral"]
     }
 
+    /// Planes alternate day to day: rows as well as pull-downs, overhead as
+    /// well as bench (before, the first plane with any candidate always won).
     func upperGroups(_ pattern: String?) -> [String] {
-        pattern == "pull" ? ["pull-vertical", "pull-horizontal"] : ["push-horizontal", "push-vertical", "push-incline"]
+        let odd = (Calendar.current.ordinality(of: .day, in: .era, for: day.date) ?? 0) % 2 == 1
+        if pattern == "pull" { return odd ? ["pull-horizontal", "pull-vertical"] : ["pull-vertical", "pull-horizontal"] }
+        return odd ? ["push-vertical", "push-horizontal", "push-incline"] : ["push-horizontal", "push-vertical", "push-incline"]
     }
 
     mutating func gymDay() {
@@ -276,6 +301,7 @@ private struct BuildState {
         if !decision.primaryTargets.filter({ [.power, .acceleration, .speed].contains($0) }).isEmpty {
             powerBlock(count: decision.durationTarget >= 55 ? 2 : 1)
         }
+        skillBlock(why: "A drill of your sport while you're fresh: skill and strength in one session.")
         // Main strength: one lower pattern and one upper, alternating through the week.
         if !upperOnly {
             if !pickGroup(.primaryStrength, lowerGroups(decision.lowerPattern), role: "primary",
@@ -306,19 +332,25 @@ private struct BuildState {
         let rotated = Array(SessionBuilder.trunkGroups[offset...] + SessionBuilder.trunkGroups[..<offset])
         pickGroup(.accessory, rotated, role: "trunk", why: "A trunk that resists movement passes force from legs to arms.")
         guard count > 1 else { return }
-        var groups: [String] = []
-        for area in loadAreas { for g in SessionBuilder.resilienceGroups[area] ?? [] where !groups.contains(g) { groups.append(g) } }
-        if groups.isEmpty { groups = ["hamstring-eccentric", "shoulder-health", "calf-ankle"] }
-        let area = loadAreas.first.map { $0.replacingOccurrences(of: "-", with: " ") }
-        pickGroup(.accessory, groups, why: area.map { "Protects your \($0), which your sport loads a lot." } ?? "Small strength that prevents common injuries.")
+        // The protected area rotates day to day through the sport's load areas,
+        // and the reason names the area actually protected.
+        let areas = loadAreas.isEmpty ? [] : Array(loadAreas[(offset % loadAreas.count)...] + loadAreas[..<(offset % loadAreas.count)])
+        for area in areas {
+            let groups = SessionBuilder.resilienceGroups[area] ?? []
+            if !groups.isEmpty, pickGroup(.accessory, groups, why: "Protects your \(area.replacingOccurrences(of: "-", with: " ")), which your sport loads a lot.") { return }
+        }
+        pickGroup(.accessory, ["hamstring-eccentric", "shoulder-health", "calf-ankle"], why: "Small strength that prevents common injuries.")
     }
 
     mutating func conditioningBlock() {
         guard let type = decision.conditioning, decision.conditioningMinutes > 0 else { return }
         let lowImpact = decision.avoids(.highImpact) || decision.legBudget < 2
         let catalogue = kit.catalogue, equipment = kit.equipment, pain = day.painAreas
+        let age = day.age, experience = day.experience, coached = kit.trainsUnderCoach
+        // The same limits as every other exercise: equipment, pain, age, coaching, experience.
         let usable: (String) -> Bool = { slug in catalogue.item(slug).map { item in
             PlanGenerator.isEligibleForEquipment(item, available: equipment) && !PainFilter.loads(item, areas: pain)
+                && item.minAge <= age && (coached || !item.isCoached) && experience.allows(item)
         } ?? false }
         guard let rx = ConditioningEngine.prescribe(type, minutes: decision.conditioningMinutes, lowImpact: lowImpact, age: day.age,
                                                     experience: day.experience, usable: usable),
@@ -329,6 +361,7 @@ private struct BuildState {
     }
 
     mutating func afterPractice() {
+        skillBlock(why: "One focused drill of your sport — a few clean reps, not more volume.")
         if decision.primaryTargets.contains(.strength), decision.legBudget >= 2 {
             pickGroup(.secondaryStrength, ["single-leg-knee", "single-leg-hip", "hinge-hip-extension"],
                       why: "A little single-leg strength — low volume, because practice already used your legs.")
@@ -345,7 +378,11 @@ private struct BuildState {
 
     mutating func primer() {
         prep(count: 4, upperFocus: false, fast: true)
-        pickGroup(.power, ["sprint-accel"], why: "Two or three short, fast starts to feel quick for tomorrow — not to get tired.")
+        // Sprint starts only where the sport sprints; everyone gets a sharp drill of their own sport.
+        if (day.demands.weights[.acceleration] ?? 0) >= 0.4 || (day.demands.weights[.speed] ?? 0) >= 0.4 {
+            pickGroup(.power, ["sprint-accel"], why: "Two or three short, fast starts to feel quick for tomorrow — not to get tired.")
+        }
+        skillBlock(why: "A few sharp reps of your sport's skill to feel ready for tomorrow.")
         pickGroup(.power, ["throw-rotational", "throw-overhead", "throw-chest"], why: "A few crisp throws wake up the nervous system with no leg cost.")
         pickGroup(.primaryStrength, upperGroups(decision.upperPattern), why: "Light upper-body strength: maintained, never tiring.")
         pickGroup(.accessory, ["anti-rotation", "anti-extension"], role: "trunk", why: "Trunk control, low effort.")
@@ -396,6 +433,7 @@ private struct BuildState {
 
     mutating func travel() {
         pickGroup(.prep, ["mobility-flow"], why: "Loosens up after sitting in a car, bus or plane.")
+        skillBlock(why: "A drill of your sport you can do anywhere.")
         pickGroup(.primaryStrength, ["single-leg-knee", "squat-bilateral"], why: "Leg strength with no equipment.")
         pickGroup(.primaryStrength, ["push-horizontal"], why: "Push-ups: upper-body strength anywhere.")
         pickGroup(.secondaryStrength, ["hinge-hip-extension", "single-leg-hip"], why: "Glutes and hamstrings, no weights needed.")
@@ -423,6 +461,10 @@ private struct BuildState {
             if dose.kind == plyometricDoseKind { dose.contacts = min(dose.contacts ?? 5, 6) }
             if dose.kind == "distance" { dose.metres = min(dose.metres ?? 20, 20) }
             rest = item.planProfile.role == "speed" ? 90 : 75
+        case .skill:
+            // A drill of the athlete's own sport: its own dose, a little less in season.
+            dose.sets = min(max(1, item.defaultDose.sets), inSeason || easier ? 2 : 3)
+            rest = 45
         case .primaryStrength:
             switch day.experience {
             case .beginner: dose.sets = 3; dose.reps = 10; rest = 90
@@ -433,6 +475,10 @@ private struct BuildState {
             if inSeason || easier { dose.sets = max(2, dose.sets - 1) }
             if item.planProfile.isLower, decision.avoids(.highVolumeLowerBody) { dose.sets = 2 }
             if dose.kind != "reps" { dose.reps = item.defaultDose.reps }
+            // Bodyweight lifts: their own (higher) reps — 2 × 8 air squats isn't main strength.
+            if item.defaultDose.load?.hasPrefix("bodyweight") ?? false, let own = item.defaultDose.reps {
+                dose.reps = max(dose.reps ?? own, own)
+            }
         case .secondaryStrength:
             dose.sets = day.experience == .beginner || inSeason || easier || decision.sessionType == .afterPractice ? 2 : 3
             if dose.kind == "reps" { dose.reps = day.experience == .experienced ? 8 : 10 }

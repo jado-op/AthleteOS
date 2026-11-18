@@ -199,4 +199,60 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertFalse(days.contains(4), "never the day before a game")
         XCTAssertFalse(days.contains(5), "never on a game day")
     }
+
+    // MARK: Engine review (2026-11-18)
+
+    // Owner's rule: every session has a drill of the athlete's own sport — for their position when there is one.
+    func testEverySessionHasADrillOfTheSportForThePosition() {
+        let (_, gym) = build(day("soccer", position: "goalkeeper", phase: .offSeason), sport: "soccer", position: "goalkeeper")
+        let drills = gym.items.filter { $0.block == .skill }
+        XCTAssertEqual(drills.count, 1, "one drill of the sport")
+        XCTAssertTrue(Self.catalogue.item(drills[0].itemSlug)?.positions?.contains("goalkeeper") ?? false, "a goalkeeper drill")
+        let (_, outfield) = build(day("soccer", position: "midfielder", phase: .inSeason, practice: .normal, nextGame: 3), sport: "soccer", position: "midfielder")
+        for item in outfield.items where item.block == .skill {
+            XCTAssertEqual(Self.catalogue.item(item.itemSlug)?.itemSportSlug, "soccer")
+            XCTAssertFalse(Self.catalogue.item(item.itemSlug)?.positions?.contains("goalkeeper") ?? false, "never another position's drill")
+        }
+    }
+
+    // Conditioning follows the same age, coaching and experience limits as everything else.
+    func testConditioningRespectsAge() {
+        for sport in ["basketball", "soccer", "volleyball", "track-and-field"] {
+            let young = TrainingDay(date: date, phase: .offSeason, age: 13, experience: .beginner,
+                                    demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug[sport], position: nil),
+                                    goals: [.aerobic], plannedGymDay: true)
+            let (_, session) = build(young, sport: sport, requested: .conditioning)
+            for item in session.items {
+                XCTAssertLessThanOrEqual(Self.catalogue.item(item.itemSlug)?.minAge ?? 0, 13, "\(item.itemSlug) for a 13-year-old in \(sport)")
+            }
+        }
+    }
+
+    // Travelling never overrides a body that needs to recover; a game day never loads the legs.
+    func testTravelAndGameDaysRespectRecovery() {
+        let tired = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
+                                demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["soccer"], position: nil),
+                                readiness: .low, travelling: true)
+        XCTAssertEqual(SessionPlanner.decide(tired, requested: nil).sessionType, .mobility)
+        XCTAssertEqual(SessionPlanner.decide(tired, requested: .travel).sessionType, .mobility)
+        let evening = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
+                                  demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["soccer"], position: nil),
+                                  gameToday: true, travelling: true, evening: true)
+        let decision = SessionPlanner.decide(evening, requested: nil)
+        XCTAssertEqual(decision.sessionType, .mobility)
+        XCTAssertEqual(decision.mobilityPurpose, .eveningDownshift, "after the game: wind down, not warm up")
+        XCTAssertEqual(decision.legBudget, 0)
+    }
+
+    // Travel uses what needs no equipment.
+    func testTravelNeedsNoEquipment() {
+        let travel = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
+                                 demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["basketball"], position: nil),
+                                 travelling: true)
+        let (_, session) = build(travel, sport: "basketball", requested: .travel, equipment: ["none"])
+        XCTAssertFalse(session.items.isEmpty)
+        for item in session.items {
+            XCTAssertTrue(PlanGenerator.isEligibleForEquipment(Self.catalogue.item(item.itemSlug)!, available: ["none"]), item.itemSlug)
+        }
+    }
 }

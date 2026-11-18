@@ -77,6 +77,10 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             : day.practice != nil ? "Practice trains your sport. A short supplement fills what practice doesn't train."
             : "There's no practice today, which makes it the best day for development work.")
         // 2. Why this session type?
+        if !day.painAreas.isEmpty {
+            let areas = day.painAreas.map { $0.title.lowercased() }.sorted().joined(separator: ", ")
+            add("What about the pain?", "Nothing today loads your \(areas). Train around it, not through it — if it's sharp, swelling or getting worse, stop and get it checked.")
+        }
         add("Why this kind of session?", sessionTypeReason(decision, r))
         // 3. Why this duration?
         add("Why this long?", durationReason(decision, day, r))
@@ -95,8 +99,17 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         }
         add("Why these exercises?", exercises.joined(separator: "\n"))
         // 6. Why this order?
-        if items.count > 2 {
-            add("Why this order?", "Fast and explosive work first, while you're fresh. Then the heaviest strength work, then smaller exercises\(decision.conditioning != nil ? ", and conditioning last so it doesn't blunt the strength work" : "").")
+        // Told from the blocks actually built (a recovery day has no "heaviest strength work").
+        let blocks = Set(items.compactMap(\.block))
+        var order: [String] = []
+        if blocks.contains(.power) { order.append("fast and explosive work first, while you're fresh") }
+        if blocks.contains(.skill) { order.append("your sport's drill while you're still sharp") }
+        if blocks.contains(.primaryStrength) { order.append("then the heaviest strength work") }
+        if blocks.contains(.secondaryStrength) || blocks.contains(.accessory) { order.append("then smaller exercises") }
+        if blocks.contains(.conditioning) { order.append(blocks.contains(.primaryStrength) ? "and conditioning last so it doesn't blunt the strength work" : "then the conditioning") }
+        if order.count >= 2 {
+            let text = order.joined(separator: ", ")
+            add("Why this order?", text.prefix(1).uppercased() + text.dropFirst() + ".")
         }
         // 7. What did practice already train?
         add("What did practice already train?", practiceCovered)
