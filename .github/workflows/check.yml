@@ -149,19 +149,11 @@ jobs:
       # which only postpones the same failure mode as the suite keeps
       # growing through M10-M14. GitHub Actions logs handle full xcodebuild
       # output fine; there is no good reason to truncate it here.
-      - name: Build iPhone app (unsigned, simulator)
-        working-directory: app
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project StudentAthlete.xcodeproj \
-            -scheme StudentAthlete \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: 'Run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
-        if: ${{ !cancelled() }}
+      # Speed (owner, 2026-11-18: "everything takes forever"): the unit tests,
+      # UI tests and Watch build run as three parallel jobs instead of one after
+      # the other. `xcodebuild test` builds the iPhone app (and the Watch app it
+      # embeds) itself, so a separate iPhone build step only cost time.
+      - name: 'Build and run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
         working-directory: app
         run: |
           set -o pipefail
@@ -169,18 +161,7 @@ jobs:
             -project StudentAthlete.xcodeproj \
             -scheme StudentAthlete \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Build Watch app (unsigned, simulator)
-        if: ${{ !cancelled() }}
-        working-directory: app
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project StudentAthlete.xcodeproj \
-            -scheme StudentAthleteWatch \
-            -configuration Debug \
-            -destination 'generic/platform=watchOS Simulator' \
+            -only-testing:StudentAthleteTests \
             CODE_SIGNING_ALLOWED=NO
 
       # A hand-written Info.plist that omits CFBundleIdentifier (or the other
@@ -193,8 +174,7 @@ jobs:
         run: |
           fail=0
           for pair in \
-            'Sportvisor.app:Debug-iphonesimulator:com.studentathlete.app' \
-            'Sportvisor.app:Debug-watchsimulator:com.studentathlete.app.watchkitapp'
+            'Sportvisor.app:Debug-iphonesimulator:com.studentathlete.app'
           do
             name="${pair%%:*}"; rest="${pair#*:}"; config="${rest%%:*}"; expected="${rest##*:}"
             path=$(find ~/Library/Developer/Xcode/DerivedData -type d -name "$name" -path "*${config}*" | head -1)
@@ -211,6 +191,92 @@ jobs:
             fi
           done
           exit $fail
+
+  ui-tests:
+    name: UI tests
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate content (codegen feeds Shared/Sources/Generated)
+        run: |
+          if [ -f content/package.json ]; then
+            cd content && npm ci && npm run build
+          else
+            echo "content/ not present yet — M1 has not landed."
+          fi
+
+      - name: XcodeGen
+        working-directory: app
+        run: xcodegen generate --spec project.yml
+
+      - name: Continue building after errors
+        run: defaults write com.apple.dt.Xcode IDEBuildingContinueBuildingAfterErrors -bool YES
+
+      - name: Build and run UI tests
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -only-testing:StudentAthleteUITests \
+            CODE_SIGNING_ALLOWED=NO
+
+  watch-build:
+    name: Watch app build
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate content (codegen feeds Shared/Sources/Generated)
+        run: |
+          if [ -f content/package.json ]; then
+            cd content && npm ci && npm run build
+          else
+            echo "content/ not present yet — M1 has not landed."
+          fi
+
+      - name: XcodeGen
+        working-directory: app
+        run: xcodegen generate --spec project.yml
+
+      - name: Continue building after errors
+        run: defaults write com.apple.dt.Xcode IDEBuildingContinueBuildingAfterErrors -bool YES
+
+      - name: Build Watch app (unsigned, simulator)
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthleteWatch \
+            -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: 'Evidence: the built Watch app has a resolved CFBundleIdentifier'
+        run: |
+          path=$(find ~/Library/Developer/Xcode/DerivedData -type d -name Sportvisor.app -path "*Debug-watchsimulator*" | head -1)
+          [ -n "$path" ] || { echo "::error::no built Watch app found"; exit 1; }
+          actual=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$path/Info.plist" 2>/dev/null || echo '<MISSING>')
+          echo "$path CFBundleIdentifier = $actual"
+          [ "$actual" = "com.studentathlete.app.watchkitapp" ] || { echo "::error::Watch app CFBundleIdentifier=$actual"; exit 1; }
 
       # Removed the simulator-screenshot step: it was pure evidence-gathering
       # (never gated pass/fail) and had become the slowest, most flake-prone
