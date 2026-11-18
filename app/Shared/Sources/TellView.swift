@@ -14,9 +14,12 @@ struct TellView: View {
     @State private var text = ""
     @State private var skipped: Set<Int> = []
     @State private var applied: [String]?
+    /// What the on-device language model read (nil: the rules' reading shows).
+    @State private var modelResult: TellParser.Result?
+    @State private var reading = false
     @FocusState private var writing: Bool
 
-    private var result: TellParser.Result { TellParser.parse(text) }
+    private var result: TellParser.Result { modelResult ?? TellParser.parse(text) }
     private var family: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
 
     var body: some View {
@@ -40,6 +43,25 @@ struct TellView: View {
                 ToolbarItem(placement: .cancellationAction) { Button(applied == nil ? "Cancel" : "Done") { dismiss() } }
             }
             .onAppear { writing = true }
+            .task(id: text) { await readWithModel() }
+        }
+    }
+
+    /// When the athlete pauses typing, Apple's on-device model reads the whole
+    /// text (TellModelReader); until then — and on phones without it — the rules do.
+    private func readWithModel() async {
+        modelResult = nil
+        reading = false
+        guard TellModelReader.isAvailable, text.trimmingCharacters(in: .whitespacesAndNewlines).count > 8 else { return }
+        try? await Task.sleep(for: .milliseconds(900))
+        guard !Task.isCancelled else { return }
+        reading = true
+        let read = await TellModelReader.read(text)
+        guard !Task.isCancelled else { return }
+        reading = false
+        if let read {
+            skipped = []
+            modelResult = read
         }
     }
 
@@ -65,9 +87,12 @@ struct TellView: View {
             }
             .padding(16)
             .glassSurface(cornerRadius: 18)
-            Text("Read on your phone. Nothing is sent anywhere.")
-                .font(.caption)
-                .foregroundStyle(AppTheme.mutedText)
+            HStack(spacing: 8) {
+                if reading { ProgressView().controlSize(.small) }
+                Text(reading ? "Reading…" : "Read on your phone. Nothing is sent anywhere.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.mutedText)
+            }
         }
     }
 
@@ -116,11 +141,23 @@ struct TellView: View {
                 .buttonStyle(.primary)
                 .disabled(parsed.proposals.count == skipped.count)
             }
-        } else if text.count > 12 {
-            Text("Nothing to change from that yet. Try a day (\"Saturday\", \"24.11.\"), a body part that hurts, exams, or what you want to get better at.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+        }
+        if !parsed.unread.isEmpty && !reading {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(parsed.proposals.isEmpty ? "Nothing the app can change from that yet" : "Not used")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                ForEach(parsed.unread, id: \.self) { line in
+                    Text("“\(line)”")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Tell works with days and what happens on them: games, the season, pain, exams, being sick or away, and what you want to get better at.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -171,6 +208,12 @@ struct TellView: View {
             return "\(name) from \(day(from, time: false))\(days > 1 ? " for \(days) days" : "")"
         case .goals(let goals):
             return "Goals: " + goals.compactMap { Struggle(rawValue: $0)?.title }.joined(separator: ", ")
+        case .season(let part, let from):
+            switch part {
+            case "pre": return "Pre-season training from \(day(from, time: false))"
+            case "end": return "Season ends \(day(from, time: false))"
+            default: return "Season starts \(day(from, time: false))"
+            }
         }
     }
 
@@ -182,6 +225,10 @@ struct TellView: View {
         case .examWeek: "Fewer, shorter sessions that week — time and sleep for studying."
         case .dayStatus: "Your plan adjusts while it lasts; your streak is protected."
         case .goals: "Your training leans towards them (up to three)."
+        case .season(let part, _):
+            part == "pre" ? "Strength and speed for the season ahead from then; until then you build in the off-season."
+                : part == "end" ? "A few lighter weeks after it, then building again."
+                : "Training switches to short sessions that keep what you built, fresh for competitions."
         }
     }
 
@@ -194,7 +241,10 @@ struct TellView: View {
         let paused = DayStatusStore.status() == .concussion
         let chosen = proposals.enumerated().filter { !skipped.contains($0.offset) }.map(\.element)
         let isKnock: (TellParser.Proposal) -> Bool = { if case .headKnock = $0 { true } else { false } }
-        let ordered = chosen.filter { !isKnock($0) } + chosen.filter(isKnock)
+        // Pre-season before the season start, so a season day told together wins.
+        let isPre: (TellParser.Proposal) -> Bool = { if case .season("pre", _) = $0 { true } else { false } }
+        let ordered = chosen.filter(isPre) + chosen.filter { !isKnock($0) && !isPre($0) } + chosen.filter(isKnock)
+        let toldSeasonStart = chosen.contains { if case .season("in", _) = $0 { true } else { false } }
         for proposal in ordered {
             switch proposal {
             case .competition(let date, let kind, let note, _):
@@ -231,6 +281,26 @@ struct TellView: View {
                 var merged = goals.compactMap(Struggle.init(rawValue:))
                 for goal in Struggles.selected where !merged.contains(goal) { merged.append(goal) }
                 Struggles.selected = Array(merged.prefix(Struggles.maximum))
+            case .season(let part, let from):
+                guard let sport = athlete.activeSport else { continue }
+                let calendar = Calendar.current
+                func weeks(_ n: Int, _ date: Date) -> Date { calendar.date(byAdding: .day, value: 7 * n, to: date) ?? date }
+                switch part {
+                case "pre":
+                    PreSeasonStore.start = from
+                    // The season itself comes after pre-season; if it isn't set that way yet, assume about eight weeks.
+                    if !toldSeasonStart && sport.seasonStart <= from {
+                        sport.seasonStart = weeks(8, from)
+                    }
+                case "end":
+                    sport.seasonEnd = from
+                    if sport.seasonStart >= from { sport.seasonStart = weeks(-16, from) }
+                default:
+                    sport.seasonStart = from
+                    if let pre = PreSeasonStore.start, pre >= from { PreSeasonStore.start = nil }
+                }
+                if sport.seasonEnd <= weeks(4, sport.seasonStart) { sport.seasonEnd = weeks(20, sport.seasonStart) }
+                try? modelContext.save()
             }
             lines.append(title(proposal))
         }

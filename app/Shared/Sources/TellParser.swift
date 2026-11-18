@@ -21,6 +21,9 @@ public enum TellParser {
         case dayStatus(String, from: Date, days: Int)
         /// Development goals (Struggle raw values), most important first.
         case goals([String])
+        /// The season calendar: "pre" (pre-season training starts), "in" (the
+        /// season itself starts) or "end" (the season ends) on this day.
+        case season(String, from: Date)
     }
 
     public enum CompetitionWord: String, Sendable { case game, tournament, meet }
@@ -29,6 +32,8 @@ public enum TellParser {
         public var proposals: [Proposal]
         /// Something worrying was mentioned (head, sharp pain): show the safety line.
         public var safety: String?
+        /// Sentences it couldn't turn into anything — shown honestly, never dropped silently.
+        public var unread: [String] = []
     }
 
     public static func parse(_ text: String, now: Date = .now, calendar: Calendar = .current) -> Result {
@@ -40,10 +45,32 @@ public enum TellParser {
         let marked = lower.replacingOccurrences(of: #"[.!?;]+(\s+|$)"#, with: "\n", options: .regularExpression)
         let sentences = marked.split(separator: "\n").map(String.init)
         var goals: [String] = []
+        var unread: [String] = []
+        var lastSeason: String?
 
         for sentence in sentences {
             let words = tokens(sentence)
             let date = findDate(sentence, words: words, now: now, calendar: calendar)
+            let before = proposals.count
+            let goalsBefore = goals.count
+            var understood = false
+
+            // The season calendar: "dryland starts the first week of December",
+            // "season starts after the holidays", "Saison endet im März".
+            if let part = seasonPart(words, sentence) {
+                if let day = date?.day {
+                    proposals.append(.season(part, from: day))
+                    lastSeason = part
+                }
+                understood = true
+            } else if let day = date?.day, lastSeason == "pre", words.count <= 6,
+                      !proposals.contains(where: { if case .season("in", _) = $0 { true } else { false } }) {
+                // "Dryland in December. After the holidays." — a bare day right
+                // after pre-season reads as the season itself starting.
+                proposals.append(.season("in", from: day))
+                lastSeason = "in"
+                understood = true
+            }
 
             // A competition on a day.
             if let kind = competitionWord(words, sentence), let day = date?.day {
@@ -88,7 +115,8 @@ public enum TellParser {
                 proposals.append(.dayStatus("sick", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 2))
             } else if containsAny(words, sentence, ["travel", "travelling", "traveling", "flight", "flying", "trip", "reise", "reisen", "flug", "fliege", "unterwegs"]) {
                 proposals.append(.dayStatus("travel", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 1))
-            } else if containsAny(words, sentence, ["vacation", "holiday", "holidays", "urlaub", "ferien"]) {
+            } else if containsAny(words, sentence, ["vacation", "holiday", "holidays", "urlaub", "ferien"]) && !holidayIsOnlyADate(sentence)
+                        && seasonPart(words, sentence) == nil {
                 proposals.append(.dayStatus("holiday", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 7))
             }
 
@@ -98,9 +126,40 @@ public enum TellParser {
                     goals.append(goal)
                 }
             }
+
+            if proposals.count == before && goals.count == goalsBefore && !understood && !isSmallTalk(words) {
+                unread.append(sentence.trimmingCharacters(in: .whitespaces))
+            }
         }
         if !goals.isEmpty { proposals.append(.goals(Array(goals.prefix(3)))) }
-        return Result(proposals: dedupe(proposals), safety: safety)
+        return Result(proposals: dedupe(proposals), safety: safety, unread: unread)
+    }
+
+    // MARK: Season
+
+    /// "pre", "in" or "end" when the sentence is about the season calendar.
+    static func seasonPart(_ words: [String], _ sentence: String) -> String? {
+        let pre = ["dryland", "dry land", "preseason", "pre-season", "pre season", "vorbereitung", "saisonvorbereitung", "vorbereitungsphase",
+                   "training camp", "trainingslager", "trockentraining", "athletiktraining"]
+        if containsAny(words, sentence, pre) { return "pre" }
+        let off = ["off-season", "offseason", "off season", "season ends", "season is over", "season will end", "season finishes", "end of the season",
+                   "end of season", "last game of the season", "saisonende", "saison endet", "saison ist vorbei", "saison vorbei", "ende der saison"]
+        if containsAny(words, sentence, off) { return "end" }
+        if containsAny(words, sentence, ["season", "saison", "saisonstart", "saisonbeginn"]) { return "in" }
+        return nil
+    }
+
+    /// "After the holidays", "nach den Ferien": a time, not a holiday that starts now.
+    static func holidayIsOnlyADate(_ sentence: String) -> Bool {
+        let markers = ["after the", "before the", "until the", "till the", "nach den", "vor den", "bis zu den", "bis zu", "bis den"]
+        let nouns = ["holiday", "holidays", "vacation", "break", "christmas holidays", "ferien", "weihnachtsferien", "urlaub"]
+        return markers.contains { marker in nouns.contains { sentence.contains("\(marker) \($0)") } }
+    }
+
+    /// "Hi", "thanks", "ok" — nothing to read, nothing to report as not understood.
+    static func isSmallTalk(_ words: [String]) -> Bool {
+        let filler: Set<String> = ["hi", "hey", "hello", "hallo", "servus", "moin", "yo", "ok", "okay", "thanks", "thank", "you", "danke", "so", "also", "and", "und", "bye", "tschüss"]
+        return words.isEmpty || words.allSatisfy { filler.contains($0) }
     }
 
     // MARK: Words
@@ -253,6 +312,21 @@ public enum TellParser {
                 }
             }
         }
+        // "first week of December", "Anfang Dezember", "mid January", "Ende März", "in December".
+        if let date = monthPhrase(sentence, words: words, today: today, calendar: calendar) { return FoundDate(day: date) }
+        // "After the holidays / Christmas / New Year", "nach den Ferien": the first school week of January.
+        let afterWinter = ["after the holidays", "after the christmas", "after christmas", "after new year", "after the new year", "after the winter break",
+                           "nach den ferien", "nach den weihnachtsferien", "nach weihnachten", "nach neujahr", "nach silvester"]
+        if afterWinter.contains(where: sentence.contains) {
+            let month = calendar.component(.month, from: today)
+            if month >= 10 || month == 1, let date = upcoming(day: 7, month: 1, year: nil, now: today, calendar: calendar) {
+                return FoundDate(day: date)
+            }
+        }
+        if containsAny(words, sentence, ["christmas", "weihnachten"]),
+           let date = upcoming(day: 24, month: 12, year: nil, now: today, calendar: calendar) {
+            return FoundDate(day: date)
+        }
         // "next week" (exams): the Monday of next week.
         if containsAny(words, sentence, ["next week", "nächste woche", "nächsten woche", "kommende woche"]) {
             let start = calendar.dateInterval(of: .weekOfYear, for: add(7))?.start ?? add(7)
@@ -269,6 +343,38 @@ public enum TellParser {
             let usable = names.filter { $0.count > 2 || sentence.contains("\($0).") }
             if usable.contains(where: { words.contains($0) }) {
                 return FoundDate(day: nextWeekday(number, after: today, skipThisWeek: skip, calendar: calendar))
+            }
+        }
+        return nil
+    }
+
+    /// A month with a "which part" word: "first week of december" → 1 Dec,
+    /// "mid january" → 15 Jan, "end of march" / "ende märz" → last week,
+    /// "in december" / "im dezember" → 1 Dec. Only full month names
+    /// ("may" alone is too often the verb).
+    static func monthPhrase(_ sentence: String, words: [String], today: Date, calendar: Calendar) -> Date? {
+        for (names, month) in months {
+            for name in names where name.count >= 4 || name == "mai" {
+                guard words.contains(name) else { continue }
+                let parts: [([String], Int)] = [
+                    (["first week of", "1st week of", "beginning of", "start of", "early", "anfang", "erste woche im", "ersten woche im", "erste \(name)woche", "ersten \(name)woche", "anfang des"], 1),
+                    (["second week of", "2nd week of", "zweite woche im", "zweiten woche im"], 8),
+                    (["mid", "mid-", "middle of", "mitte", "third week of", "3rd week of", "dritte woche im", "dritten woche im"], 15),
+                    (["last week of", "fourth week of", "end of", "late", "ende", "letzte woche im", "letzten woche im"], 22),
+                ]
+                var day: Int?
+                for (markers, value) in parts where markers.contains(where: { sentence.contains("\($0) \(name)") || sentence.contains("\($0)\(name)") }) {
+                    day = value
+                    break
+                }
+                if day == nil && name != "mai" && ["in \(name)", "im \(name)", "from \(name)", "ab \(name)", "starting \(name)", "until \(name)", "bis \(name)"].contains(where: sentence.contains) { day = 1 }
+                if day == nil && name == "mai" && sentence.contains("im mai") { day = 1 }
+                guard let start = day else { continue }
+                // A month already under way ("end of November" in November) is this year's.
+                let thisYear = calendar.component(.year, from: today)
+                if let date = calendar.date(from: DateComponents(year: thisYear, month: month, day: start)),
+                   calendar.component(.month, from: today) == month, date >= today || start > 1 { return max(date, today) }
+                return upcoming(day: start, month: month, year: nil, now: today, calendar: calendar)
             }
         }
         return nil

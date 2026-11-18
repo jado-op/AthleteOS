@@ -30,7 +30,8 @@ public enum SeasonPhase: String, Sendable, Codable, CaseIterable {
 /// that already exists on the model for exactly this purpose.
 public enum PhaseCalculator {
     public static func phase(
-        today: Date, seasonStart: Date, seasonEnd: Date, calendar: Calendar = .current
+        today: Date, seasonStart: Date, seasonEnd: Date, calendar: Calendar = .current,
+        preSeasonStart: Date? = PreSeasonStore.start
     ) -> SeasonPhase {
         let today = calendar.startOfDay(for: today)
         let start = calendar.startOfDay(for: seasonStart)
@@ -39,11 +40,33 @@ public enum PhaseCalculator {
         if today >= start && today <= end {
             return .inSeason
         }
+        // The athlete said when pre-season training starts ("dryland from the
+        // first week of December"): that day, not a fixed eight weeks, opens it.
+        if today < start, let pre = preSeasonStart.map({ calendar.startOfDay(for: $0) }),
+           pre < start, start.timeIntervalSince(pre) <= 26 * 7 * 86_400 {
+            if today >= pre { return .preSeason }
+            let daysSince = calendar.dateComponents([.day], from: end, to: today).day ?? Int.max
+            return daysSince >= 0 && daysSince <= 4 * 7 ? .postSeason : .offSeason
+        }
         if today < start {
             let daysOut = calendar.dateComponents([.day], from: today, to: start).day ?? Int.max
             return daysOut <= 8 * 7 ? .preSeason : .offSeason
         }
         let daysSince = calendar.dateComponents([.day], from: end, to: today).day ?? Int.max
         return daysSince <= 4 * 7 ? .postSeason : .offSeason
+    }
+}
+
+/// The day pre-season training starts, when the athlete has said so (Tell
+/// AthleteOS: "dryland starts the first week of December"). Used by
+/// `PhaseCalculator` only while it lies before the season start.
+public enum PreSeasonStore {
+    static let key = "season.preSeasonStart"
+
+    public static var start: Date? {
+        get { UserDefaults.standard.object(forKey: key) as? Date }
+        set {
+            if let newValue { UserDefaults.standard.set(newValue, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+        }
     }
 }

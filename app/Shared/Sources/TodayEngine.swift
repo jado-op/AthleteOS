@@ -208,7 +208,7 @@ enum TodayEngine {
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
-                athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)" } ?? "",
+                athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
                 athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)"].joined(separator: "|")
     }
 

@@ -66,6 +66,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app
+        # iOS 26 on-device language model (Tell AthleteOS); weak so iOS 17/18 still launch.
+        OTHER_LDFLAGS: "$(inherited) -weak_framework FoundationModels"
         PRODUCT_NAME: Sportvisor
         INFOPLIST_FILE: StudentAthlete/Info.plist
         # Trap 1: must be stated explicitly.
@@ -193,6 +195,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.tests
+        # iOS 26 on-device language model (Tell AthleteOS); weak so iOS 17/18 still launch.
+        OTHER_LDFLAGS: "$(inherited) -weak_framework FoundationModels"
         GENERATE_INFOPLIST_FILE: YES
 
   # ─────────────────────────────────────── iOS UI tests (the real app)

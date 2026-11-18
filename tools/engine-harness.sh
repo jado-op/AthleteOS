@@ -19,7 +19,7 @@ for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine Conditioning
          PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight TodayPlan \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \
-         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts TellParser CompetitionCoach MuscleTraining \
+         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts TellParser TellModelReader CompetitionCoach MuscleTraining \
          Generated/Qualities Generated/Equipment Generated/AllSports Generated/AcademyContent Generated/Muscles; do
   ln -s "$SRC/$f.swift" "$H/Sources/Engine/$(basename "$f").swift"
 done

@@ -28,6 +28,46 @@ final class TellParserTests: XCTestCase {
         XCTAssertNil(result.safety)
     }
 
+    /// The owner's own sentence (TestFlight, 2026-11-18): it used to become "Holiday from today for 7 days".
+    func testSeasonFromDrylandAndHolidays() {
+        let result = parse("Hi the ski season will really start with dryland exercise The first week of December. After the holidays.")
+        XCTAssertEqual(result.proposals, [.season("pre", from: day(1, 12)), .season("in", from: calendar.date(from: DateComponents(year: 2027, month: 1, day: 7))!)])
+        XCTAssertTrue(result.unread.isEmpty)
+    }
+
+    func testSeasonWords() {
+        XCTAssertEqual(parse("Season starts mid January").proposals, [.season("in", from: calendar.date(from: DateComponents(year: 2027, month: 1, day: 15))!)])
+        XCTAssertEqual(parse("Die Saison endet Ende März").proposals, [.season("end", from: calendar.date(from: DateComponents(year: 2027, month: 3, day: 22))!)])
+        XCTAssertEqual(parse("Saisonvorbereitung ab Dezember").proposals, [.season("pre", from: day(1, 12))])
+    }
+
+    func testHolidaysAsATimeAreNotAHoliday() {
+        XCTAssertFalse(parse("We start again after the holidays").proposals.contains { if case .dayStatus = $0 { true } else { false } })
+        XCTAssertTrue(parse("I'm on holiday for a week").proposals.contains(.dayStatus("holiday", from: day(18), days: 7)))
+    }
+
+    func testWhatItCannotReadIsShown() {
+        let result = parse("Hi. My coach said I should work on my weak foot.")
+        XCTAssertEqual(result.unread, ["my coach said i should work on my weak foot"])
+    }
+
+    /// The language model's output is checked before it becomes a proposal.
+    func testModelOutputIsChecked() {
+        func item(_ kind: String, _ day: String = "", areas: [String] = [], words: String = "") -> TellModelReader.Item {
+            TellModelReader.Item(kind: kind, day: day, time: "", days: 0, areas: areas, level: "", goals: [], opponent: "", words: words)
+        }
+        let rules = parse("I hit my head")
+        let result = TellModelReader.proposals(from: [
+            item("preSeasonStart", "2026-12-01"),
+            item("seasonStart", "2031-01-07", words: "in 2031"),      // too far ahead: not used
+            item("pain", areas: ["elbowish"], words: "my elbowish"), // unknown area: not used
+            item("notUnderstood", words: "coach wants left foot work"),
+        ], rules: rules, now: now, calendar: calendar)
+        XCTAssertEqual(result.proposals, [.season("pre", from: day(1, 12)), .headKnock])
+        XCTAssertEqual(result.unread, ["in 2031", "my elbowish", "coach wants left foot work"])
+        XCTAssertNotNil(result.safety)
+    }
+
     func testGerman() {
         let result = parse("Spiel gegen Bayern am Samstag um 15 Uhr. Mein Knöchel tut weh. Nächste Woche Klausuren. Ich will schneller werden.")
         XCTAssertTrue(result.proposals.contains(.competition(date: day(21, hour: 15), kind: .game, note: "vs. Bayern", hasTime: true)))
