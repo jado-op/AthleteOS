@@ -54,6 +54,16 @@ const all = [
   legalPage('/support/', 'Support', 'Get help with AthleteOS: common questions and a form to contact us.', SUPPORT_BODY),
 ];
 
+// Every phone screenshot a page shows must exist (made by screens.py from the
+// screenshots workflow's artifact).
+for (const page of all) {
+  for (const [, name] of page.body.matchAll(/\/assets\/screens\/([\w-]+)\.webp/g)) {
+    if (!fs.existsSync(path.join(src, 'assets/screens', `${name}.webp`))) {
+      throw new Error(`missing screenshot ${name}.webp — run: python3 website/screens.py <screenshots artifact dir>`);
+    }
+  }
+}
+
 for (const page of all) {
   const html = layout(page).replaceAll('__V__', version);
   const file = page.path.endsWith('.html') ? page.path : `${page.path}index.html`;

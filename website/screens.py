@@ -32,7 +32,7 @@ def one(pattern: str) -> pathlib.Path:
     return found[0]
 
 
-for tab, name in [("today", "home"), ("workout", "workout"), ("campus", "campus")]:
+for tab, name in [("today", "home"), ("workout", "workout"), ("academy", "academy")]:
     save(one(f"iPhone*-{tab}.png"), name, 660)
 save(one("all/iPhone*-home-schedule.png"), "schedule", 660)
 save(one("Watch-1-today.png"), "watch", 420)

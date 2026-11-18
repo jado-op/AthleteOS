@@ -42,7 +42,7 @@ export const home = {
   <div class="section-head reveal"><p class="eyebrow">Three things, every day</p><h2 class="big">Build the athlete. <em>Teach the athlete.</em> Adapt.</h2></div>
   <div class="pillars">
     <div class="pillar reveal"><span class="n">01</span><h3>Workout</h3><p class="q">What should I physically do today?</p><p>A session built around your practice, games, season and how you feel — with the reason it looks the way it does.</p></div>
-    <div class="pillar reveal"><span class="n">02</span><h3>Campus</h3><p class="q">What should I understand?</p><p>About 100 short lessons in nine areas, from training science to sleep, psychology and supplements — picked for your day.</p></div>
+    <div class="pillar reveal"><span class="n">02</span><h3>Academy</h3><p class="q">What should I understand about me?</p><p>Your digital twin reads your own check-ins, games, sets and reflections and finds what holds you back. Your coach assigns a briefing for each finding.</p></div>
     <div class="pillar reveal"><span class="n">03</span><h3>Reflection</h3><p class="q">How should tomorrow adapt?</p><p>Forty-five seconds in the evening. How it felt shapes tomorrow's plan.</p></div>
   </div>
 </div></section>
@@ -60,7 +60,7 @@ export const home = {
 <section class="wrap"><div class="stats reveal">
   <div class="stat"><b>60</b><span>sports, with their formats and positions</span></div>
   <div class="stat"><b>1,000+</b><span>exercises and drills with how-tos</span></div>
-  <div class="stat"><b>~100</b><span>Campus lessons in nine areas</span></div>
+  <div class="stat"><b>~100</b><span>short lessons, plus long-form briefings</span></div>
   <div class="stat"><b>45 s</b><span>for the evening reflection</span></div>
 </div></section>
 
@@ -137,9 +137,9 @@ export const home = {
 <section class="band tight"><div class="narrow">
   <div class="section-head center reveal"><p class="eyebrow">Questions</p><h2 class="big">Good to know.</h2></div>
   ${faq([
-    ['Is AthleteOS free?', 'Yes. The check-in, your plan and all three kinds of workout, logging, the Apple Watch app, safety features, three new Campus lessons a day, sport guides, leagues and teams are free. <a href="/pricing/">AthleteOS Pro</a> adds the workout editor, unlimited lessons, full history and more.'],
+    ['Is AthleteOS free?', 'Yes. The check-in, your plan and all three kinds of workout, logging, the Apple Watch app, safety features, three new short lessons a day, the Academy (free during the beta), sport guides and teams are free. <a href="/pricing/">AthleteOS Pro</a> adds the workout editor, unlimited lessons, full history and more.'],
     ['Who is it for?', 'Middle school, high school and college athletes from 13 up, in any of 60 sports — whether you train in a gym or have nothing but a park.'],
-    ['Do I need an account?', 'No. Everything works on your phone without one. Sign in with Apple when you want a backup, a team, a league or the parent summary.'],
+    ['Do I need an account?', 'No. Everything works on your phone without one. Sign in with Apple when you want a backup, a team or the parent summary.'],
     ['Does it replace my coach?', 'No — it works with your coach. It fills the gap between practices, and your coach can see your readiness and send you workouts if you join their team.'],
     ['Does it work with Strava, TeamSnap or GameChanger?', 'Team and school calendars connect with a calendar link — TeamSnap, GameChanger, school sites and Google Calendar all offer one. Runs and rides from other apps arrive through Apple Health.'],
   ])}
@@ -151,7 +151,7 @@ ${cta()}`,
 export const features = {
   path: '/features/',
   title: 'Features',
-  description: 'Every AthleteOS feature: the daily check-in, workouts around practices and games, 1,000+ exercises and drills, schedule sync, Campus lessons, mindset tools, Apple Watch, teams and safety.',
+  description: 'Every AthleteOS feature: the daily check-in, workouts around practices and games, 1,000+ exercises and drills, schedule sync, the Academy and its digital twin, mindset tools, Apple Watch, teams and safety.',
   body: `
 <section class="page-hero"><div class="atmos"></div><div class="wrap">
   <p class="eyebrow">Features</p>
@@ -213,13 +213,13 @@ export const features = {
 
 <div class="wrap divider"></div>
 
-<section class="band tight" id="campus"><div class="wrap split">
+<section class="band tight" id="academy"><div class="wrap split">
   <div class="reveal">
-    <p class="eyebrow">Campus</p><h2 class="big">Learn something <em>useful today.</em></h2>
-    <p class="lede">About 100 short lessons in nine areas and five levels — from foundations to coaching yourself. Each one: a hook, the idea, an athlete's example and what it means for you.</p>
-    <ul class="checks"><li><span><b>Recommended for your day</b> — a short night, a game tomorrow, a hard practice</span></li><li><span><b>Supplements, explained honestly</b> — evidence, risks and marketing; never "take this"</span></li><li><span><b>Phones, attention and sleep</b> — without the scare stories</span></li><li><span>Spaced review so it sticks; XP and badges stay in the background</span></li></ul>
+    <p class="eyebrow">Academy</p><h2 class="big">A twin that <em>understands you.</em></h2>
+    <p class="lede">Your digital twin is an analysis, not a quiz: it reads your own check-ins, games, logged sets, tests and evening reflections — plus a short interview about how you think — and finds what holds you back, in your sport's words. Every number traces back to your data.</p>
+    <ul class="checks"><li><span><b>Insights with the numbers</b> — "your nights before games are 50 minutes shorter", with the chart</span></li><li><span><b>Briefings from your coach</b> — about ten minutes each: chapters, your own chart, an example, one protocol to try</span></li><li><span><b>Performances</b> — your PRs from logged sets and tests, plus anything you add</span></li><li><span><b>~100 short lessons</b> as quick follow-ups, with spaced review so it sticks</span></li><li><span><b>Yours alone</b> — never shown to coaches, parents or teammates; backed up encrypted; delete it any time</span></li></ul>
   </div>
-  <div class="device-stage reveal">${phoneShot('campus', 'AthleteOS Campus: short lessons in nine areas')}</div>
+  <div class="device-stage reveal">${phoneShot('academy', 'AthleteOS Academy: your digital twin, its insights and the briefings your coach assigns')}</div>
 </div></section>
 
 <div class="wrap divider"></div>
@@ -375,7 +375,7 @@ export const parents = {
     <p class="eyebrow">The weekly summary</p>
     <h2 class="big">Stay in the loop, <em>not in their diary.</em></h2>
     <p class="lede">Your athlete adds your email in the app (Me → Parent summary). You confirm it once, then get a short email every Sunday. One link stops it.</p>
-    <ul class="checks"><li><span>Workouts and minutes trained</span></li><li><span>Average sleep and check-ins</span></li><li><span>Upcoming games</span></li><li><span>Campus lessons and mindset sessions — as counts</span></li></ul>
+    <ul class="checks"><li><span>Workouts and minutes trained</span></li><li><span>Average sleep and check-ins</span></li><li><span>Upcoming games</span></li><li><span>Lessons and mindset sessions — as counts</span></li></ul>
     <ul class="checks no"><li><span>Reflections, notes, moods or anything they wrote</span></li></ul>
   </div>
   <div class="glass card lit reveal">
@@ -394,7 +394,7 @@ export const parents = {
     ['What data does it collect?', 'The minimum: an anonymous Apple sign-in ID (if they sign in), birth date, training and check-in data. Never their name, email, phone number, contacts, photos or location. <a href="/privacy/">Read the privacy policy</a>.'],
     ['Can strangers contact my child?', 'No. There is no chat and no messaging. Coaches can send one-way announcements and private notes to teams your child chose to join with a code.'],
     ['What does Pro cost?', '$2.99 a month or $24.99 a year, with an introductory offer for new subscribers. It\'s billed through Apple, so Family Sharing purchase approval (“Ask to Buy”) works. <a href="/pricing/">See what\'s free</a>.'],
-    ['How do we delete everything?', 'In the app: Me → Delete account. It deletes everything on our server immediately. Free, and never behind a subscription.'],
+    ['How do we delete everything?', 'In the app: Me → Delete account. It deletes everything on our server right away; our encrypted nightly backups roll over within 30 days. Free, and never behind a subscription.'],
   ])}
 </div></section>
 ${cta('A healthier season <em>starts here.</em>', 'Free to download. No ads, no tracking, no diet culture.')}`,
@@ -429,9 +429,9 @@ export const safety = {
     <h2 class="big">The minimum, <em>nothing more.</em></h2>
     <ul class="checks">
       <li><span><b>Works without an account.</b> Everything stays on the phone.</span></li>
-      <li><span><b>Sign in with Apple</b> only for backup, teams and leagues — we never ask for a name or email.</span></li>
-      <li><span><b>Our own server</b>, no third-party processors, encrypted backups.</span></li>
-      <li><span><b>Delete everything</b> in the app, immediately and for free.</span></li>
+      <li><span><b>Sign in with Apple</b> only for backup and teams — we never ask for a name or email.</span></li>
+      <li><span><b>Our own server</b>, no third-party processors. Reflections, pain notes and the twin are encrypted on your phone before backup.</span></li>
+      <li><span><b>Delete everything</b> in the app, for free — gone from our server right away, from nightly backups within 30 days.</span></li>
     </ul>
     <ul class="checks no">
       <li><span>No ads or advertising IDs</span></li>
@@ -444,7 +444,7 @@ export const safety = {
   <div class="glass card lit reveal">
     <p class="eyebrow">Community</p>
     <h3 style="font-size:28px">No chat. No strangers.</h3>
-    <p class="muted">There are no direct messages. Teams and leagues are private and joined only with a code. Names are checked when they're saved; anything can be reported and is reviewed within 24 hours.</p>
+    <p class="muted">There are no direct messages and no public rankings. Teams are private and joined only with a code, after the athlete sees exactly what the coach will see. Names are checked when they're saved; anything can be reported and is reviewed within 24 hours.</p>
     <p class="muted">Health is shared with a team only if the athlete turns it on — and turning it off deletes what was shared.</p>
   </div>
 </div></section>
@@ -471,7 +471,7 @@ export const pricing = {
     <div class="glass card plan reveal">
       <h3>Free</h3><p class="muted">Everything you need every day.</p>
       <div class="price">$0</div><p class="faint">Forever</p>
-      <ul class="checks"><li><span>Check-in and daily plan</span></li><li><span>All three kinds of workout</span></li><li><span>Apple Watch app</span></li><li><span>3 new Campus lessons a day</span></li><li><span>Sport guides, leagues and teams</span></li><li><span>Safety, fuel and parent summary</span></li></ul>
+      <ul class="checks"><li><span>Check-in and daily plan</span></li><li><span>All three kinds of workout</span></li><li><span>Apple Watch app</span></li><li><span>3 new short lessons a day</span></li><li><span>The Academy (free in the beta)</span></li><li><span>Sport guides and teams</span></li><li><span>Safety, fuel and parent summary</span></li></ul>
       ${appStoreButton()}
     </div>
     <div class="glass card plan featured reveal">
@@ -502,12 +502,13 @@ export const pricing = {
       ${row('Swap exercises', 1, 1)}
       ${row('Logging and the Apple Watch app', 1, 1)}
       ${row('Schedule, one connected calendar', 1, 1)}
-      ${row('Campus: 3 new lessons a day, unlimited review', 1, 1)}
-      ${row('Sport guides, leagues and teams', 1, 1)}
+      ${row('Short lessons: 3 new a day, unlimited review', 1, 1)}
+      ${row('Academy: digital twin and briefings (free in the beta)', 1, 1)}
+      ${row('Sport guides and teams', 1, 1)}
       ${row('Safety, fuel, emergency card and parent summary', 1, 1)}
       ${row('Coach readiness board and athletic-trainer log', 1, 1)}
       ${row('Edit every set and rep; build your own workouts', 0, 1)}
-      ${row('Unlimited Campus lessons', 0, 1)}
+      ${row('Unlimited short lessons', 0, 1)}
       ${row('Full history beyond 30 days, detailed tracking', 0, 1)}
       ${row('Season and year calendar, more calendars', 0, 1)}
       ${row('Video jump test and game-day visualization', 0, 1)}
