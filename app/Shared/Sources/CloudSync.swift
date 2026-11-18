@@ -574,9 +574,6 @@ public enum CloudSync {
         return true
     }
 
-    /// "Delete twin": the interview, briefings read and performances — on this
-    /// phone and in the backup.
-    @discardableResult
     static let twinKey = "settings.academyTwin"
     static let twinMarkerKey = "deleted.academyTwin"
     private static let twinDeletedAtKey = "cloud.twinDeletedAt"
@@ -587,6 +584,9 @@ public enum CloudSync {
         set { UserDefaults.standard.set(newValue, forKey: twinDeletedAtKey) }
     }
 
+    /// "Delete twin": the interview, briefings read and performances — on this
+    /// phone and in the backup.
+    @discardableResult
     public static func deleteTwin() async -> Bool {
         AcademyStore.delete()
         twinDeletedAt = .now

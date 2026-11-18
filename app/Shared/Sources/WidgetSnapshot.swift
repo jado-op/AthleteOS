@@ -75,7 +75,7 @@ enum WidgetSnapshotWriter {
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
         let sessionsThisWeek = athlete.sessions.filter { weekInterval?.contains($0.startedAt) ?? false }.count
 
-        let snapshot = WidgetSnapshot(
+        var snapshot = WidgetSnapshot(
             day: today,
             sportName: AthleteStats.sportName(athlete),
             sessionTitle: adjusted?.title,
@@ -89,7 +89,6 @@ enum WidgetSnapshotWriter {
             sessionsThisWeek: sessionsThisWeek,
             plannedThisWeek: week?.sessions.count ?? 0
         )
-        var snapshot = snapshot
         snapshot.eventWord = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"]
         snapshot.doneToday = athlete.sessions.contains { calendar.isDateInToday($0.startedAt) && $0.endedAt != nil }
         guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
