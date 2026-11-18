@@ -26,15 +26,40 @@ public enum AcademyStore {
     }
 
     /// The interview answered (or edited): answers replace earlier ones; an
-    /// empty free-text answer clears it.
+    /// empty answer ("" — a cleared choice or text) removes it. Finishing
+    /// also drops any half-way draft.
     public static func answering(_ answers: [String: String], in state: AcademyState, at date: Date) -> AcademyState {
         var next = state
         for (id, value) in answers {
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            next.intake[id] = trimmed.isEmpty ? nil : trimmed
+            next.intake[id] = trimmed.isEmpty ? nil : String(trimmed.prefix(freeTextLimit))
         }
         if next.intakeDoneAt == nil { next.intakeDoneAt = date }
+        next.intakeDraft = nil
         return next
+    }
+
+    /// Longest free-text answer kept (the field stops there too).
+    public static let freeTextLimit = 280
+
+    /// A first interview closed before the end: keep the answers so far and
+    /// where to pick up, without creating the twin yet. Nothing answered →
+    /// no draft. After the first interview, edits are saved with `answering`.
+    public static func savingDraft(_ answers: [String: String], at questionID: String?, in state: AcademyState,
+                                   date: Date) -> AcademyState {
+        var next = state
+        guard next.intakeDoneAt == nil else { return state }
+        let kept = answers.compactMapValues { value -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : String(trimmed.prefix(freeTextLimit))
+        }
+        next.intakeDraft = kept.isEmpty ? nil : IntakeDraft(answers: kept, questionID: questionID, savedAt: date)
+        return next
+    }
+
+    /// How many of these questions have an answer.
+    public static func answeredCount(_ answers: [String: String], of questionIDs: [String]) -> Int {
+        questionIDs.filter { !(answers[$0]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) }.count
     }
 
     public static func reading(_ briefingID: String, in state: AcademyState, at date: Date) -> AcademyState {

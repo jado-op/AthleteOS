@@ -43,6 +43,8 @@ struct AcademyHomeView: View {
     @State private var records: [PerformanceRecord] = []
     @State private var reading: ReadingTarget?
     @State private var showingInterview = false
+    /// The question the interview opens on (an answer tapped to edit).
+    @State private var interviewStart: String?
     @State private var showingSupport = false
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
@@ -104,7 +106,7 @@ struct AcademyHomeView: View {
                                familyID: AcademyContent.familyID(forSport: sportSlug))
         }
         .fullScreenCover(isPresented: $showingInterview, onDismiss: reload) {
-            IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug)
+            IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug, startAt: interviewStart)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
@@ -166,15 +168,24 @@ struct AcademyHomeView: View {
     }
 
     private var interviewCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Let your twin get to know you")
+        let questionIDs = AcademyContent.intake(forSport: sportSlug).map(\.id)
+        let answered = state.intakeDraft.map { AcademyStore.answeredCount($0.answers, of: questionIDs) } ?? 0
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(answered > 0 ? "Finish creating your twin" : "Let your twin get to know you")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
-            Text("Ten questions about how you train, compete and think. About five minutes. Only you can see the answers.")
+            Text(answered > 0
+                 ? "\(answered) of \(questionIDs.count) answered. Pick up where you left off — your answers are kept."
+                 : "\(countedNoun(questionIDs.count, "question")) about how you train, compete and think. About five minutes. Only you can see the answers.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button { showingInterview = true } label: { HeroCTALabel("Start the interview") }
+            if answered > 0 {
+                ProgressView(value: Double(answered), total: Double(max(questionIDs.count, 1)))
+                    .tint(AppTheme.brightRed)
+                    .padding(.top, 4)
+            }
+            Button { openInterview() } label: { HeroCTALabel(answered > 0 ? "Continue the interview" : "Create my twin") }
                 .buttonStyle(.primary)
                 .padding(.top, 8)
         }
@@ -347,27 +358,41 @@ struct AcademyHomeView: View {
             HStack(alignment: .firstTextBaseline) {
                 sectionTitle("Who you are as an athlete", "From your interview.")
                 Spacer()
-                Button("Edit") { showingInterview = true }
+                Button("Edit") { openInterview() }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.brightRed)
             }
             ForEach(AcademyContent.intake(forSport: sportSlug)) { question in
-                if let answer = summary(question) {
+                // Every question, answered or not: tap one to change just that answer.
+                Button { openInterview(at: question.id) } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(family.fill(question.label))
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.ink)
                         Spacer(minLength: 12)
-                        Text(answer)
+                        Text(summary(question) ?? "Add")
                             .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
+                            .foregroundStyle(summary(question) == nil ? AppTheme.brightRed : AppTheme.secondaryText)
                             .multilineTextAlignment(.trailing)
+                            .lineLimit(3)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.mutedText)
+                            .accessibilityHidden(true)
                     }
                     .padding(.vertical, 12)
+                    .contentShape(Rectangle())
                     .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
                 }
+                .buttonStyle(.plain)
+                .accessibilityHint("Change this answer")
             }
         }
+    }
+
+    private func openInterview(at questionID: String? = nil) {
+        interviewStart = questionID
+        showingInterview = true
     }
 
     private func summary(_ question: IntakeQuestion) -> String? {

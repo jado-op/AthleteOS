@@ -209,6 +209,23 @@ public struct AcademyState: Codable, Equatable, Sendable {
     /// Briefings read to the end, and when.
     public var read: [String: Date] = [:]
     public var performances: [CustomPerformance] = []
+    /// A first interview left half-way: the answers so far and where to pick
+    /// up. The twin is only "born" (intakeDoneAt) once the interview is done.
+    public var intakeDraft: IntakeDraft?
 
     public init() {}
+}
+
+/// The interview so far, kept when the athlete closes it before the end.
+public struct IntakeDraft: Codable, Equatable, Sendable {
+    public var answers: [String: String]
+    /// The question to open on next time.
+    public var questionID: String?
+    public var savedAt: Date
+
+    public init(answers: [String: String], questionID: String?, savedAt: Date) {
+        self.answers = answers
+        self.questionID = questionID
+        self.savedAt = savedAt
+    }
 }
