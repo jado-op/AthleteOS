@@ -72,7 +72,10 @@ Reading files, CI logs or the GitHub API needs no lock.
   `AppTab.campus` / `.progress` / `.me` are redirected in `MainTabView` (Me = profile-button sheet).
 - Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
   parents, scouts or other users; backed up only to their own account, encrypted on the
-  phone; "Delete twin" deletes the server backup for real (not an overwrite). Events
+  phone; "Delete twin" deletes the server backup for real (not an overwrite). Done (2026-11-18):
+  `CloudSeal` seals the `mindset.`, `safety.` and `academyTwin.` groups (AES-GCM, key in the
+  athlete's iCloud Keychain, never on our server); `CloudSync.deleteTwin` + `DELETE /sync/state/:key`.
+  The parent page/email never shows anything the athlete wrote (game notes included). Events
   (`AcademyEvent`: twin_viewed, body_zone_tapped, lesson_completed, reflection_submitted,
   twin_born) are on-phone counts only — never answers or reflection text. "Need to talk to
   someone?" is configured per country in `SupportResources.swift` (Germany: Nummer gegen
@@ -85,6 +88,14 @@ Reading files, CI logs or the GitHub API needs no lock.
   proposed changes (competition, pain, exam week, day status, goals), applied only when confirmed.
 - Under-18 safety: no calorie counting as primary UI, readiness never a score, pain =
   "stop and get checked", never a diagnosis.
+- App audit (owner, 2026-11-18, "do all of that") — don't bring these back: no Athlete Score
+  or any 0–100 figure from wellness data; no leagues, XP, levels, Campus streak or Campus
+  badges (Campus = a calm library sheet with the learned count and spaced review); no Home
+  "level" widgets; one streak only (`AthleteStats.streak`, Me profile only) and rest never
+  breaks it (up to two days off in a row, frozen days any length). The twin is the one
+  analyst and the one reading recommender (Home's "Next step · read" = the coach's unread
+  briefing; short lessons are follow-ups). Joining a team shows exactly what the coach sees
+  and needs an explicit OK. Coach workouts are Pro on the server too.
 - Pricing: Pro Monthly $2.99 with an intro offer $0.99/mo for 3 months, Pro Yearly
   $24.99. Change prices only with the owner's say-so (`asc-pricing.yml`). The paywall
   lists only features that really are gated. The daily habit stays free (check-in, plan,
