@@ -99,6 +99,9 @@ struct WorkoutTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ProfileButtonBar(name: athlete.displayName)
+                    // What the athlete's training has done to their body so far.
+                    MuscleTrainingSection(athlete: athlete, catalogue: catalogue)
+                        .padding(.bottom, 12)
                     recommendedCard
                         .padding(.bottom, 24)
                     weekSection
