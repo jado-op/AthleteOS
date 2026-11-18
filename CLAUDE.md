@@ -55,9 +55,16 @@ Reading files, CI logs or the GitHub API needs no lock.
   performance coach (no "unlock your potential"); never guilt about streaks or rest.
 - Six areas (owner, 2026-11-17 — was five; a deliberate exception): Home, Campus
   (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`), **Academy**, Workout,
-  Progress, Me. The Academy is its own area, not part of Campus: the Digital Twin is its
-  centre, it has its own lessons by six pillars (Body, Fuel, Recovery, Mind, Legends,
-  Sport IQ), and Campus stays unchanged (never move Campus lessons into it).
+  Progress, Me. The Academy is its own area, not part of Campus (never move Campus lessons in).
+- Academy = the **Digital Twin as an analysis of the athlete** (owner, 2026-11-18 — not a
+  quiz, not scores, no figure): `TwinAnalysis.swift` reads their own check-ins, games, logged
+  sets, tests, reflections and an intake interview (about mindset, never right/wrong) and
+  finds insights; rule-based on the phone, every number traceable. The coach assigns a
+  **briefing** for each insight: long reads (~10 min, chapters, the athlete's own chart, an
+  example, one protocol) for ambitious athletes — quality over quick. The twin also holds
+  **performances** (PRs from logged sets and tests, plus anything the athlete adds). Content:
+  `content/src/academy/` (briefings, intake, validator). Editorial look: reading serif, big type,
+  real charts, restrained violet.
 - Navigation (owner, 2026-11-17): tabs Home · Campus · **Academy** (middle) · Workout ·
   Progress; **Me is not a tab** — it opens as a sheet from the round `ProfileButton` at the
   top left of every tab (iPhone shows only five tabs before "More"). Anything routed to

@@ -1,4 +1,12 @@
-# Academy + Digital Twin — Beta v0.1 plan
+# Academy + Digital Twin — plan
+
+> **v3 (owner, 2026-11-18) replaces the twin below.** The twin is an analysis of the athlete,
+> not a figure or pillar scores: it reads their own data and an intake interview, finds
+> insights, and the coach assigns a long-read briefing for each; it also holds performances
+> (PRs). No figure, rule-based, six briefings to start. See `ACADEMY_README.md` for what is
+> built. The navigation, privacy, support and access decisions below still hold.
+
+# Earlier plan (v0.1)
 
 Owner's brief 2026-11-17, decisions the same day:
 

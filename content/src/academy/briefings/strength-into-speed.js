@@ -1,0 +1,73 @@
+// CONTENT: needs expert review (strength and conditioning coach / sports scientist)
+export default {
+  id: 'strength-into-speed',
+  topic: 'strength',
+  title: 'Turning strength into speed',
+  dek: 'You got stronger and the stopwatch didn’t move. That isn’t a failure — it’s a missing bridge, and you can build it.',
+  insight: 'strengthNotSpeed',
+  why: 'Your strength work went up by {strengthGain}, but your sprint times show {sprintChange}.',
+  chapters: [
+    {
+      title: 'The gap between strong and fast',
+      blocks: [
+        { p: 'You’ve done the work. Your lifts have climbed steadily, you move heavier things with better form than you did a couple of months ago, and you feel more solid in contact. Then you line up for a sprint test, or you chase a ball over the top in a game, and nothing has changed. Same time, same feeling of the defender staying on your shoulder. It is one of the most common frustrations in youth sport, and it has a clear explanation.' },
+        { p: 'Strength and speed are related, but they are not the same quality. Getting stronger raises the ceiling on how much force your muscles can produce. Speed depends on how much of that force you can put into the ground in the tiny window you actually get. Those are two different questions, and training answers the one you ask it.' },
+        { yourData: 'strengthVsSprint' },
+        { h: 'The clock you’re racing is your foot' },
+        { p: 'When you sprint at top speed, each foot is on the ground for roughly a tenth of a second. In the first few steps out of a start it stays down longer, but still only a fraction of a second. That is all the time you have to push. A slow, heavy lift is different: you can take your time to build force, and the biggest effort arrives well after a sprinting foot would have left the ground.' },
+        { p: 'Sports scientists call the speed at which you build force your rate of force development. Think of two athletes who can both produce the same maximum push. One reaches it quickly; the other gets there slowly. On a squat rack they look identical. Over a short sprint, the quick one wins, because the slow one never gets to use most of what they have before the foot lifts.' },
+        { p: 'There is a second reason the stopwatch may be stuck. Hard strength training leaves your legs carrying some fatigue for a day or two, and if your sprints are always tested or played on top of that, they can hide real progress. Some athletes even feel a little slower in the middle of a heavy block. Often the speed shows up later, once the hard work eases and the legs freshen up.' },
+        { quote: 'Strength is the size of the engine. Speed is how much of it you can use in a tenth of a second.' },
+        { p: 'None of this means strength work was wasted. A stronger athlete has more to draw on, tolerates the forces of sprinting and cutting better, and is generally more robust. Research on young athletes, including a major international consensus statement, supports supervised strength training as safe and effective for teenagers when it is coached well and progressed sensibly. The point is narrower: strength is a foundation, and speed is built on top of it, not inside it.' },
+      ],
+    },
+    {
+      title: 'Building the bridge',
+      blocks: [
+        { p: 'Coaches talk about a bridge between the gym and the field, and the image fits. On one side is force you can produce slowly. On the other is force you can produce fast, in the shapes and directions your sport uses. Power work and plyometrics are the planks across. They teach your nervous system to switch muscles on quickly and to use the springiness of tendons rather than grinding through every movement.' },
+        { h: 'Fast means fast' },
+        { p: 'The single rule that matters most here is intent. A jump, a throw or a bound only builds speed if you do it as explosively as you can, every time. Moving a light object lazily trains you to be slow with a light object. Your coach may use jumps, hops, bounds, medicine-ball throws or light loaded jumps; whatever the tool, the quality is the point. If you can’t do it sharp, it isn’t doing its job.' },
+        { p: 'That is why good programmes put power and sprint work early in a session, after a proper warm-up and before anything that tires you. Your nervous system is freshest then. Ten minutes of crisp, fast work does more for speed than forty minutes of sloppy jumps at the end of a hard practice, when your legs are heavy and every landing is a little softer and slower than the last.' },
+        { p: 'Landings matter as much as take-offs. A good jump starts with a quiet, controlled landing: knees tracking over your toes, hips back, chest up, no collapsing inwards. Those landings protect your knees and teach you to absorb force and send it straight back out. As you get better, the time you spend on the ground in hops and bounds shrinks, which is exactly the quality a sprinting foot needs.' },
+        { h: 'Sprinting is a skill' },
+        { p: 'Here is the part many athletes skip: the best way to get faster at sprinting is to sprint, at or near full speed, regularly. Speed is a skill as much as a capacity. Your brain has to coordinate dozens of muscles in the right order at a pace that leaves no time for thinking, and it only learns that pattern by rehearsing it at the real speed. Jogging, even lots of it, teaches a different pattern.' },
+        { p: 'That also means full rest between sprints. If you start the next one before you have recovered, you are no longer practising top speed; you are practising being tired. Sprint coaches give long recoveries for this reason, and it can feel strange to stand around between efforts. Walk back slowly, breathe, chat if you like. When you feel genuinely ready to go again at full quality, go. The rest is part of the work.' },
+        { example: { title: 'A tale of two wingers', body: 'Picture two wingers on the same team who both started strength training in the autumn. The first adds hard conditioning runs on top, finishing every session with shuttles until she is gasping. The second keeps her strength work, adds a short block of sharp jumps and a few flying sprints with long rests at the start of a couple of sessions each week, and leaves the shuttles to team practice. By spring both are stronger. Only the second is clearly quicker to the ball, because only she trained speed at speed.' } },
+      ],
+    },
+    {
+      title: 'Acceleration in plain words',
+      blocks: [
+        { p: 'Most team sports are decided over short distances. A striker rarely hits true top speed; she wins a race over the first few steps. A basketball guard needs the first two steps past a defender, not a long straight line. So it pays to understand what good acceleration looks like, even if your coach handles the details.' },
+        { p: 'In the first steps, your body leans forward and your feet push back and down behind you, a bit like pushing a heavy car. The lean is not a bend at the waist; it is your whole body tilted from ankle to head, in one line. Each push drives you forward, and as you pick up speed you rise gradually, step by step, until you are running tall.' },
+        { p: 'Your arms matter more than most athletes think. A strong, rhythmic arm swing from the shoulder, arms bent, hands relaxed, helps your legs keep timing. Tension in the face, neck and hands leaks speed: sprinters often talk about staying loose as they get faster. Clenching your jaw doesn’t add power. It only stiffens the parts that should be relaxed.' },
+        { p: 'Once you are upright, the job changes. At top speed you are no longer pushing a car; you are bouncing off the ground like a stiff, springy ball. Your foot lands close to underneath your hips rather than out in front, contacts are short, and your knees come through high and quick. Athletes who keep pushing back as if they were still accelerating tend to spin their legs behind them and lose speed.' },
+        { h: 'Small fixes, big returns' },
+        { p: 'Common habits that cost young athletes speed are easy to spot on video: standing up straight on the first step, reaching the foot far out in front and landing on the heel, arms swinging across the body, or short choppy steps that never push fully. These are technique issues, not strength issues. A strong athlete with messy mechanics is pouring force in the wrong direction.' },
+        { p: 'Ask a coach to film a few of your starts from the side. Watch it back slowly. Is your body leaning in a line? Are you pushing back behind you, or reaching ahead? Is your face relaxed? One clear cue at a time is plenty. Athletes who chase five fixes at once usually end up running stiffly and thinking too much.' },
+      ],
+    },
+    {
+      title: 'Patience, testing and your plan',
+      blocks: [
+        { p: 'Speed adapts slowly, and it adapts unevenly. Your nervous system needs weeks of repeated, high-quality exposure before the changes show up on a stopwatch, and progress often comes in steps rather than a smooth line. It is normal to train well for several weeks and see little, then notice a jump. That is not a sign something is wrong; it is how this quality tends to develop.' },
+        { p: 'Fatigue is the enemy of speed work in a way it isn’t for most other training. You can still build some endurance when tired. You cannot build top speed when tired, because you can’t reach top speed. That is why a sprint session the day after a brutal game, or after a short night of sleep, often feels flat. On those days, it is smart to do less and keep the quality, or swap to something else entirely.' },
+        { p: 'Keep your strength work going while you build speed. Athletes sometimes swing from one extreme to the other: all lifting for a season, then all sprinting. The better approach is to keep both in the week and let your coach shift the emphasis as games get closer. Strength you stop training fades slowly; speed you never practise never arrives. Together they support each other.' },
+        { h: 'Test it the same way every time' },
+        { p: 'To know whether you’re actually getting faster, you need a fair test. Pick one distance relevant to your sport, and keep everything else the same: same surface, same shoes, same type of start, same warm-up, same time of day if you can, and the same timing method. Hand timing with a phone is useful for spotting trends but less precise than timing gates, so compare like with like.' },
+        { p: 'Test when you are fresh, not at the end of a heavy week. Take your best of a few attempts with full rest between them. Test every few weeks rather than every few days, since speed doesn’t move fast enough to show change daily, and frequent testing only adds fatigue. Write down the conditions next to the time, so a windy day or a wet track doesn’t fool you.' },
+        { h: 'Work with your coach and the Workout tab' },
+        { p: 'Your coach sees the whole week: practice, games, conditioning, how tired the team is. The Workout tab in AthleteOS builds sessions around your schedule and sets the actual exercises and volumes. This briefing is about principles, so you understand why your plan looks the way it does and can tell your coach what you’ve noticed. If you’d like more speed emphasis, ask. Coaches generally welcome athletes who understand the reasons behind the work.' },
+        { protocol: { title: 'Your week', steps: [
+          'Talk to your coach about where speed and power work fits into your week, and put it early in the session, right after a full warm-up, on days when your legs are fresh.',
+          'In every jump, throw or sprint, move with full intent. When the quality drops, stop for the day — that’s the session doing its job, not you falling short.',
+          'Take full rest between sprints: walk back slowly and only go again when you feel genuinely ready to run at your best.',
+          'Ask someone to film a few of your starts from the side, and pick one simple cue to focus on, such as “push back, lean as one line”.',
+          'Choose one sprint test, write down exactly how you do it, and repeat it the same way every few weeks when you are fresh.',
+        ] } },
+        { p: 'You’ll know it’s working when your starts feel sharper before the clock confirms it: you get to loose balls first, defenders feel a step further away, your test times creep down under the same conditions. If they don’t move after a couple of months of consistent, fresh speed work, that is useful information to bring to your coach. And if sprinting brings sharp pain, pain in one spot, swelling or pain that gets worse, stop and get it checked by a doctor or physio before you run fast again.' },
+      ],
+    },
+  ],
+  sources: ['youthStrength'],
+};

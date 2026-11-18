@@ -58,16 +58,25 @@ public enum DemoData {
                 context.insert(Competition(sportSlug: "soccer", date: date, kind: .game, isHome: days == 3, notes: days == 3 ? "vs. Central" : "Away at Westfield", athlete: athlete))
             }
         }
+        // Games already played, so the Academy's twin has patterns to find.
+        let playedGames = [4, 11, 18]
+        for days in playedGames {
+            if let date = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: now))?.addingTimeInterval(16 * 3600) {
+                context.insert(Competition(sportSlug: "soccer", date: date, kind: .game, isHome: days != 11, notes: nil, athlete: athlete))
+            }
+        }
 
         // Check-ins: a realistic personal baseline, so readiness is live.
         let sleep = [4, 3, 4, 5, 3, 4, 4, 3, 5, 4, 4, 3, 4, 4, 5, 3, 4, 4, 3, 4]
         for (offset, value) in sleep.enumerated() {
             guard let date = calendar.date(byAdding: .day, value: -(offset + 1), to: calendar.startOfDay(for: now)) else { continue }
-            let soreness: Int = 2 + offset % 3
+            let back = offset + 1
+            let gameMorning = playedGames.contains(back), afterGame = playedGames.contains(back + 1)
+            let soreness: Int = afterGame ? 4 : 1 + offset % 2
             let energy: Int = 3 + (offset + 1) % 3
             let stress: Int = 2 + offset % 2
             let checkIn = CheckIn(
-                date: date, sleepQuality: value, soreness: soreness, energy: energy,
+                date: date, sleepQuality: value, sleepHours: gameMorning ? 7.0 : [8.5, 8.0, 8.5, 9.0][offset % 4], soreness: soreness, energy: energy,
                 stress: stress, readinessBand: .green, athlete: athlete
             )
             context.insert(checkIn)
@@ -121,18 +130,20 @@ public enum DemoData {
         }
     }
 
-    /// A twin born three weeks ago with three lessons behind it.
+    /// The twin's interview, two briefings read, and a performance added by hand.
     private static func seedAcademy(now: Date, calendar: Calendar) {
         let day = { (back: Int) in calendar.date(byAdding: .day, value: -back, to: now) ?? now }
-        let baseline = AcademyContent.baseline
-        let answers = Dictionary(uniqueKeysWithValues: baseline.enumerated().map { ($0.element.id, $0.offset % 3 == 2 ? 1 : 0) })
-        var state = AcademyStore.born(AcademyState(), appearance: TwinAppearance(build: .athletic, skin: TwinAppearance.skinTones[2],
-                                                                                hair: TwinAppearance.hairColours[1]),
-                                      goals: [.body, .mind], baseline: baseline, answers: answers, at: day(21))
-        for (back, id) in [(14, "body-sprint-chain"), (9, "recovery-sleep"), (4, "legends-not-picked"), (2, "mind-after-a-mistake")] {
-            guard let lesson = AcademyContent.lesson(id) else { continue }
-            let picks = Dictionary(uniqueKeysWithValues: lesson.questions.map { ($0.id, $0.correctIndex ?? 0) })
-            state = AcademyStore.completing(lesson, answers: picks, in: state, at: day(back))
+        var state = AcademyStore.answering([
+            "drive": "mastery", "pressure": "tense", "mistake": "replay", "confidence": "form", "feedback": "ask",
+            "teammates": "worker", "sleep": "seven", "gameFood": "small",
+            "goal": "Start every game by spring", "injuries": "Left ankle sprain, 2025",
+        ], in: AcademyState(), at: day(20))
+        state = AcademyStore.reading("recovery-after-games", in: state, at: day(6))
+        for (back, level) in [(40, 16.2), (19, 16.8), (3, 17.4)] {
+            state = AcademyStore.recording("Yo-Yo IR1", unit: "level", higherIsBetter: true, value: level, at: day(back), in: state)
+        }
+        for (back, kg) in [(30, 62.5), (16, 67.5), (4, 72.5)] {
+            state = AcademyStore.recording("Bench press", unit: "kg", higherIsBetter: true, value: kg, at: day(back), in: state)
         }
         AcademyStore.save(state)
     }

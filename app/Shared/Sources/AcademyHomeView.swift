@@ -1,80 +1,91 @@
+import Charts
 import SwiftUI
 
-/// The Academy tab (docs/ACADEMY-PLAN.md): the Digital Twin on its stage as
-/// the hero, one clear next lesson, the six pillars, before vs now, and the
-/// always-available "Need to talk to someone?". Before the twin exists, the
-/// stage shows its outline and one button: create it.
+// The Academy tab (docs/ACADEMY-PLAN.md, v3): the Digital Twin as an analysis
+// of the athlete. The coach's read, the insights found in their own data with
+// the briefing the coach assigned for each, what's working, their
+// performances, who they are (the interview), and the briefing library.
+
+extension BriefingTopic {
+    var color: Color {
+        switch self {
+        case .recovery: AppTheme.cyan
+        case .strength: AppTheme.orange
+        case .mind: AppTheme.purple
+        case .fuel: AppTheme.yellow
+        }
+    }
+}
+
+extension TwinInsightKind {
+    var topic: BriefingTopic? {
+        switch self {
+        case .sleepBeforeGames, .recoveryAfterGames, .sleepBase: .recovery
+        case .strengthNotSpeed, .strengthRising, .consistentTraining: .strength
+        case .mistakeReplay, .pressureConfidence: .mind
+        case .gameDayFuel: .fuel
+        }
+    }
+}
+
+/// Reading serif (New York on iOS) for the coach's voice and the briefings.
+extension Font {
+    static func reading(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .serif)
+    }
+}
+
 struct AcademyHomeView: View {
     let athlete: Athlete
 
     @State private var state = AcademyState()
-    @State private var target: TwinTarget?
-    @State private var playing: AcademyLesson?
+    @State private var report: TwinReport?
+    @State private var records: [PerformanceRecord] = []
+    @State private var reading: ReadingTarget?
+    @State private var showingInterview = false
     @State private var showingSupport = false
-    @State private var showingBirth = false
-    @State private var showingCompare = false
+    @State private var addingPerformance = false
+    @State private var openRecord: PerformanceRecord?
+
+    struct ReadingTarget: Identifiable {
+        let briefing: Briefing
+        let insight: TwinInsight?
+        var id: String { briefing.id }
+    }
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
-    private var born: Bool { state.bornAt != nil }
 
-    private var learner: AcademyLearner {
-        AcademyLearner(
-            sportSlug: sportSlug,
-            sportName: sportSlug == nil ? nil : AthleteStats.sportName(athlete),
-            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            phase: athlete.activeSport.map { PhaseCalculator.phase(today: .now, seasonStart: $0.seasonStart, seasonEnd: $0.seasonEnd) },
-            goals: state.goals, completed: state.completedIDs)
-    }
-
-    private var snapshot: TwinSnapshot {
-        TwinScoring.snapshot(state.ledger, sportAreas: AcademyContent.areas(forSport: sportSlug))
-    }
-
-    /// "Your twin · Soccer · Midfielder"
-    private var eyebrow: String {
-        var parts = ["Your twin"]
-        if let slug = sportSlug {
-            parts.append(AthleteStats.sportName(athlete))
-            if let position = athlete.activeSport?.positionSlug,
-               let name = allSportsBySlug[slug]?.positions.first(where: { $0.slug == position })?.name {
-                parts.append(name)
-            }
+    /// "Central midfielder · Soccer · In season"
+    private var meta: String {
+        guard let sport = athlete.activeSport else { return "Add your sport in Me" }
+        var parts: [String] = []
+        if let position = sport.positionSlug,
+           let name = allSportsBySlug[sport.sportSlug]?.positions.first(where: { $0.slug == position })?.name {
+            parts.append(name)
         }
+        parts.append(AthleteStats.sportName(athlete))
+        parts.append(AthleteStats.phaseLabel(PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)))
         return parts.joined(separator: " · ")
     }
 
     var body: some View {
-        let twin = snapshot
-        let recommendations = AcademyRecommender.recommend(AcademyContent.lessons, snapshot: twin, learner: learner)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 40) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header
-                        DigitalTwinView(state: TwinVisualState(appearance: state.look, sportSlug: sportSlug, snapshot: twin,
-                                                               dormant: !born)) { tapped in
-                            if born {
-                                AcademyEvent.log(.bodyZoneTapped)
-                                target = tapped
-                            } else {
-                                showingBirth = true
-                            }
-                        }
-                        .frame(height: 500)
-                        .padding(.horizontal, -20)
+                VStack(alignment: .leading, spacing: 0) {
+                    topBar
+                    identity.padding(.top, 26)
+                    if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
+                    if let report {
+                        coachRead(report).padding(.top, 28)
+                        insights(report).padding(.top, 48)
+                        if !report.strengths.isEmpty { working(report).padding(.top, 40) }
                     }
-                    if born {
-                        if let first = recommendations.first { nextCard(first) } else { upToDate }
-                    } else {
-                        birthCard
-                    }
-                    let more = born ? Array(recommendations.dropFirst()) : recommendations
-                    if !more.isEmpty { lessonRows(more, title: born ? "Also for you" : "Lessons") }
-                    pillarList(twin)
-                    if born { compareRow }
-                    supportRow
+                    performances.padding(.top, 48)
+                    if state.intakeDoneAt != nil { whoYouAre.padding(.top, 48) }
+                    library.padding(.top, 48)
+                    supportRow.padding(.top, 36).padding(.bottom, 24)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
                 .padding(.vertical, 8)
             }
             .scrollIndicators(.hidden)
@@ -82,170 +93,320 @@ struct AcademyHomeView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .onAppear {
-            state = AcademyStore.load()
+            reload()
             AcademyEvent.log(.twinViewed)
-            // Screenshots: `-tab academy -sheet birth` opens the twin's birth.
-            if DemoData.initialTab == .academy, DemoData.initialSheet == "birth" { showingBirth = true }
+            // Screenshots: `-tab academy -sheet intake` opens the interview.
+            if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
         }
-        .sheet(item: $target) { target in
-            AcademyAreaSheet(target: target, snapshot: twin, learner: learner) { lesson in
-                self.target = nil
-                playing = lesson
-            }
-            .presentationDetents([.medium, .large])
+        .fullScreenCover(item: $reading, onDismiss: reload) { target in
+            BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil)
+        }
+        .fullScreenCover(isPresented: $showingInterview, onDismiss: reload) {
+            IntakeInterviewView(sportSummary: meta)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
-        .sheet(isPresented: $showingCompare) {
-            TwinCompareSheet(state: state, sportSlug: sportSlug)
-        }
-        .fullScreenCover(item: $playing, onDismiss: { state = AcademyStore.load() }) { lesson in
-            AcademyLessonView(lesson: lesson, sportSlug: sportSlug)
-        }
-        .fullScreenCover(isPresented: $showingBirth, onDismiss: { state = AcademyStore.load() }) {
-            AcademyBirthView(sportSlug: sportSlug, summary: eyebrow)
-        }
+        .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
+        .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                ProfileButton(name: athlete.displayName)
-                Text("Academy")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 8)
-            }
-            Text(eyebrow)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .padding(.leading, 52)
+    private func reload() {
+        state = AcademyStore.load()
+        let input = TwinInputBuilder.input(athlete: athlete, state: state)
+        report = TwinAnalysis.report(input)
+        records = Performances.records(lifts: input.lifts, tests: input.tests, custom: state.performances)
+    }
+
+    // MARK: Who this twin is
+
+    private var topBar: some View {
+        HStack {
+            ProfileButton(name: athlete.displayName)
+            Spacer()
+            Text("Your twin")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(AppTheme.mutedText)
+            Spacer()
+            Color.clear.frame(width: 40, height: 40)
         }
         .padding(.top, 8)
     }
 
-    // MARK: The one next step
-
-    private var birthCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Create your twin")
-                .font(.title2.weight(.bold))
+    private var identity: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Your twin")
+                .font(.system(size: 40, weight: .semibold))
+                .tracking(-1.2)
                 .foregroundStyle(AppTheme.ink)
-            Text("Two minutes: how it looks, what you want to grow, eight honest answers. Only you can see it.")
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+                .accessibilityAddTraits(.isHeader)
+            Text(meta)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            if let counts = report?.counts {
+                HStack(alignment: .top, spacing: 20) {
+                    count("\(counts.weeks) wk", "of data")
+                    count("\(counts.checkIns)", "check-ins")
+                    count("\(counts.sessions)", "sessions")
+                    count("\(counts.games)", "games")
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    private func count(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value).font(.system(size: 20, weight: .semibold).monospacedDigit()).foregroundStyle(AppTheme.ink)
+            Text(label).font(.caption).foregroundStyle(AppTheme.mutedText)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var interviewCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Let your twin get to know you")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+            Text("Ten questions about how you train, compete and think. About five minutes. Only you can see the answers.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button { showingBirth = true } label: { HeroCTALabel("Create my twin") }
+            Button { showingInterview = true } label: { HeroCTALabel("Start the interview") }
                 .buttonStyle(.primary)
                 .padding(.top, 8)
         }
-        .cardStyle(padding: 18)
+        .padding(20)
+        .glassSurface(cornerRadius: 22, tint: AppTheme.brand)
     }
 
-    private func nextCard(_ recommendation: AcademyRecommendation) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Next for you", systemImage: recommendation.lesson.pillar.systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(recommendation.lesson.pillar.color)
-            Text(recommendation.lesson.title)
-                .font(.title2.weight(.bold))
+    private func coachRead(_ report: TwinReport) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Coach's read")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.brightRed)
+            Text(report.coachRead)
+                .font(.reading(19))
+                .lineSpacing(5)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("\(recommendation.reason) · \(recommendation.lesson.minutes) min")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-            Button { playing = recommendation.lesson } label: { HeroCTALabel("Start") }
-                .buttonStyle(.primary)
-                .padding(.top, 10)
+            Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) games\(state.intakeDoneAt == nil ? "" : ", and your interview")")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.mutedText)
         }
-        .padding(18)
-        .glassSurface(tint: recommendation.lesson.pillar.color)
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LinearGradient(colors: [AppTheme.brand.opacity(0.14), AppTheme.brand.opacity(0.03)], startPoint: .top, endPoint: .bottom))
+        }
+        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(AppTheme.brightRed.opacity(0.22), lineWidth: 1) }
     }
 
-    private var upToDate: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("You're up to date")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-            Text("You've finished every lesson for now. New ones arrive with updates.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-    }
+    // MARK: Insights
 
-    private func lessonRows(_ recommendations: [AcademyRecommendation], title: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(title)
-            VStack(spacing: 0) {
-                ForEach(recommendations) { recommendation in
-                    Button { playing = recommendation.lesson } label: {
-                        ListRow(systemImage: recommendation.lesson.pillar.systemImage, color: recommendation.lesson.pillar.color,
-                                title: recommendation.lesson.title,
-                                detail: "\(recommendation.reason) · \(recommendation.lesson.minutes) min")
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.vertical, 6)
-                }
-            }
-        }
-    }
-
-    // MARK: Pillars, before vs now, support
-
-    private func pillarList(_ twin: TwinSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeader("Pillars", subtitle: "Knowledge from lessons, habits from your own answers.")
-            VStack(spacing: 0) {
-                ForEach(TwinPillar.allCases) { pillar in
-                    Button { target = .pillar(pillar) } label: { pillarRow(pillar, score: twin.score(pillar)) }
-                        .buttonStyle(.plain)
-                        .disabled(!born)
-                }
-            }
-        }
-    }
-
-    private func pillarRow(_ pillar: TwinPillar, score: TwinPillarScore) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: pillar.systemImage)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(pillar.color)
-                .frame(width: 40, height: 40)
-                .background(pillar.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(pillar.title)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
-                    Spacer(minLength: 8)
-                    Text(born ? "\(score.total)" : "–")
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(AppTheme.ink)
-                }
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.08))
-                        Capsule().fill(pillar.color.opacity(0.85))
-                            .frame(width: proxy.size.width * CGFloat(score.total) / CGFloat(TwinScoring.maximum))
-                    }
-                }
-                .frame(height: 4)
-                Text(pillar.subtitle)
-                    .font(.footnote)
+    private func insights(_ report: TwinReport) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            sectionTitle("Insights", "What your data says, and what to do about it.")
+            if report.insights.isEmpty {
+                Text(report.counts.checkIns + report.counts.sessions < 5
+                     ? "Nothing yet — a couple of weeks of check-ins, sessions and games and your twin starts to see patterns."
+                     : "Nothing in your data is holding you back right now.")
+                    .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.leading)
+                    .padding(.top, 14)
+            }
+            ForEach(Array(report.insights.enumerated()), id: \.element.id) { index, insight in
+                insightRow(insight, last: index == report.insights.count - 1)
             }
         }
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
     }
 
-    private var compareRow: some View {
-        Button { showingCompare = true } label: {
-            ListRow(systemImage: "arrow.left.and.right", color: AppTheme.brightRed, title: "Before vs now",
-                    detail: "Your twin when it was born, and today")
+    private func insightRow(_ insight: TwinInsight, last: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(insight.kind.topic?.title ?? "Insight")
+                    .foregroundStyle(insight.kind.topic?.color ?? AppTheme.brightRed)
+                Spacer()
+                Text("\(insight.strength == .strong ? "Strong pattern" : "Emerging") · \(insight.basis)")
+                    .foregroundStyle(AppTheme.mutedText)
+            }
+            .font(.footnote.weight(.medium))
+            Text(insight.headline)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(insight.detail)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            if let evidence = insight.evidence {
+                TwinEvidenceChart(evidence: evidence).frame(height: 84)
+            }
+            if let briefing = insight.briefing {
+                Button {
+                    AcademyEvent.log(.insightOpened)
+                    reading = ReadingTarget(briefing: briefing, insight: insight)
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Coach assigned: \(briefing.title)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .multilineTextAlignment(.leading)
+                            Text(state.read[briefing.id] == nil ? "Briefing · \(briefing.minutes) min read" : "Read · open again")
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: state.read[briefing.id] == nil ? "arrow.right" : "checkmark")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.brightRed)
+                    }
+                    .padding(14)
+                    .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 20)
+        .overlay(alignment: .bottom) {
+            if !last { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
+        }
+    }
+
+    private func working(_ report: TwinReport) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("What's working", nil)
+            ForEach(report.strengths) { strength in
+                HStack(alignment: .top, spacing: 12) {
+                    Circle().fill(AppTheme.green).frame(width: 7, height: 7).padding(.top, 7)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(strength.headline)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(strength.detail)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Performances
+
+    private var performances: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionTitle("Performances", nil)
+                Spacer()
+                Button("Add") { addingPerformance = true }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.brightRed)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(records) { record in
+                    Button { openRecord = record } label: { PerformanceTile(record: record) }
+                        .buttonStyle(.plain)
+                }
+                Button { addingPerformance = true } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: "plus").font(.headline)
+                        Text(records.isEmpty ? "Add your first performance" : "Add a performance")
+                            .font(.footnote.weight(.medium))
+                            .multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 124)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.14), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            if records.isEmpty {
+                Text("Your best lifts and tests appear here by themselves as you log them. Add anything else — a bench press from your school gym, a 5 km run, a beep test.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: Who you are
+
+    private var whoYouAre: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionTitle("Who you are as an athlete", "From your interview.")
+                Spacer()
+                Button("Edit") { showingInterview = true }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.brightRed)
+            }
+            ForEach(AcademyContent.intake) { question in
+                if let answer = summary(question) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(question.label)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink)
+                        Spacer(minLength: 12)
+                        Text(answer)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .padding(.vertical, 12)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
+                }
+            }
+        }
+    }
+
+    private func summary(_ question: IntakeQuestion) -> String? {
+        guard let answer = state.intake[question.id] else { return nil }
+        if question.freeText { return answer }
+        return question.options.first { $0.id == answer }?.summary
+    }
+
+    // MARK: Library and support
+
+    private var library: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            sectionTitle("Briefings", "Long reads from your coach. The ones your twin needs come first.")
+            let assigned = Set(report?.assigned.map(\.id) ?? [])
+            let ordered = AcademyContent.briefings.sorted { (assigned.contains($0.id) ? 0 : 1) < (assigned.contains($1.id) ? 0 : 1) }
+            ForEach(ordered) { briefing in
+                Button {
+                    reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.kind == briefing.insight })
+                } label: {
+                    HStack(alignment: .top, spacing: 14) {
+                        RoundedRectangle(cornerRadius: 2).fill(briefing.topic.color).frame(width: 3, height: 40)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(briefing.title)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .multilineTextAlignment(.leading)
+                            Text("\(briefing.topic.title) · \(briefing.minutes) min\(assigned.contains(briefing.id) ? " · assigned to you" : "")")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
+                        Spacer(minLength: 8)
+                        if state.read[briefing.id] != nil {
+                            Image(systemName: "checkmark").font(.footnote.weight(.bold)).foregroundStyle(AppTheme.green)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var supportRow: some View {
@@ -254,121 +415,56 @@ struct AcademyHomeView: View {
                     detail: "Free, confidential help — any time")
         }
         .buttonStyle(.plain)
-        .padding(.bottom, 20)
+    }
+
+    private func sectionTitle(_ title: String, _ subtitle: String?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 22, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundStyle(AppTheme.ink)
+                .accessibilityAddTraits(.isHeader)
+            if let subtitle {
+                Text(subtitle).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+            }
+        }
     }
 }
 
-/// A tapped body area or pillar: its score in two halves, and the lesson
-/// that would raise it.
-struct AcademyAreaSheet: View {
-    let target: TwinTarget
-    let snapshot: TwinSnapshot
-    let learner: AcademyLearner
-    let onStart: (AcademyLesson) -> Void
-
-    private var pillar: TwinPillar {
-        switch target {
-        case .pillar(let pillar): pillar
-        case .area: .body
-        }
-    }
-
-    private var title: String {
-        switch target {
-        case .pillar(let pillar): pillar.title
-        case .area(let area): TwinBodyAreas.name(area)
-        }
-    }
-
-    private var detail: String {
-        switch target {
-        case .pillar(let pillar): pillar.onTheTwin
-        case .area(let area):
-            snapshot.bodyAreas[area, default: 0] > 0
-                ? "Lit up by what you've learned about your body."
-                : (AcademyContent.areas(forSport: learner.sportSlug).contains(area)
-                    ? "A key area for your sport — it lights up as your Body knowledge grows."
-                    : "Part of your Body pillar.")
-        }
-    }
+/// The evidence behind an insight: the athlete's own days, the ones that
+/// matter highlighted; or two lines to compare.
+struct TwinEvidenceChart: View {
+    let evidence: TwinEvidence
 
     var body: some View {
-        let score = snapshot.score(pillar)
-        let next = AcademyRecommender.next(for: pillar, AcademyContent.lessons, snapshot: snapshot, learner: learner)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                HStack(alignment: .bottom, spacing: 10) {
-                    GlassMetric(value: "\(score.total)", label: "\(pillar.title) score", height: 92, accent: pillar.color)
-                    GlassMetric(value: "\(score.knowledge)", label: "Knowledge", height: 76)
-                    GlassMetric(value: "\(score.habits)", label: "Habits & mindset", height: 76)
-                }
-                if pillar == .mind { egoBalance }
-                if pillar == .legends { traits }
-                if let next {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Next lesson for this")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.mutedText)
-                        Text(next.title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                        Button { onStart(next) } label: { HeroCTALabel("Start · \(next.minutes) min") }
-                            .buttonStyle(.primary)
+        VStack(alignment: .leading, spacing: 6) {
+            Chart {
+                if evidence.style == .bars {
+                    ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
+                        BarMark(x: .value("Day", point.date, unit: .day), y: .value("Value", point.value))
+                            .foregroundStyle(point.marked ? AppTheme.brightRed : Color.white.opacity(0.16))
+                            .cornerRadius(2)
                     }
                 } else {
-                    Text("You've finished every \(pillar.title) lesson for now.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-            .padding(24)
-        }
-        .background(AppTheme.background.ignoresSafeArea())
-    }
-
-    private var egoBalance: some View {
-        let balance = snapshot.egoBalance
-        let words = abs(balance) < 0.2 ? "Balanced: confident in the game, open to learning after it."
-            : (balance < 0 ? "Leaning to confidence — remember to ask what you can learn."
-                : "Leaning to humility — back yourself in the big moments.")
-        return VStack(alignment: .leading, spacing: 6) {
-            Text("Confidence and humility")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-            Text(words)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-    }
-
-    private var traits: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Legend traits")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-            if snapshot.traits.isEmpty {
-                Text("Legends lessons unlock traits like resilience and vision.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            ForEach(snapshot.traits.compactMap(AcademyContent.trait), id: \.id) { trait in
-                HStack(spacing: 10) {
-                    Circle().strokeBorder(AppTheme.yellow, lineWidth: 1.5).frame(width: 18, height: 18)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(trait.title).font(.body.weight(.semibold)).foregroundStyle(AppTheme.ink)
-                        Text(trait.detail).font(.footnote).foregroundStyle(AppTheme.secondaryText)
+                    ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
+                        LineMark(x: .value("Day", point.date), y: .value("Change", point.value), series: .value("Series", "main"))
+                            .foregroundStyle(AppTheme.brightRed)
+                            .interpolationMethod(.monotone)
+                    }
+                    ForEach(Array((evidence.comparison ?? []).enumerated()), id: \.offset) { _, point in
+                        LineMark(x: .value("Day", point.date), y: .value("Change", point.value), series: .value("Series", "comparison"))
+                            .foregroundStyle(Color.white.opacity(0.7))
                     }
                 }
             }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            Text(evidence.caption)
+                .font(.caption2)
+                .foregroundStyle(AppTheme.mutedText)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(evidence.caption)
     }
 }
 
@@ -412,7 +508,7 @@ struct SupportSheet: View {
                     Text("In an emergency, or if you think about hurting yourself, call \(resource.emergency) now.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.danger)
-                    Text("Academy lessons about the mind teach mental skills for sport. They are not therapy.")
+                    Text("Briefings about the mind teach mental skills for sport. They are not therapy.")
                         .font(.footnote)
                         .foregroundStyle(AppTheme.mutedText)
                 }

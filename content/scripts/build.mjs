@@ -34,9 +34,9 @@ import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
 import { GUIDES, SOURCES, validateGuides } from '../src/guides/index.js';
-import { LESSONS as ACADEMY_LESSONS } from '../src/academy/lessons.js';
-import { BASELINE as ACADEMY_BASELINE } from '../src/academy/baseline.js';
-import { academyPayload, validateAcademy, validateBaseline } from '../src/academy/validate.js';
+import { BRIEFINGS } from '../src/academy/briefings/index.js';
+import { INTAKE } from '../src/academy/intake.js';
+import { academyPayload, validateBriefings, validateIntake } from '../src/academy/validate.js';
 import {
   generatedHeader, swiftArray, swiftDict, swiftDoubleLiteral,
   swiftStringArrayLiteral, swiftStringLiteral,
@@ -691,14 +691,14 @@ function buildPacks() {
   console.log(`total pack size: ${(totalBytes / 1024).toFixed(1)} KB`);
 }
 
-/** The Academy's lessons, body-area tables and legend traits (docs/ACADEMY-PLAN.md). */
+/** The Academy's briefings and intake interview (docs/ACADEMY-PLAN.md). */
 function genAcademySwift() {
-  const problems = [...validateAcademy(ACADEMY_LESSONS), ...validateBaseline(ACADEMY_BASELINE)];
+  const problems = [...validateBriefings(BRIEFINGS), ...validateIntake(INTAKE)];
   if (problems.length) {
-    throw new Error(`academy lessons are invalid:\n  ${problems.join('\n  ')}`);
+    throw new Error(`academy content is invalid:\n  ${problems.join('\n  ')}`);
   }
-  const json = JSON.stringify(academyPayload(ACADEMY_LESSONS, ACADEMY_BASELINE));
-  if (json.includes('"#')) throw new Error('academy lessons contain "#, which would end the raw Swift string');
+  const json = JSON.stringify(academyPayload(BRIEFINGS, INTAKE));
+  if (json.includes('"#')) throw new Error('academy content contains "#, which would end the raw Swift string');
   return `${generatedHeader('content/src/academy')}import Foundation
 
 /// Decoded by AcademyContent.swift.

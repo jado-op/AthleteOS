@@ -124,11 +124,11 @@ jobs:
               xcrun simctl io "$UDID" screenshot "screenshots/${NAME}-${tab}.png"
               xcrun simctl terminate "$UDID" "$BUNDLE" || true
             done
-            # The Academy's twin birth (layout check, not uploaded).
+            # The Academy's interview (layout check, not uploaded).
             mkdir -p screenshots/all
-            xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab academy -sheet birth >/dev/null
+            xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab academy -sheet intake >/dev/null
             sleep 7
-            xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-birth.png"
+            xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-interview.png"
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
