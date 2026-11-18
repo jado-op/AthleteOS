@@ -1,3 +1,4 @@
+import CryptoKit
 import SwiftData
 import XCTest
 
@@ -155,6 +156,23 @@ final class AccountAndBackupTests: XCTestCase {
         XCTAssertNil(CloudSync.settingGroup(of: "cloud.meta"), "sync bookkeeping never syncs itself")
         XCTAssertNil(CloudSync.settingGroup(of: "healthPermissionAsked"), "per-device permission prompts stay per device")
         XCTAssertLessThanOrEqual(CloudSync.documentKeys.count, 50, "the server takes at most 50 documents per write")
+    }
+
+    func testPrivateGroupsAreSealedBeforeUpload() throws {
+        XCTAssertTrue(CloudSeal.isSealed(documentKey: "settings.mindset"))
+        XCTAssertTrue(CloudSeal.isSealed(documentKey: "settings.safety"))
+        XCTAssertTrue(CloudSeal.isSealed(documentKey: "settings.academyTwin"))
+        XCTAssertFalse(CloudSeal.isSealed(documentKey: "settings.campus"))
+        XCTAssertEqual(CloudSync.settingGroup(of: AcademyStore.key), "academyTwin", "the twin is backed up — sealed")
+
+        let key = SymmetricKey(size: .bits256)
+        let plain = Data(#"{"mindset.reflections":"I was nervous"}"#.utf8)
+        let sealed = try XCTUnwrap(CloudSeal.seal(plain, key: key))
+        XCTAssertFalse(String(decoding: sealed, as: UTF8.self).contains("nervous"), "the server never sees the words")
+        XCTAssertTrue(CloudSeal.isEnvelope(sealed))
+        XCTAssertEqual(CloudSeal.open(sealed, key: key), plain)
+        XCTAssertNil(CloudSeal.open(sealed, key: SymmetricKey(size: .bits256)), "another key can't read it")
+        XCTAssertFalse(CloudSeal.isEnvelope(plain))
     }
 
     func testRestoringRowsAddsMissingWorkoutsAndCheckInsOnce() async throws {

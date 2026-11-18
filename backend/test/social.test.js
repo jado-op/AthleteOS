@@ -162,6 +162,9 @@ test('teams: the coach sees readiness and training, never more; members get assi
     });
     assert.equal((await call('ath1', 'GET', `/teams/${team.id}/readiness?today=2026-09-25&weekStart=2026-09-21`)).status, 404, 'only the coach');
 
+    const recovery = { date: '2026-09-26', title: 'Recovery day', items: [{ itemSlug: 'worlds-greatest-stretch', sets: 2, seconds: 45 }] };
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/assignments`, recovery)).status, 402, 'sending workouts is Pro, checked on the server');
+    await prisma.athlete.create({ data: { id: 'coach', proUntil: new Date(Date.now() + 30 * 86_400_000) } });
     const assigned = await call('coach', 'POST', `/teams/${team.id}/assignments`, {
       date: '2026-09-26', title: 'Recovery day', note: 'Easy!', items: [{ itemSlug: 'worlds-greatest-stretch', sets: 2, seconds: 45 }],
     });
@@ -195,7 +198,7 @@ test('parent link: a private weekly summary page that can be switched off', asyn
     const html = await pageRes.text();
     assert.match(html, /50<\/b><span>minutes/);
     assert.match(html, /8 h 30 m/);
-    assert.match(html, /Game at &lt;Lions&gt;/, 'escaped');
+    assert.doesNotMatch(html, /Lions/, 'never the athlete\'s own notes');
 
     assert.equal((await call('kid', 'DELETE', '/parent-link')).status, 204);
     assert.equal((await fetch(`${url}/parent/${token}`)).status, 404, 'switched off');
@@ -397,6 +400,7 @@ test('push: devices register per athlete; team events reach the right people, ne
     const { trainerCode } = await (await call('coach', 'POST', `/teams/${team.id}/trainer-code`)).json();
     await call('trainer', 'POST', '/teams/join-staff', { code: trainerCode });
 
+    await prisma.athlete.create({ data: { id: 'coach', proUntil: new Date(Date.now() + 30 * 86_400_000) } });
     await call('coach', 'POST', `/teams/${team.id}/assignments`, { date: '2026-09-26', title: 'Recovery day', items: [{ itemSlug: 'worlds-greatest-stretch', sets: 2, seconds: 45 }] });
     await until(() => sent.length >= 2);
     assert.deepEqual(sent.map((s) => s.token).sort(), [TOKEN_A, TOKEN_B]);

@@ -605,6 +605,12 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
       res.status(400).json({ error: !date ? 'invalid_date' : !title ? 'invalid_title' : 'invalid_items' });
       return;
     }
+    // Sending workouts to the team is Pro: checked here, not only in the app.
+    const coach = await prisma.athlete.findUnique({ where: { id: req.athleteId } });
+    if (!(coach?.proUntil && coach.proUntil > now())) {
+      res.status(402).json({ error: 'pro_required' });
+      return;
+    }
     const created = await prisma.assignment.create({ data: { teamId: team.id, date, title, note, items } });
     res.status(201).json({ assignment: assignmentJSON(created, team.name) });
     notify(await memberIds(team.id), { kind: 'assignment', teamId: team.id, title: team.name, body: `New workout from your coach: ${title}` });

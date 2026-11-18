@@ -23,6 +23,10 @@ function fakePrisma() {
         states.set(id, row);
         return row;
       },
+      async deleteMany({ where: { athleteId, key } }) {
+        const existed = states.delete(`${athleteId}|${key}`);
+        return { count: existed ? 1 : 0 };
+      },
     },
     checkIn: {
       async findMany({ where: { athleteId, date } }) {
@@ -92,6 +96,24 @@ test('state: bad keys, missing timestamps and anonymous requests are refused', a
     assert.equal((await put({ states: { campus: { value: 1 } } })).status, 400);
     assert.equal((await put({})).status, 400);
     assert.equal((await put({ states: { campus: { value: 1, updatedAt: '2026-09-25T10:00:00Z' } } }, { 'content-type': 'application/json' })).status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test('state: deleting a document removes it for real, only the owner\'s', async () => {
+  const prisma = fakePrisma();
+  const { url, close } = await serve(createApp({ prisma, sessionSecret: SESSION_SECRET }));
+  try {
+    const put = (id) => fetch(`${url}/sync/state`, { method: 'PUT', headers: auth(id), body: JSON.stringify({ states: { 'settings.academyTwin': { value: { sealed: 'x' }, updatedAt: '2026-09-25T10:00:00.000Z' } } }) });
+    await put('athlete-1');
+    await put('athlete-2');
+    const del = await fetch(`${url}/sync/state/settings.academyTwin`, { method: 'DELETE', headers: auth('athlete-1') });
+    assert.equal(del.status, 204);
+    assert.equal(prisma._states.has('athlete-1|settings.academyTwin'), false, 'the row is gone, not overwritten');
+    assert.equal(prisma._states.has('athlete-2|settings.academyTwin'), true, 'another athlete keeps theirs');
+    assert.equal((await fetch(`${url}/sync/state/Bad Key!`, { method: 'DELETE', headers: auth('athlete-1') })).status, 400);
+    assert.equal((await fetch(`${url}/sync/state/x`, { method: 'DELETE' })).status, 401);
   } finally {
     await close();
   }

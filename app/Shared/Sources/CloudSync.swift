@@ -31,7 +31,7 @@ public enum CloudSync {
         "freeSportSwitchDates", "muscleWorkoutStarts",
     ]
     /// Whole families of athlete keys, including ones later features add.
-    static let settingsPrefixes = ["campus.", "schedule.", "plans.", "progress.", "profile.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league."]
+    static let settingsPrefixes = ["campus.", "schedule.", "plans.", "progress.", "profile.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league.", "academyTwin."]
 
     static func isSettingKey(_ key: String) -> Bool {
         settingGroup(of: key) != nil
@@ -64,6 +64,11 @@ public enum CloudSync {
         tokenStore: any TokenStore = KeychainTokenStore(), now: Date = .now
     ) async -> Bool {
         guard !DemoData.isEnabled, let token = try? tokenStore.read() else { return false }
+        // Deletions first ("Delete twin" made offline), so they can't come back.
+        for key in pendingDeletes {
+            guard (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
+            pendingDeletes.removeAll { $0 == key }
+        }
         guard let remote = try? await apiClient.fetchState(sessionToken: token) else { return false }
         // The fetch suspended; the athlete may have logged out meanwhile.
         guard !athlete.isDeleted, athlete.modelContext != nil else { return false }
@@ -71,10 +76,25 @@ public enum CloudSync {
         var meta = loadMeta()
         var toPush: [String: APIClient.SyncedDoc] = [:]
         for (key, local) in exportAll(athlete: athlete, now: now) {
+            // Private groups go up sealed (CloudSeal); without a key they stay on this phone.
+            let sealKey = CloudSeal.isSealed(documentKey: key) ? CloudSeal.key() : nil
+            if CloudSeal.isSealed(documentKey: key), sealKey == nil { continue }
+            var server = remote[key]
+            var serverIsPlain = false
+            if let sealKey, let stored = server {
+                if CloudSeal.isEnvelope(stored.json) {
+                    // Sealed with a key this phone doesn't have: leave it alone.
+                    guard let plain = CloudSeal.open(stored.json, key: sealKey) else { continue }
+                    server = .init(json: plain, updatedAt: stored.updatedAt)
+                } else {
+                    serverIsPlain = true
+                }
+            }
+            // Nothing private to keep: don't create an (empty) backup.
+            if sealKey != nil, server == nil, local == Data("{}".utf8) { meta[key] = nil; continue }
             let hash = digest(local)
             let known = meta[key]
             let localStamp: Date? = known.map { $0.hash == hash ? $0.updatedAt : now }
-            let server = remote[key]
             if let server, localStamp.map({ server.updatedAt > $0 }) ?? true {
                 // A new phone, or another phone saved a newer copy: take it.
                 apply(key, server.json, athlete: athlete, context: context, now: now)
@@ -84,14 +104,37 @@ public enum CloudSync {
             } else if let localStamp {
                 meta[key] = Meta(hash: hash, updatedAt: localStamp)
             }
+            if serverIsPlain, toPush[key] == nil, let stored = server {
+                // Backed up before sealing existed: replace it with a sealed copy.
+                toPush[key] = .init(json: export(key, athlete: athlete, now: now),
+                                    updatedAt: max(now, stored.updatedAt.addingTimeInterval(0.01)))
+            }
         }
         try? context.save()
         saveMeta(meta)
 
         guard !toPush.isEmpty else { return true }
-        guard let winners = try? await apiClient.pushState(toPush, sessionToken: token) else { return false }
+        var outgoing: [String: APIClient.SyncedDoc] = [:]
+        for (key, doc) in toPush {
+            if CloudSeal.isSealed(documentKey: key) {
+                guard let sealKey = CloudSeal.key(), let sealed = CloudSeal.seal(doc.json, key: sealKey) else { continue }
+                outgoing[key] = .init(json: sealed, updatedAt: doc.updatedAt)
+            } else {
+                outgoing[key] = doc
+            }
+        }
+        guard let returned = try? await apiClient.pushState(outgoing, sessionToken: token) else { return false }
         guard !athlete.isDeleted, athlete.modelContext != nil else { return false }
-        for (key, sent) in toPush {
+        var winners: [String: APIClient.SyncedDoc] = [:]
+        for (key, doc) in returned {
+            if CloudSeal.isSealed(documentKey: key), CloudSeal.isEnvelope(doc.json) {
+                guard let sealKey = CloudSeal.key(createIfMissing: false), let plain = CloudSeal.open(doc.json, key: sealKey) else { continue }
+                winners[key] = .init(json: plain, updatedAt: doc.updatedAt)
+            } else {
+                winners[key] = doc
+            }
+        }
+        for (key, sent) in toPush where outgoing[key] != nil {
             guard let winner = winners[key] else { continue }
             if winner.updatedAt.timeIntervalSince(sent.updatedAt) > 0.001 {
                 // Another phone wrote a newer copy between our pull and push.
@@ -476,6 +519,39 @@ public enum CloudSync {
         encoder.dateEncodingStrategy = .secondsSince1970
         encoder.outputFormatting = [.sortedKeys]
         return (try? encoder.encode(value)) ?? Data("null".utf8)
+    }
+
+    // MARK: - Deleting a backup for real
+
+    private static let pendingDeletesKey = "cloud.pendingDeletes"
+
+    static var pendingDeletes: [String] {
+        get { UserDefaults.standard.stringArray(forKey: pendingDeletesKey) ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: pendingDeletesKey) }
+    }
+
+    /// Deletes one backed-up document on the server (the row is removed, not
+    /// overwritten). Offline or signed out: queued, and done first on the next sync.
+    /// Returns whether the server confirmed it.
+    @discardableResult
+    public static func deleteBackup(_ key: String, apiClient: APIClient = APIClient(baseURL: AppConfig.backendBaseURL),
+                                    tokenStore: any TokenStore = KeychainTokenStore()) async -> Bool {
+        var meta = loadMeta()
+        meta[key] = nil
+        saveMeta(meta)
+        if !pendingDeletes.contains(key) { pendingDeletes.append(key) }
+        guard !DemoData.isEnabled, let token = try? tokenStore.read(),
+              (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
+        pendingDeletes.removeAll { $0 == key }
+        return true
+    }
+
+    /// "Delete twin": the interview, briefings read and performances — on this
+    /// phone and in the backup.
+    @discardableResult
+    public static func deleteTwin() async -> Bool {
+        AcademyStore.delete()
+        return await deleteBackup("settings.academyTwin")
     }
 
     // MARK: - Bookkeeping

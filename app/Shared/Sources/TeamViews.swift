@@ -111,6 +111,8 @@ struct MyTeamView: View {
     @State private var teamToLeave: APIClient.Teams.Joined?
     @State private var trainerCode = ""
     @State private var trainerTeam: APIClient.Teams.Staffed?
+    /// Joining shares daily data with an adult: the athlete agrees to exactly what, first.
+    @State private var agreed = false
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -155,9 +157,29 @@ struct MyTeamView: View {
                             .font(.title3)
                             .padding(16)
                             .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your coach will see, every day:")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                            ForEach(["Your team name (not your real name)", "Whether you checked in, and your readiness band — ready, steady or go easy — for the last 14 days",
+                                     "How many workouts and minutes you logged this week"], id: \.self) { line in
+                                Label(line, systemImage: "eye")
+                                    .font(.footnote)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Text("Never your reflections, notes, twin or anything you wrote. Pain reports only if you turn on health sharing. Leave the team any time.")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.mutedText)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Toggle("I'm OK with that", isOn: $agreed)
+                                .font(.subheadline.weight(.semibold))
+                                .tint(AppTheme.brand)
+                                .padding(.top, 4)
+                        }
                         Button(working ? "Joining…" : "Join") { Task { await join() } }
                             .buttonStyle(.primary)
-                            .disabled(working || code.count < 6 || nickname.trimmingCharacters(in: .whitespaces).count < 2)
+                            .disabled(working || !agreed || code.count < 6 || nickname.trimmingCharacters(in: .whitespaces).count < 2)
                     }
                     .cardStyle(padding: 16)
                     ForEach(teams?.trainer ?? []) { team in

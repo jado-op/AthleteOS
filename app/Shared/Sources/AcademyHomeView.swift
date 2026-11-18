@@ -46,6 +46,7 @@ struct AcademyHomeView: View {
     /// The question the interview opens on (an answer tapped to edit).
     @State private var interviewStart: String?
     @State private var showingSupport = false
+    @State private var confirmingDelete = false
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
     /// Insights opened to show their numbers.
@@ -89,7 +90,11 @@ struct AcademyHomeView: View {
                     if state.intakeDoneAt != nil { whoYouAre.padding(.top, 48) }
                     library.padding(.top, 48)
                     lessonsRow.padding(.top, 8)
-                    supportRow.padding(.top, 36).padding(.bottom, 24)
+                    supportRow.padding(.top, 36)
+                    if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
+                        privacyRow.padding(.top, 28)
+                    }
+                    Color.clear.frame(height: 24)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
@@ -112,6 +117,16 @@ struct AcademyHomeView: View {
             IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug, startAt: interviewStart)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
+        .confirmationDialog("Delete your twin?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete twin", role: .destructive) {
+                Task {
+                    await CloudSync.deleteTwin()
+                    reload()
+                }
+            }
+        } message: {
+            Text("Your interview answers, briefings read and added performances are deleted on this phone and from your backup. Your training data stays.")
+        }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
         .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
     }
@@ -469,6 +484,22 @@ struct AcademyHomeView: View {
                     detail: "Free, confidential help — any time")
         }
         .buttonStyle(.plain)
+    }
+
+    /// Whose this is, and the way out.
+    private var privacyRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Your twin is yours alone — never shown to coaches, parents or teammates. Backed up encrypted to your own account.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.mutedText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(role: .destructive) { confirmingDelete = true } label: {
+                Text("Delete twin")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.danger)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func sectionTitle(_ title: String, _ subtitle: String?) -> some View {

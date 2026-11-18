@@ -1,8 +1,10 @@
 import Foundation
 
 /// The athlete's Academy data on this phone. Private to the athlete: it is
-/// never part of the parent summary, coach or team data, and its key is
-/// outside every CloudSync group (the encrypted backup is a later step).
+/// never part of the parent summary, coach or team data. It is backed up to
+/// the athlete's own account only sealed on the phone (CloudSeal, group
+/// `academyTwin`); "Delete twin" removes that backup for real
+/// (`CloudSync.deleteTwin`).
 public enum AcademyStore {
     static let key = "academyTwin.state.v3"
     /// Earlier Academy versions, cleared on first load.

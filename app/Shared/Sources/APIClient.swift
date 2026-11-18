@@ -365,6 +365,15 @@ public struct APIClient: Sendable {
         return try Self.decodeStates(data)
     }
 
+    /// DELETE /sync/state/:key — removes one backed-up document for real.
+    public func deleteState(_ key: String, sessionToken: String) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "sync/state/\(key)"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 204 else { throw apiError(from: response, data: data) }
+    }
+
     /// A check-in as the server stores it (restoring onto a new device).
     public struct RemoteCheckIn: Decodable, Sendable {
         public let clientId: String

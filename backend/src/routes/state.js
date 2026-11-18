@@ -16,6 +16,8 @@ const MAX_VALUE_BYTES = 512 * 1024;
  *                        if it is newer than what the server has (last write wins); the
  *                        reply is the server's current copy of every key sent, so a device
  *                        that lost the race gets the winning version straight back.
+ *   DELETE /sync/state/:key  deletes that document for real (e.g. "Delete twin") — the row is
+ *                        removed, not overwritten; 204 whether or not it existed.
  *   GET  /sync/checkins  the athlete's check-ins (restore; ?since=YYYY-MM-DD for just the recent ones)
  *   GET  /sync/sessions  the athlete's logged sessions with their sets (same ?since=)
  */
@@ -64,6 +66,16 @@ export function stateRouter({ prisma, sessionSecret }) {
       }
     }
     res.json({ states: result });
+  });
+
+  router.delete('/state/:key', async (req, res) => {
+    const key = req.params.key;
+    if (!KEY.test(key)) {
+      res.status(400).json({ error: 'invalid_key' });
+      return;
+    }
+    await prisma.syncedState.deleteMany({ where: { athleteId: req.athleteId, key } });
+    res.status(204).end();
   });
 
   router.get('/checkins', async (req, res) => {

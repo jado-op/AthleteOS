@@ -7,7 +7,7 @@ import express from 'express';
  * "no third parties" rule.
  */
 
-export const UPDATED = '1 October 2026';
+export const UPDATED = '18 November 2026';
 
 function page(title, body) {
   return `<!doctype html>
@@ -49,14 +49,15 @@ export const PRIVACY_BODY = `
 <li><strong>Your date of birth</strong> — only to keep training age-appropriate and to confirm you are 13 or older.</li>
 <li><strong>Your training data</strong> — your sport, position, season dates, equipment, games, logged sessions and sets, and effort ratings.</li>
 <li><strong>Your daily check-ins</strong> — sleep, soreness, energy and stress scores, and the readiness result calculated from them.</li>
-<li><strong>Your app progress and settings</strong> — Campus lessons, XP and badges, test results, season goals, evening reflections, day status, practice days, meals you logged and reminder times — so they come back on a new phone.</li>
+<li><strong>Your app progress and settings</strong> — Campus lessons, test results, day status, practice days, meals you logged and reminder times — so they come back on a new phone.</li>
+<li><strong>Your private notes, encrypted</strong> — evening reflections, season goals, pain notes and your Academy twin (interview answers, briefings read, performances you added) are encrypted on your phone before they are backed up, with a key kept in your own iCloud Keychain. Our server stores them only in a form it cannot read. In the Academy, <strong>Delete twin</strong> deletes the twin's backup from our server for real.</li>
 <li><strong>Calendar links you connect</strong> — the link to a team or school calendar, so your phone can read games, practices and exams from it.</li>
-<li><strong>Leagues and teams you join</strong> — the nickname you choose and which league or team you're in. League members see your nickname and weekly Campus XP; a coach whose team you join sees your nickname, whether you checked in, your readiness band and how many workouts and minutes you logged that week. Never anything you wrote.</li>
+<li><strong>Teams you join</strong> — the nickname you choose and which team you're in. A coach whose team you join sees your nickname, whether you checked in, your readiness band and how many workouts and minutes you logged that week. Never anything you wrote.</li>
 <li><strong>Workouts you share</strong> — when you share a workout with a code, its name and exercises are stored under that code, and anyone who has the code, link or QR code can open it. Nothing else about you is attached. Stop sharing it any time, or delete your account.</li>
 <li><strong>Health shared with your team</strong>, only if you turn it on for that team (off by default) — the days you reported pain, where (for example "knee") and how much, and when training was paused after a head injury and when it resumed. Your coach and the team's athletic trainer can see it; nothing you wrote is shared. Turning sharing off for every team deletes what we kept.</li>
 <li><strong>Team announcements</strong> — short messages your coach sends to the team (one-way, no replies).</li>
 <li><strong>A parent's email address</strong>, if you add one — used only to send that parent this week's numbers every Sunday, after they confirm the address. Every email has a link to stop it; removing the address in the app deletes it.</li>
-<li><strong>A parent summary link</strong>, if you make one — a private link to a page with this week's numbers (training, sleep, check-ins, upcoming games, Campus and Mindset counts). You can switch it off at any time.</li>
+<li><strong>A parent summary link</strong>, if you make one — a private link to a page with this week's numbers (training, sleep, check-ins, upcoming games — dates only — and Campus and Mindset counts; never anything you wrote). You can switch it off at any time.</li>
 </ul></section>
 <section><h2>What we never collect</h2>
 <ul><li>Your name, email address, phone number, contacts or photos. Jump-test videos are filmed and measured on your phone and never uploaded.</li>
@@ -71,7 +72,7 @@ export const PRIVACY_BODY = `
 <section><h2>Where your data lives</h2>
 <p>Everything is stored on your device first and works offline. When you are online it is backed up to our own server so it survives a new phone. The server is operated by the developer; no third-party processors are used.</p></section>
 <section><h2>Deleting your data</h2>
-<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership, shared workout, shared health note, parent link and parent email stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
+<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, team membership, shared workout, shared health note, parent link and parent email stored on our server, revokes Sign in with Apple, and removes the copy on your device. Our nightly server backups are encrypted and kept for at most 30 days, so a deleted account is gone from them within 30 days. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
 <section><h2>Not medical advice</h2>
 <p>AthleteOS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>

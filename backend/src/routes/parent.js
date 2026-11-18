@@ -152,7 +152,7 @@ export async function weeklySummary(prisma, athleteId, today) {
   const state = Object.fromEntries(states.map((s) => [s.key, s.value]));
   const sleep = checkIns.map((c) => c.sleepHours).filter((h) => typeof h === 'number');
   const games = (Array.isArray(state.competitions) ? state.competitions : [])
-    .map((g) => ({ date: new Date((g.date ?? 0) * 1000), kind: g.kind, isHome: g.isHome, notes: g.notes }))
+    .map((g) => ({ date: new Date((g.date ?? 0) * 1000), kind: g.kind, isHome: g.isHome }))  // never the athlete's own notes
     .filter((g) => g.date >= today)
     .sort((a, b) => a.date - b.date)
     .slice(0, 3);
@@ -188,7 +188,7 @@ export function renderSummary(s) {
       <p>Feeling drained most days while training hard can mean not eating enough for the training, too little sleep, or illness. Worth a relaxed conversation — and a doctor or sports dietitian if it keeps going.</p></section>`);
   }
   if (s.games.length) {
-    const rows = s.games.map((g) => `<li>${escape(fmt(g.date))} · ${escape(String(g.kind ?? 'GAME').toLowerCase())} · ${g.isHome ? 'home' : 'away'}${g.notes ? ` · ${escape(g.notes)}` : ''}</li>`).join('');
+    const rows = s.games.map((g) => `<li>${escape(fmt(g.date))} · ${escape(String(g.kind ?? 'GAME').toLowerCase())} · ${g.isHome ? 'home' : 'away'}</li>`).join('');
     parts.push(`<section><h2>Coming up</h2><ul>${rows}</ul></section>`);
   }
   if (s.app) {
