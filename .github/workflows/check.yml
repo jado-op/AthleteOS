@@ -167,8 +167,6 @@ jobs:
           print(pref[-1]['udid'] if pref else '')")
             if [ -n "$udid" ]; then
               echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"
-              # Boot it now so it is warm by the time the build is done.
-              xcrun simctl boot "$udid" || true
               exit 0
             fi
             echo "no iPhone simulator yet ($i)"; sleep 10
@@ -256,8 +254,6 @@ jobs:
           print(pref[-1]['udid'] if pref else '')")
             if [ -n "$udid" ]; then
               echo "udid=$udid" >> "$GITHUB_OUTPUT"; echo "simulator $udid"
-              # Boot it now so it is warm by the time the build is done.
-              xcrun simctl boot "$udid" || true
               exit 0
             fi
             echo "no iPhone simulator yet ($i)"; sleep 10
