@@ -77,6 +77,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   someone?" is configured per country in `SupportResources.swift` (Germany: Nummer gegen
   Kummer 116 111). Parental consent: TODO for the beta; EU under-16 (GDPR Art. 8, Germany)
   must be checked before a public launch.
+- Competitions (owner, 2026-11-18): Home's trophy button opens the hub (`CompetitionViews.swift`):
+  next competition with countdown and the athlete's own chance (self-rated, never a prediction),
+  "until the next one" focus points (`CompetitionCoach`: last result's "to improve" + twin insights),
+  last result form, record. "Tell AthleteOS" (`TellParser`, EN + DE, on the phone): free text →
+  proposed changes (competition, pain, exam week, day status, goals), applied only when confirmed.
 - Under-18 safety: no calorie counting as primary UI, readiness never a score, pain =
   "stop and get checked", never a diagnosis.
 - Pricing: Pro Monthly $2.99 with an intro offer $0.99/mo for 3 months, Pro Yearly

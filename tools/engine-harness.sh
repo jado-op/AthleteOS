@@ -19,7 +19,7 @@ for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine Conditioning
          PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight AthleteScore TodayPlan \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \
-         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts MuscleTraining \
+         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts TellParser CompetitionCoach MuscleTraining \
          Generated/Qualities Generated/Equipment Generated/AllSports Generated/AcademyContent Generated/Muscles; do
   ln -s "$SRC/$f.swift" "$H/Sources/Engine/$(basename "$f").swift"
 done
@@ -34,7 +34,7 @@ awk '/^\/\/\/ Today.s workouts with today.s pain/{exit} {print}' "$SRC/PainFilte
   awk '/^public struct Dose: Codable/,/^}/' "$SRC/AthleteModels.swift"
 } > "$H/Sources/Engine/Shims.swift"
 
-for t in WorkoutEngineTests ReflectionInsightTests CampusLessonTests AthleteScoreTests TodayPlanTests TwinAnalysisTests IntakeDraftTests MuscleTrainingTests; do
+for t in WorkoutEngineTests ReflectionInsightTests CampusLessonTests AthleteScoreTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests; do
   ln -s "$TESTS/$t.swift" "$H/Tests/EngineTests/$t.swift"
 done
 

@@ -27,6 +27,8 @@ struct HomeView: View {
     @State private var readinessOverridden = false
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var activeSheet: HomeSheet?
+    @State private var showingCompetitions = false
+    @State private var showingTell = false
     @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
     @State private var pendingToDo: DayCompletion.Kind?
@@ -335,6 +337,7 @@ struct HomeView: View {
                     VStack(spacing: 22) {
                         topBar
                         header
+                        quickBar
                     }
                     if let announcement {
                         AnnouncementCard(announcement: announcement) {
@@ -412,6 +415,12 @@ struct HomeView: View {
                 announcement = TeamAnnouncements.current
             }
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showingCompetitions) {
+                CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged)
+            }
+            .sheet(isPresented: $showingTell) {
+                TellView(athlete: athlete, onChanged: onPlanInputsChanged)
+            }
             .task(id: allSessions.count + athlete.checkIns.count) {
                 switch IntentRoute.take([.checkIn, .reflection]) {
                 case .checkIn?: activeSheet = .checkIn
@@ -755,6 +764,51 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
+        }
+    }
+
+    /// Two ways in: tell the app what's going on in your own words, and the
+    /// next competition with its countdown.
+    private var quickBar: some View {
+        let next = AthleteStats.upcomingCompetitions(athlete).first
+        let family = AcademyContent.family(forSport: athlete.activeSport?.sportSlug)
+        return HStack(spacing: 10) {
+            Button { showingTell = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "text.bubble")
+                        .foregroundStyle(AppTheme.brightRed)
+                    Text("Tell AthleteOS…")
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Spacer(minLength: 0)
+                }
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .glassSurface(cornerRadius: 22)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Tell AthleteOS what's going on")
+            Button { showingCompetitions = true } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "trophy.fill")
+                        .foregroundStyle(AppTheme.yellow)
+                    if let next {
+                        let days = AthleteStats.daysUntil(next.date)
+                        Text(days == 0 ? "Today" : days == 1 ? "Tomorrow" : "\(days) d")
+                            .font(.telemetry(13, weight: .medium))
+                            .foregroundStyle(AppTheme.ink)
+                    } else {
+                        Text(family.tokens["Events"] ?? "Games")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .glassSurface(cornerRadius: 22)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(next.map { "Next \(family.event) in \(AthleteStats.daysUntil($0.date)) days. Results and plan." } ?? "\(family.tokens["Events"] ?? "Games"): results and plan")
         }
     }
 
