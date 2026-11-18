@@ -898,8 +898,7 @@ struct HomeView: View {
             NextStepEyebrow("Start here · check-in", accent: phase.red)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("30")
-                    .font(.system(size: 82, weight: .bold))
-                    .monospacedDigit()
+                    .font(.telemetry(82, weight: .medium))
                     .foregroundStyle(AppTheme.ink)
                 Text("sec")
                     .font(.title3.weight(.semibold))
@@ -945,7 +944,7 @@ struct HomeView: View {
     private var gameHero: some View {
         if let game = gameToday {
             VStack(spacing: 14) {
-                NextStepEyebrow("Game day", accent: phase.red)
+                NextStepEyebrow("\(eventWord) day", accent: phase.red)
                 heroTitle(gameTitle(game))
                 clockNumber(game.date)
                 heroMeta(game.isHome ? "Home" : "Away")
@@ -977,8 +976,8 @@ struct HomeView: View {
                         GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
                     }
                     GlassMetric(value: loadWord, label: "Load", height: 70, accent: readinessBand == nil ? nil : phase.red)
-                    if let tag = focusTag, tag != "LIGHTER TODAY" {
-                        GlassMetric(value: tag.capitalized, label: "Note", height: 70)
+                    if let tag = focusTag, tag != "Lighter today" {
+                        GlassMetric(value: tag, label: "Note", height: 70)
                     }
                 }
                 .frame(maxWidth: 380)
@@ -1048,8 +1047,7 @@ struct HomeView: View {
                 .background(HeroBloom(color: phase.red))
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("45")
-                    .font(.system(size: 60, weight: .bold))
-                    .monospacedDigit()
+                    .font(.telemetry(60, weight: .medium))
                     .foregroundStyle(AppTheme.ink)
                 Text("sec")
                     .font(.headline)
@@ -1116,8 +1114,7 @@ struct HomeView: View {
     private func bigNumber(_ value: String, unit: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(value)
-                .font(.system(size: 76, weight: .bold))
-                .monospacedDigit()
+                .font(.telemetry(76, weight: .medium))
                 .foregroundStyle(AppTheme.ink)
                 .contentTransition(.numericText())
             if !unit.isEmpty {
@@ -1159,14 +1156,17 @@ struct HomeView: View {
     }
 
     private var focusTag: String? {
-        if readinessBand != nil { return "LIGHTER TODAY" }
-        if examWeek { return "EXAM WEEK" }
-        if status != .active { return "OPTIONAL" }
+        if readinessBand != nil { return "Lighter today" }
+        if examWeek { return "Exam week" }
+        if status != .active { return "Optional" }
         return nil
     }
 
+    /// The athlete's own word for a competition ("match", "race", "meet"…).
+    private var eventWord: String { AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game" }
+
     private func gameTitle(_ game: Competition) -> String {
-        game.kind == .tournament ? "Tournament" : (game.kind == .meet ? "Meet" : "Game")
+        game.kind == .tournament ? "Tournament" : (game.kind == .meet ? "Meet" : eventWord)
     }
 
     // Today's plan: every step of the day in order, the next one lit.
@@ -1216,7 +1216,7 @@ struct HomeView: View {
         case .checkIn:
             return ("Check-in", done ? readiness?.level.title : "30 sec")
         case .game:
-            guard let game = gameToday else { return ("Game", nil) }
+            guard let game = gameToday else { return (eventWord, nil) }
             return (gameTitle(game), game.date.formatted(date: .omitted, time: .shortened))
         case .practice:
             if practiceLogToday != nil { return ("Team practice", "Logged") }
@@ -1309,7 +1309,7 @@ struct HomeView: View {
         if let tips = gameFuelTips, let next = tips.first(where: { ($0.time ?? .distantFuture) > .now }) ?? tips.first {
             rows.append(AnyView(Button { activeSheet = .fuel } label: {
                 HomeDetailRow(systemImage: "fork.knife", color: AppTheme.green, title: next.title) {
-                    Text(next.time?.formatted(date: .omitted, time: .shortened) ?? "Game-day fuel")
+                    Text(next.time?.formatted(date: .omitted, time: .shortened) ?? "\(eventWord)-day fuel")
                 }
             }.buttonStyle(.plain)))
         }
@@ -1436,14 +1436,13 @@ struct HomeView: View {
             if let tomorrow = tomorrowLine {
                 VStack(spacing: 6) {
                     HomeEyebrow("Tomorrow")
-                    Text(tomorrow.title.uppercased())
+                    Text(tomorrow.title)
                         .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(AppTheme.ink)
                         .multilineTextAlignment(.center)
                     if let detail = tomorrow.detail {
-                        Text(detail.uppercased())
+                        Text(detail)
                             .font(.footnote.weight(.semibold))
-                            .tracking(1.5)
                             .foregroundStyle(AppTheme.secondaryText)
                     }
                 }
@@ -1454,8 +1453,7 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.ink)
                 if let bedtime = bedtimeTonight {
                     Text("Bed by \(Bedtime.label(bedtime.minutes))")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.8)
+                        .font(.telemetry(13))
                         .foregroundStyle(AppTheme.secondaryText)
                 }
                 Button { activeSheet = .windDown } label: { HeroCTALabel("Wind down") }
@@ -1501,7 +1499,7 @@ struct HomeView: View {
         if workoutDoneToday { rows.append(DoneRow(icon: "dumbbell.fill", color: AppTheme.red, title: "Workout", value: "\(workoutMinutes) min")) }
         let mobilityMinutes = todaysSessions.filter { SessionKinds.kind(of: $0.clientId) == .mobility }.reduce(0) { $0 + $1.minutes }
         if mobilityDoneToday { rows.append(DoneRow(icon: "figure.flexibility", color: AppTheme.water, title: "Mobility", value: "\(mobilityMinutes) min")) }
-        if learnedToday { rows.append(DoneRow(icon: "graduationcap.fill", color: AppTheme.purple, title: "Campus", value: "Lesson done")) }
+        if learnedToday { rows.append(DoneRow(icon: "graduationcap.fill", color: AppTheme.purple, title: "Learning", value: "Done")) }
         return rows
     }
 
@@ -1781,8 +1779,7 @@ struct AnnouncementCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("From your coach\(announcement.teamName.map { " · \($0)" } ?? "")")
-                    .font(.caption.weight(.bold))
-                    .tracking(1.2)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                 Spacer(minLength: 8)

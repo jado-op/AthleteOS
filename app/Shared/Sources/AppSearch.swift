@@ -57,7 +57,7 @@ struct AppSearchEntry: Identifiable {
         case functions = "In the app"
         case skills = "Skill plans"
         case workouts = "Workouts"
-        case lessons = "Campus lessons"
+        case lessons = "Short lessons"
     }
 
     let id: String
@@ -95,7 +95,7 @@ enum AppSearch {
         function("Visualization", "See your game before you play", "eye.fill", ["visualize", "visualization", "imagery", "mental", "game"], .visualization),
         function("Tests", "Sprint, jump and other benchmarks", "stopwatch.fill", ["test", "benchmark", "sprint", "jump", "speed", "measure", "personal best", "pb"], .tests),
         function("Home", "Today at a glance", "house.fill", ["home", "today", "overview"], .tab(.today)),
-        function("Campus", "Lessons about training, food, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
+        function("Short lessons", "100 quick lessons on training, food, sleep and mind", "graduationcap.fill", ["campus", "learn", "lessons", "school", "course"], .tab(.campus)),
         function("Academy", "Your digital twin, insights and briefings", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "insights", "briefings", "personal best", "pr", "performances"], .tab(.academy)),
         function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .support),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),

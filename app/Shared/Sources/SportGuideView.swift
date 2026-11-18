@@ -3,7 +3,7 @@ import SwiftUI
 /// "Know your sport": the sport's guide as one page — what wins, where the
 /// athlete is in the season, what the sport asks of the body, what the best
 /// do, their position, the gym work and injury prevention that matter,
-/// mindset and fuel, the studies behind it, and a quiz that earns Campus XP.
+/// mindset and fuel, the studies behind it, and a short quiz.
 struct SportGuideView: View {
     let athlete: Athlete
     @Environment(\.dismiss) private var dismiss
@@ -349,7 +349,7 @@ struct SportGuideView: View {
                     .background(done ? Duo.gold : AppTheme.brand, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(done ? "Quiz passed" : "Test yourself").font(.title3.weight(.heavy)).foregroundStyle(AppTheme.ink)
-                    Text(done ? "Take it again any time for more Campus XP." : "\(guide.quiz.count) questions about \(sportName) — earns Campus XP.")
+                    Text(done ? "Passed. Take it again any time." : "\(guide.quiz.count) questions about \(sportName).")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)

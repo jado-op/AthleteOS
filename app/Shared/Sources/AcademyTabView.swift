@@ -45,7 +45,9 @@ struct AcademyPageSwitcher: View {
                             .foregroundStyle(navigation.page == page ? Color(rgb: 0x0B0B14) : AppTheme.ink.opacity(0.8))
                             .padding(.horizontal, 16)
                             .frame(height: 32)
-                            .background(Capsule().fill(navigation.page == page ? Color(rgb: 0xEEEAFE) : .clear))
+                            .background(Capsule().fill(navigation.page == page ? AppTheme.starlight : .clear))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(navigation.page == page ? .isSelected : [])
@@ -82,7 +84,10 @@ struct AcademyTabView: View {
                             .foregroundStyle(AppTheme.ink)
                             .frame(width: 36, height: 36)
                             .glassCapsule()
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Close")
                     .buttonStyle(.plain)
                     .padding(.top, 14)
                     .padding(.trailing, 20)

@@ -168,7 +168,7 @@ struct GlassMetric: View {
         VStack(alignment: .leading, spacing: 4) {
             Spacer(minLength: 0)
             Text(value)
-                .font(.system(size: 24, weight: .bold).monospacedDigit())
+                .font(.telemetry(24, weight: .medium))
                 .foregroundStyle(AppTheme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -298,7 +298,7 @@ struct WeekPlanBar: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(String(plan.doneTotal))
-                    .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    .font(.telemetry(40, weight: .medium))
                     .foregroundStyle(AppTheme.ink)
                     .contentTransition(.numericText())
                 Text("of \(plan.plannedTotal) planned")

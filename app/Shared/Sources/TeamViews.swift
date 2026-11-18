@@ -837,7 +837,7 @@ struct ParentSummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Parent summary", subtitle: "A private page for a parent: training, sleep, games and Campus. Never what you write.")
+                    ScreenTitle("Parent summary", subtitle: "A private page for a parent: training, sleep, upcoming games and lessons learned. Never what you write.")
                     if loading {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if signedOut {

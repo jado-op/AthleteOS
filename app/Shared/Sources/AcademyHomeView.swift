@@ -150,6 +150,21 @@ struct AcademyHomeView: View {
         reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.briefing?.id == id })
     }
 
+    /// Sections in the order they show; numbered by what is actually on screen.
+    private enum Section: CaseIterable { case insights, working, performances, whoYouAre, briefings }
+
+    private func number(_ section: Section) -> Int {
+        let shown: [Section] = Section.allCases.filter {
+            switch $0 {
+            case .insights: report != nil
+            case .working: !(report?.strengths.isEmpty ?? true)
+            case .whoYouAre: state.intakeDoneAt != nil
+            case .performances, .briefings: true
+            }
+        }
+        return (shown.firstIndex(of: section) ?? 0) + 1
+    }
+
     private func reload() {
         state = AcademyStore.load()
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
@@ -237,18 +252,14 @@ struct AcademyHomeView: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(LinearGradient(colors: [AppTheme.brand.opacity(0.14), AppTheme.brand.opacity(0.03)], startPoint: .top, endPoint: .bottom))
-        }
-        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(AppTheme.brightRed.opacity(0.22), lineWidth: 1) }
+        .glassSurface(cornerRadius: 22, tint: AppTheme.brand)
     }
 
     // MARK: Insights
 
     private func insights(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            SpaceSection(1, "Insights") { Text("\(report.insights.count) found") }
+            SpaceSection(number(.insights), "Insights") { Text("\(report.insights.count) found") }
             if report.insights.isEmpty {
                 Text(report.counts.checkIns + report.counts.sessions < 5
                      ? "Nothing yet — a couple of weeks of check-ins, sessions and \(family.events) and your twin starts to see patterns."
@@ -296,6 +307,8 @@ struct AcademyHomeView: View {
                     Text("The numbers")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AppTheme.ink.opacity(0.75))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -345,7 +358,7 @@ struct AcademyHomeView: View {
 
     private func working(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(2, "What's working") { EmptyView() }
+            SpaceSection(number(.working), "What's working") { EmptyView() }
             ForEach(report.strengths) { strength in
                 HStack(alignment: .top, spacing: 12) {
                     Circle().fill(AppTheme.green).frame(width: 7, height: 7).padding(.top, 7)
@@ -369,7 +382,7 @@ struct AcademyHomeView: View {
     private var performances: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                SpaceSection(3, "Performances") {
+                SpaceSection(number(.performances), "Performances") {
                     HStack(spacing: 16) {
                         Button("Run a test") { showingTests = true }
                         Button("Add") { addingPerformance = true }
@@ -412,7 +425,7 @@ struct AcademyHomeView: View {
 
     private var whoYouAre: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SpaceSection(4, "Who you are") {
+            SpaceSection(number(.whoYouAre), "Who you are") {
                 Button("Edit") { openInterview() }
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.brightRed)
@@ -460,7 +473,7 @@ struct AcademyHomeView: View {
 
     private var library: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SpaceSection(5, "Briefings") { Text("\(AcademyContent.briefings.count) long reads") }
+            SpaceSection(number(.briefings), "Briefings") { Text("\(AcademyContent.briefings.count) long reads") }
             let assigned = Set(report?.assigned.map(\.id) ?? [])
             let ordered = AcademyContent.briefings.sorted { (assigned.contains($0.id) ? 0 : 1) < (assigned.contains($1.id) ? 0 : 1) }
             ForEach(ordered) { briefing in

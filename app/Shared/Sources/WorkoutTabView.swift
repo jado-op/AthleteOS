@@ -93,12 +93,15 @@ struct WorkoutTabView: View {
         case .concussion: return (nil, "Training is paused until a doctor clears you.")
         case .travel, .holiday: return (.travel, "A short workout you can do anywhere, only if you feel like it.")
         case .active:
-            if gameToday != nil { return (.mobility, "Game day: just loosen up and save your energy.") }
+            if gameToday != nil { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
             if practiceToday { return (.afterPractice, "You have practice today, so the gym work is short.") }
             if gymSession?.isToday == true { return (.gymDay, "No team practice today, so this is your main session.") }
             return (.mobility, "A rest day: a few minutes of movement keeps you fresh.")
         }
     }
+
+    /// The athlete's own word for a competition ("match", "race", "meet"…).
+    private var eventWord: String { AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game" }
 
     var body: some View {
         NavigationStack {
@@ -242,9 +245,9 @@ struct WorkoutTabView: View {
     private var focusTags: [String] {
         var tags: [String] = []
         if gameToday != nil {
-            tags.append("Game day")
+            tags.append("\(eventWord) day")
         } else if let days = daysToNextGame, days >= 1, days <= 3 {
-            tags.append(days == 1 ? "Game tomorrow" : "Game in \(days) days")
+            tags.append(days == 1 ? "\(eventWord) tomorrow" : "\(eventWord) in \(days) days")
         }
         if band != nil { tags.append("Lighter today") }
         if ScheduleStore.isExamWeek(.now) { tags.append("Exam week") }
@@ -304,7 +307,7 @@ struct WorkoutTabView: View {
                 }
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.ink.opacity(0.8))
-                .frame(minHeight: 32)
+                .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
             if showingReason {
@@ -740,7 +743,7 @@ struct WorkoutTabView: View {
                 Button {
                     liveLaunch = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
                 } label: { Label("Start", systemImage: "play.fill") }
-                .buttonStyle(.primary)
+                .buttonStyle(.secondary)
             }
         }
         .cardStyle(padding: 18)

@@ -98,7 +98,7 @@ struct MeView: View {
                         .padding(.bottom, 16)
                     goalsCard
 
-                    SectionHeader("Training Setup")
+                    SectionHeader("Training setup")
                     menuCard {
                         menuRow(athlete.sports.count > 1 ? "Sports" : "Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
                                 detail: athlete.sports.count > 1
@@ -132,7 +132,7 @@ struct MeView: View {
                         menuRow("How AthleteOS decides", icon: "list.bullet.rectangle", tint: AppTheme.ink, detail: "Rules and sources") { activeSheet = .decisions }
                     }
 
-                    SectionHeader("Team & Family")
+                    SectionHeader("Team & family")
                     menuCard {
                         menuRow("My team", icon: "person.3.fill", tint: AppTheme.brand, detail: "Join with a code") { activeSheet = .team }
                         menuDivider
@@ -157,7 +157,7 @@ struct MeView: View {
                     }
 
                     #if os(iOS) && !APP_EXTENSION
-                    SectionTitle("Subscription")
+                    SectionHeader("Subscription")
                     SubscriptionRow(athlete: athlete)
                         .cardStyle(padding: 16)
                     #endif
@@ -182,7 +182,7 @@ struct MeView: View {
                         .padding(.vertical, 12)
                     }
 
-                    SectionTitle("About")
+                    SectionHeader("About")
                     menuCard {
                         linkRow("Privacy policy", icon: "hand.raised.fill", url: AppConfig.backendBaseURL.appending(path: "privacy"))
                         menuDivider

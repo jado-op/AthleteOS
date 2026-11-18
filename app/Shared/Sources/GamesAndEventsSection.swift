@@ -31,22 +31,23 @@ struct GamesAndEventsSection: View {
         _ = revision
         let upcomingGames = AthleteStats.upcomingCompetitions(athlete).prefix(4)
         let extras = ExtraPractices.all.filter { $0.day >= DayKey.of(.now, calendar: calendar) }.prefix(4)
+        let family = AcademyContent.family(forSport: athlete.activeSport?.sportSlug)
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Games & events")
+            SectionHeader("\(family.tokens["Events"] ?? "Games") & extra training")
             // The schedule itself is set up in Me → Training Setup; here only while it is missing.
             if !PracticeSchedule.isSet {
                 row("Set up your schedule", "Practice days and team calendars", icon: "calendar.badge.clock") { sheet = .calendars }
             }
             ButtonRow {
-                Button { sheet = .addGame } label: { Label("Add a game", systemImage: "sportscourt.fill") }
-                    .buttonStyle(.primary)
+                Button { sheet = .addGame } label: { Label("Add a \(family.event)", systemImage: "sportscourt.fill") }
+                    .buttonStyle(.secondary)
                 Button { sheet = .addTraining } label: { Label("Add a training", systemImage: "plus") }
                     .buttonStyle(.secondary)
             }
             if !upcomingGames.isEmpty || !extras.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(Array(upcomingGames), id: \.id) { game in
-                        Label("\(game.date.formatted(.dateTime.weekday(.abbreviated).month().day())) · \(game.kind.rawValue.capitalized) · \(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")",
+                        Label("\(game.date.formatted(.dateTime.weekday(.abbreviated).month().day())) · \(kindWord(game.kind, family)) · \(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")",
                               systemImage: "sportscourt.fill")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.ink)
@@ -54,7 +55,7 @@ struct GamesAndEventsSection: View {
                     }
                     ForEach(Array(extras)) { extra in
                         HStack {
-                            Label("\(extra.day) · \(extra.title)\(extra.time.map { " · \($0.label)" } ?? "")", systemImage: "figure.run")
+                            Label("\(dayLabel(extra.day)) · \(extra.title)\(extra.time.map { " · \($0.label)" } ?? "")", systemImage: "figure.run")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.ink)
                             Spacer()
@@ -74,6 +75,21 @@ struct GamesAndEventsSection: View {
                 .cardStyle(padding: 16)
             }
         }
+    }
+
+    private func kindWord(_ kind: CompetitionKind, _ family: SportFamily) -> String {
+        switch kind {
+        case .tournament: "Tournament"
+        case .meet: family.event == "game" ? "Meet" : (family.tokens["Event"] ?? "Meet")
+        case .game: family.tokens["Event"] ?? "Game"
+        }
+    }
+
+    /// "2026-11-21" → "Sat, Nov 21".
+    private func dayLabel(_ key: String) -> String {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return key }
+        return date.formatted(.dateTime.weekday(.abbreviated).month().day())
     }
 
     private func row(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {

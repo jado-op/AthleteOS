@@ -16,8 +16,10 @@ public enum AppTheme {
     public static let fill = Color.white.opacity(0.08)
     /// Primary text.
     public static let ink = Color.white
-    /// Light surfaces and marks on dark (kept opaque: it's also used as a tint).
-    public static let accent = Color.white
+    /// Light surfaces and marks on dark: "starlight" (V7), the same plate as the
+    /// primary button and every selected chip (kept opaque: it's also used as a tint).
+    public static let accent = Color(rgb: 0xEEEAFE)
+    public static let starlight = Color(rgb: 0xEEEAFE)
     /// Text and glyphs drawn on `accent`.
     public static let onAccent = Color(rgb: 0x050608)
     public static let secondaryText = Color.white.opacity(0.58)

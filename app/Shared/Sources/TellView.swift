@@ -56,6 +56,7 @@ struct TellView: View {
                         .padding(.top, 2)
                 }
                 TextField("", text: $text, axis: .vertical)
+                    .accessibilityLabel("What's going on")
                     .lineLimit(4...10)
                     .font(.body)
                     .foregroundStyle(AppTheme.ink)

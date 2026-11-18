@@ -57,7 +57,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .shareWorkouts: "Share your workouts with a code, link or QR code"
         case .workoutEditor: "Change every exercise, set and rep in your plan"
         case .myWorkouts: "Build and keep as many of your own workouts as you like"
-        case .unlimitedLessons: "Unlimited Campus lessons every day"
+        case .unlimitedLessons: "Unlimited short lessons every day"
         case .detailedTracking: "Exact practice tracking — muscles, every rating — with insights"
         case .videoJumpTest: "Measure your jump height with the camera"
         case .moreCalendars: "Connect every team, club and school calendar"

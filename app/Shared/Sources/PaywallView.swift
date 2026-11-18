@@ -145,7 +145,7 @@ public struct PaywallView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "heart.fill")
                 .foregroundStyle(AppTheme.brand)
-            Text("Always free: check-in, your plan, every workout, logging, Watch, Campus daily, teams.")
+            Text("Always free: check-in, your plan, every workout, logging, Watch, short lessons daily, the Academy in the beta, teams.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
         }

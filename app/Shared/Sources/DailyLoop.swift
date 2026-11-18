@@ -206,7 +206,7 @@ public struct DayCompletion: Sendable, Equatable {
 
     public var items: [Item] {
         [Item(kind: .checkIn, title: "Morning check-in", done: checkedIn), Item(kind: .training, title: "Training", done: trained),
-         Item(kind: .lesson, title: "Campus lesson", done: learned), Item(kind: .reflection, title: "Evening reflection", done: reflected)]
+         Item(kind: .lesson, title: "Read or learn", done: learned), Item(kind: .reflection, title: "Evening reflection", done: reflected)]
     }
 
     /// The first thing still to do today (nil: all done).

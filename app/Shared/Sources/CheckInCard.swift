@@ -188,7 +188,7 @@ struct CheckInSheet: View {
             QuestionPage(progress: progress, question: "Today's schedule", hint: "Is this right? Your plan is built around it.",
                          buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
                 if let game = athlete.competitions.first(where: { Calendar.current.isDateInToday($0.date) }) {
-                    ListRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: game.kind == .tournament ? "Tournament" : "Game",
+                    ListRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: game.kind == .tournament ? "Tournament" : (AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"),
                             detail: game.date.formatted(date: .omitted, time: .shortened)) { EmptyView() }
                         .cardStyle(padding: 12)
                 }
