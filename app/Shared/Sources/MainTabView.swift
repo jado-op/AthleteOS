@@ -53,18 +53,33 @@ public struct MainTabView: View {
             HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tint(AppTheme.accent)
+                .modifier(FloatingTabBarSpace())
                 .tag(AppTab.today)
 
             AcademyTabView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Academy", systemImage: "figure.stand.line.dotted.figure.stand") }
                 .tint(AppTheme.accent)
+                .modifier(FloatingTabBarSpace())
                 .tag(AppTab.academy)
 
             WorkoutTabView(athlete: athlete, apiClient: apiClient, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
                 .tint(AppTheme.accent)
+                .modifier(FloatingTabBarSpace())
                 .tag(AppTab.workout)
         }
+        #if os(iOS)
+        // V8: the floating pill tab bar replaces the system bar.
+        .overlay(alignment: .bottom) {
+            PillTabBar(selection: $selectedTab, items: [
+                (AppTab.today, "Home", "house.fill"),
+                (AppTab.academy, "Academy", "figure.stand.line.dotted.figure.stand"),
+                (AppTab.workout, "Workout", "figure.strengthtraining.traditional"),
+            ])
+            .padding(.bottom, 2)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+        }
+        #endif
         .environment(\.openMe, OpenMeAction { showingMe = true })
         // V5: the selected tab is lit red; each screen keeps the white tint.
         .tint(AppTheme.brightRed)
@@ -559,5 +574,19 @@ enum AthleteStats {
         case .postSeason: "Post-season"
         case nil: "This week"
         }
+    }
+}
+
+/// V8: the system tab bar is hidden (the pill floats instead) and every tab
+/// keeps room at the bottom so nothing ends under the pill.
+struct FloatingTabBarSpace: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: 66).allowsHitTesting(false) }
+        #else
+        content
+        #endif
     }
 }

@@ -130,7 +130,10 @@ struct HomeAmbientBackground: View {
 struct HeroBloom: View {
     var color: Color = AppTheme.brand
 
-    var body: some View {
+    // V8: the card's aura does this job now; kept as a no-op for call sites.
+    var body: some View { Color.clear.frame(width: 0, height: 0) }
+
+    var oldBody: some View {
         Ellipse()
             .fill(RadialGradient(colors: [color.opacity(0.16), color.opacity(0.04), .clear],
                                  center: .center, startRadius: 0, endRadius: 150))

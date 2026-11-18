@@ -811,38 +811,84 @@ struct HomeView: View {
     /// An editorial opening: the greeting small, the name huge, the season,
     /// a short quote. No box around any of it.
     private var header: some View {
-        VStack(spacing: 14) {
-            VStack(spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: phase.systemImage)
-                        .foregroundStyle(phase.red)
-                        .symbolRenderingMode(.hierarchical)
-                    Text(phase.greeting)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                .font(.footnote.weight(.semibold))
-                Text(firstName ?? clock.formatted(.dateTime.weekday(.wide)))
-                    .font(.system(size: 46, weight: .bold))
-                    .tracking(-1)
-                    .foregroundStyle(AppTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .accessibilityAddTraits(.isHeader)
-                Text(clock.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                    .font(.telemetry(12))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            // Streaks live on Progress and Me now (V6 §21: secondary).
+        VStack(alignment: .leading, spacing: 14) {
+            Text(clock.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                .font(.system(size: 34, weight: .bold))
+                .tracking(-0.7)
+                .foregroundStyle(AppTheme.ink)
+            Headline(headlineParts)
+                .animation(.easeInOut(duration: 0.3), value: contentKey)
             HStack(spacing: 10) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
                 if let seasonLine {
                     Text(seasonLine)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(phase.red.opacity(0.9))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// V8: the day in one sentence — what matters bright, the rest dimmed.
+    private var headlineParts: [Headline.Part] {
+        let hello: Headline.Part = .soft(firstName.map { "\(phase.greeting), \($0). " } ?? "\(phase.greeting). ")
+        guard loaded else { return [hello] }
+        if status == .concussion {
+            return [hello, .soft("Training is "), .strong("paused"), .soft(" until a doctor clears you.")]
+        }
+        let plan = todayPlan
+        let progress: Headline.Part = .soft(plan.total > 0 ? " \(plan.doneCount) of \(plan.total) done." : "")
+        switch plan.next {
+        case .checkIn:
+            return [hello, .soft("Start with a "), .icon("waveform.path.ecg"), .strong(" 30-second check-in"), .soft(" — today's plan is built from it.")]
+        case .game:
+            var parts: [Headline.Part] = [hello, .soft("It's "), .icon("trophy.fill"), .strong(" \(eventWord.lowercased()) day")]
+            if let game = gameToday {
+                parts += [.soft(" at "), .strong(game.date.formatted(date: .omitted, time: .shortened))]
+            }
+            return parts + [.soft(". Warm up, then save everything for it.")]
+        case .workout:
+            if let workout = todaysWorkout {
+                return [hello, .soft("Today: "), .icon("flame.fill"), .strong(" \(workout.session.estimatedMinutes) min of training"),
+                        .soft(readinessBand != nil ? ", lighter than usual." : "."), progress]
+            }
+            return [hello, .strong("Training is next."), progress]
+        case .lesson:
+            if twinInterviewDue { return [hello, .soft("Next: "), .icon("person.crop.circle"), .strong(" meet your twin"), .soft(" — 5 minutes.")] }
+            if let briefing = twinBriefing {
+                return [hello, .soft("Your twin has a "), .icon("book.fill"), .strong(" \(briefing.minutes)-minute read"), .soft(" for you.")]
+            }
+            return [hello, .soft("Next: "), .icon("book.fill"), .strong(" a short lesson"), .soft("."), progress]
+        case .reflection:
+            return [hello, .soft("One thing left: "), .strong("45 seconds"), .soft(" to reflect on today.")]
+        case .waiting(let reason):
+            switch reason {
+            case .practice:
+                var parts: [Headline.Part] = [hello, .strong("Team practice")]
+                if let start = practiceStart { parts += [.soft(" at "), .strong(start.formatted(date: .omitted, time: .shortened))] }
+                return parts + [.soft("."), progress]
+            case .restDay: return [hello, .strong("Rest day."), .soft(" Recovery is part of the plan.")]
+            case .recover: return [hello, .strong("Rest and recover"), .soft(" today.")]
+            case .reflectTonight: return [hello, .strong("Training's done."), .soft(" Reflect tonight.")]
+            case .clear: return [hello, .strong("You're set."), .soft(" Nothing else today.")]
+            }
+        case .dayComplete:
+            return [hello, .strong("All done today."), .soft(" Recovery is training too.")]
+        case .sleep:
+            return [hello, .soft("Time to "), .strong("sleep"), .soft(". Tomorrow builds on tonight.")]
+        }
+    }
+
+    /// The colour of the next step's card: training ember, body blue, mind magenta, games green.
+    private func tone(_ next: TodayPlan.Next) -> AuraTone {
+        switch next {
+        case .checkIn: .body
+        case .game: .game
+        case .workout: .training
+        case .lesson, .reflection: .mind
+        case .waiting, .dayComplete, .sleep: .calm
+        }
     }
 
     // MARK: - The day: one next step, then the plan (docs/CLARITY-PLAN.md)
@@ -864,7 +910,9 @@ struct HomeView: View {
             default:
                 // What to do now, then the whole day in order.
                 VStack(spacing: 30) {
-                    nextStepHero(plan.next)
+                    AuraCard(tone(plan.next), focus: UnitPoint(x: 0.5, y: 0.45)) {
+                        nextStepHero(plan.next)
+                    }
                     VStack(spacing: 12) {
                         painNote
                         planPanel(plan)
@@ -894,7 +942,7 @@ struct HomeView: View {
 
     private var checkInHero: some View {
         VStack(spacing: 12) {
-            NextStepEyebrow("Start here · check-in", accent: phase.red)
+            NextStepEyebrow("Start here · check-in", accent: .white)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("30")
                     .font(.telemetry(82, weight: .medium))
@@ -943,7 +991,7 @@ struct HomeView: View {
     private var gameHero: some View {
         if let game = gameToday {
             VStack(spacing: 14) {
-                NextStepEyebrow("\(eventWord) day", accent: phase.red)
+                NextStepEyebrow("\(eventWord) day", accent: .white)
                 heroTitle(gameTitle(game))
                 clockNumber(game.date)
                 heroMeta(game.isHome ? "Home" : "Away")
@@ -957,7 +1005,7 @@ struct HomeView: View {
         if let workout = todaysWorkout {
             let session = workout.session
             VStack(spacing: 14) {
-                NextStepEyebrow("Next step · training", accent: phase.red)
+                NextStepEyebrow("Next step · training", accent: .white)
                 Button { preview = PreviewBox(session: session, kind: workoutKind(workout.mode)) } label: {
                     heroTitle(focusTitle(session, mode: workout.mode))
                 }
@@ -993,7 +1041,7 @@ struct HomeView: View {
     private var lessonHero: some View {
         if twinInterviewDue {
             VStack(spacing: 14) {
-                NextStepEyebrow("Next step · your twin", accent: phase.red)
+                NextStepEyebrow("Next step · your twin", accent: .white)
                 Button { openLesson() } label: { heroTitle("Meet your twin") }
                     .buttonStyle(.plain)
                 bigNumber("5", unit: "min")
@@ -1006,7 +1054,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         } else if let briefing = twinBriefing {
             VStack(spacing: 14) {
-                NextStepEyebrow("Next step · read", accent: phase.red)
+                NextStepEyebrow("Next step · read", accent: .white)
                 Button { openLesson() } label: { heroTitle(briefing.title) }
                     .buttonStyle(.plain)
                 bigNumber("\(briefing.minutes)", unit: "min")
@@ -1019,7 +1067,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         } else if let next = nextLesson {
             VStack(spacing: 14) {
-                NextStepEyebrow("Next step · learn", accent: phase.red)
+                NextStepEyebrow("Next step · learn", accent: .white)
                 Button { openLesson() } label: { heroTitle(next.lesson.title) }
                     .buttonStyle(.plain)
                 bigNumber("\(next.lesson.minutes)", unit: "min")
@@ -1053,7 +1101,7 @@ struct HomeView: View {
 
     private var reflectionHero: some View {
         VStack(spacing: 12) {
-            NextStepEyebrow("Next step · reflect", accent: phase.red)
+            NextStepEyebrow("Next step · reflect", accent: .white)
             Text("How did today actually feel?")
                 .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
@@ -1115,7 +1163,7 @@ struct HomeView: View {
 
     private func heroTitle(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 42, weight: .bold))
+            .font(.system(size: 32, weight: .bold))
             .tracking(-0.6)
             .foregroundStyle(AppTheme.ink)
             .multilineTextAlignment(.center)
@@ -1128,7 +1176,9 @@ struct HomeView: View {
     private func bigNumber(_ value: String, unit: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(value)
-                .font(.telemetry(76, weight: .medium))
+                .font(.system(size: 76, weight: .light))
+                .monospacedDigit()
+                .tracking(-1.5)
                 .foregroundStyle(AppTheme.ink)
                 .contentTransition(.numericText())
             if !unit.isEmpty {
@@ -1148,8 +1198,8 @@ struct HomeView: View {
 
     private func heroMeta(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline)
-            .foregroundStyle(AppTheme.secondaryText)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(AppTheme.ink.opacity(0.75))
             .multilineTextAlignment(.center)
     }
 
@@ -1217,7 +1267,7 @@ struct HomeView: View {
             PlanStepRow(row: row, title: text.title, detail: text.detail, accent: phase.red, showsChevron: false)
         } else {
             Button { open(row.step) } label: {
-                PlanStepRow(row: row, title: text.title, detail: text.detail, accent: phase.red)
+                PlanStepRow(row: row, title: text.title, detail: text.detail, accent: .white)
             }
             .buttonStyle(.plain)
         }

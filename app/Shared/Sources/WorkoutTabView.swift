@@ -268,10 +268,12 @@ struct WorkoutTabView: View {
     /// is one tap away. The list below stays practical.
     private var recommendedCard: some View {
         let rec = recommendation
-        return VStack(alignment: .leading, spacing: 14) {
+        // V8: the training card is ember; its aura sits on the minutes.
+        return AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.42), radius: 210) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Today's training")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.brightRed)
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
                 .accessibilityAddTraits(.isHeader)
             Text(recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
                  : (rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
@@ -281,13 +283,18 @@ struct WorkoutTabView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
             if let session = recommendedSession {
-                HStack(alignment: .top, spacing: 26) {
-                    TelemetryStat("\(session.estimatedMinutes)", "minutes")
-                    // V6 §7: the number of exercises isn't the point — but it's a useful glance.
-                    if session.decision == nil { TelemetryStat("\(session.items.count)", "exercises") }
-                    TelemetryStat(band == nil ? "Normal" : "Lighter", "load", accent: band == nil ? nil : AppTheme.brightRed)
+                HStack(alignment: .lastTextBaseline, spacing: 16) {
+                    BigFigure("\(session.estimatedMinutes)", unit: "min", size: 68)
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(band == nil ? "Normal" : "Lighter")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(AppTheme.ink)
+                        Text("load")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.7))
+                    }
                 }
-                .padding(.top, 4)
             } else {
                 Text(rec.mode.map(purpose) ?? "Recovery is part of the plan.")
                     .font(.body)
@@ -340,12 +347,13 @@ struct WorkoutTabView: View {
                     readinessOverridden.toggle()
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
                 .frame(minHeight: 44)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 20)
+        }
+        .padding(.top, 12)
     }
 
     private func detail(_ mode: WorkoutMode, _ session: GeneratedSession?) -> String {

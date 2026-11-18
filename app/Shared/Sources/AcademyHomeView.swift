@@ -208,13 +208,14 @@ struct AcademyHomeView: View {
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
             if let counts = report?.counts {
-                HStack(alignment: .top, spacing: 20) {
-                    count("\(counts.weeks) wk", "of data")
-                    count("\(counts.checkIns)", "check-ins")
-                    count("\(counts.sessions)", "sessions")
-                    count("\(counts.games)", family.events)
+                // V8: what the twin knows, as four coloured tiles — one colour per kind of data.
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    MetricTile(.mind, label: "Your data", value: "\(counts.weeks)", unit: "wk")
+                    MetricTile(.body, label: "Check-ins", value: "\(counts.checkIns)")
+                    MetricTile(.training, label: "Sessions", value: "\(counts.sessions)")
+                    MetricTile(.game, label: family.events.prefix(1).uppercased() + family.events.dropFirst(), value: "\(counts.games)")
                 }
-                .padding(.top, 8)
+                .padding(.top, 10)
             }
         }
     }
@@ -250,26 +251,29 @@ struct AcademyHomeView: View {
                 .padding(.top, 8)
         }
         .padding(20)
-        .glassSurface(cornerRadius: 22, tint: AppTheme.brand)
+        .background(AuraBackground(.mind, focus: UnitPoint(x: 0.8, y: 0.3), radius: 220))
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
     private func coachRead(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Coach's read")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.brightRed)
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
             Text(report.coachRead)
-                .font(.reading(19))
-                .lineSpacing(5)
+                .font(.system(size: 22, weight: .semibold))
+                .tracking(-0.3)
+                .lineSpacing(3)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) \(family.events)\(state.intakeDoneAt == nil ? "" : ", and your interview")")
                 .font(.footnote)
-                .foregroundStyle(AppTheme.mutedText)
+                .foregroundStyle(AppTheme.ink.opacity(0.65))
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassSurface(cornerRadius: 22, tint: AppTheme.brand)
+        .background(AuraBackground(.mind, focus: UnitPoint(x: 0.85, y: 0.2), radius: 230))
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
     // MARK: Insights

@@ -8,7 +8,7 @@ import UIKit
 /// behaves like light (glows, reflections, selected marks), not like paint.
 /// Always dark (the app forces the dark appearance).
 public enum AppTheme {
-    public static let background = Color(rgb: 0x050608)
+    public static let background = Color(rgb: 0x030304)
     public static let backgroundSecondary = Color(rgb: 0x080A0D)
     /// A glass surface's tint (the blur comes from `glassSurface`).
     public static let card = Color(red: 18 / 255, green: 18 / 255, blue: 22 / 255).opacity(0.45)
@@ -123,11 +123,11 @@ public struct AppBackground: View {
     }
 
     public var body: some View {
-        TimelineView(.everyMinute) { context in
-            sky(SkyPalette.at(context.date))
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
+        // V8 (owner, 2026-11-18): a black canvas — colour lives in the cards,
+        // where it has a job. The starfield (`sky`) is kept but no longer drawn.
+        AppTheme.background
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
     }
 
     private func sky(_ palette: SkyPalette) -> some View {
@@ -323,9 +323,9 @@ public struct SpaceSection<Trailing: View>: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(String(format: "%02d", number))
                     .font(.telemetry(11))
-                    .foregroundStyle(AppTheme.brightRed.opacity(0.9))
+                    .foregroundStyle(AppTheme.mutedText)
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(AppTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
@@ -362,8 +362,8 @@ public extension View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return background {
             ZStack {
-                shape.fill(Color(rgb: 0x0A0B14).opacity(0.72))
-                shape.fill(Color.white.opacity(0.025))
+                // V8: a quiet solid plate on black (colour is for AuraCards).
+                shape.fill(Color(rgb: 0x121215))
                 if let tint {
                     shape.fill(LinearGradient(colors: [tint.opacity(0.13), tint.opacity(0)], startPoint: .top, endPoint: .center))
                 }
@@ -449,9 +449,9 @@ public struct PrimaryButtonStyle: ButtonStyle {
                 .padding(.horizontal, 18)
                 // Starlight: a bright plate with dark type — the one thing on
                 // the screen to press. Violet stays light, never a fill.
-                .foregroundStyle(Color(rgb: 0x0B0B14))
+                .foregroundStyle(Color.black)
                 .frame(maxWidth: .infinity, minHeight: 54)
-                .background(Capsule().fill(Color(rgb: 0xEEEAFE)))
+                .background(Capsule().fill(Color.white))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5) }
                 .shadow(color: Color(rgb: 0xC4B5FD).opacity(isEnabled ? 0.22 : 0), radius: 16, x: 0, y: 4)
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
