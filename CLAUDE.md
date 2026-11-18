@@ -89,7 +89,8 @@ Reading files, CI logs or the GitHub API needs no lock.
 
 ## Design (V7, owner 2026-11-18: "space", done smart — supersedes V5 where they differ)
 - Deep space, not decoration: `AppBackground` is a quiet seeded starfield (`Starfield`) with two
-  faint nebulae; no light-field glows, no sport geometry behind content (`SportAtmosphere` unused).
+  faint nebulae, coloured by the time of day (`SkyPalette`: dawn plum/rose, day deep blue with dimmer stars,
+  dusk violet with a warm edge, night near-black; always dark); no light-field glows, no sport geometry behind content (`SportAtmosphere` unused).
   Surfaces are hairline plates (`glassSurface`), not frosted cards. Sections start on a hairline
   (`SectionHeader`, numbered `SpaceSection(1, "Today")`). Numbers in the monospaced telemetry face
   (`Font.telemetry`, `TelemetryStat`); words stay in the regular face. Primary button = "starlight"

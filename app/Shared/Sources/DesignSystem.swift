@@ -110,7 +110,9 @@ public enum Atmosphere: Sendable {
 
 /// Deep space (owner, 2026-11-18): a quiet, real starfield on near-black —
 /// most stars faint, a few bright, a handful faintly blue or warm — and two
-/// very soft nebulae. No glow fields, no sport lines behind the content.
+/// very soft nebulae. The sky follows the time of day (`SkyPalette`): plum
+/// and rose at dawn, deep blue by day with the stars dimmed, violet and a warm
+/// edge at dusk, near-black at night. Always dark. No sport lines behind content.
 public struct AppBackground: View {
     let atmosphere: Atmosphere
 
@@ -119,18 +121,27 @@ public struct AppBackground: View {
     }
 
     public var body: some View {
+        TimelineView(.everyMinute) { context in
+            sky(SkyPalette.at(context.date))
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+
+    private func sky(_ palette: SkyPalette) -> some View {
         let k = atmosphere.strength
         let stars = Starfield.stars
-        Canvas { context, size in
+        return Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .radialGradient(
-                Gradient(colors: [Color(rgb: 0x080917), Color(rgb: 0x03040A)]),
-                center: CGPoint(x: size.width / 2, y: size.height * 0.3), startRadius: 0, endRadius: max(size.width, size.height) * 0.9))
-            // Nebulae: violet high on the right, indigo low on the left.
-            for (x, y, r, color, alpha) in [(0.88, 0.05, 0.62, AppTheme.crimson, 0.30 * k), (0.08, 0.72, 0.7, Color(rgb: 0x3730A3), 0.16 * k)] {
+                Gradient(colors: [palette.top.color, palette.bottom.color]),
+                center: CGPoint(x: size.width / 2, y: size.height * 0.2), startRadius: 0, endRadius: max(size.width, size.height) * 0.95))
+            // Nebulae: one high on the right, one low on the left.
+            for (x, y, r, tone, alpha) in [(0.88, 0.05, 0.62, palette.nebulaHigh, palette.nebulaHighAlpha * k),
+                                          (0.08, 0.72, 0.7, palette.nebulaLow, palette.nebulaLowAlpha * k)] {
                 let centre = CGPoint(x: size.width * x, y: size.height * y)
                 let radius = size.width * r
                 context.fill(Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2)),
-                             with: .radialGradient(Gradient(colors: [color.opacity(alpha), .clear]), center: centre, startRadius: 0, endRadius: radius))
+                             with: .radialGradient(Gradient(colors: [tone.color.opacity(alpha), .clear]), center: centre, startRadius: 0, endRadius: radius))
             }
             // Stars, scattered over a fixed 400 × 900 tile repeated down long screens.
             var tileY: CGFloat = 0
@@ -139,16 +150,92 @@ public struct AppBackground: View {
                     let x = star.x * size.width, y = tileY + star.y * 900
                     guard y < size.height else { continue }
                     let rect = CGRect(x: x - star.size / 2, y: y - star.size / 2, width: star.size, height: star.size)
-                    context.fill(Path(ellipseIn: rect), with: .color(star.color.opacity(star.alpha)))
+                    context.fill(Path(ellipseIn: rect), with: .color(star.color.opacity(star.alpha * palette.stars)))
                     if star.size > 1.4 {
-                        context.fill(Path(ellipseIn: rect.insetBy(dx: -2.5, dy: -2.5)), with: .color(Color(rgb: 0xC8BEFF).opacity(0.07)))
+                        context.fill(Path(ellipseIn: rect.insetBy(dx: -2.5, dy: -2.5)), with: .color(Color(rgb: 0xC8BEFF).opacity(0.07 * palette.stars)))
                     }
                 }
                 tileY += 900
             }
         }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
+    }
+}
+
+/// The sky's colours at an hour of the day, blended between anchors.
+public struct SkyPalette: Equatable, Sendable {
+    public struct Tone: Equatable, Sendable {
+        var r: Double, g: Double, b: Double
+
+        init(_ hex: UInt32) {
+            r = Double((hex >> 16) & 0xFF) / 255
+            g = Double((hex >> 8) & 0xFF) / 255
+            b = Double(hex & 0xFF) / 255
+        }
+
+        init(r: Double, g: Double, b: Double) {
+            self.r = r
+            self.g = g
+            self.b = b
+        }
+
+        var color: Color { Color(red: r, green: g, blue: b) }
+
+        func mixed(_ other: Tone, _ t: Double) -> Tone {
+            Tone(r: r + (other.r - r) * t, g: g + (other.g - g) * t, b: b + (other.b - b) * t)
+        }
+    }
+
+    var top: Tone
+    var bottom: Tone
+    var nebulaHigh: Tone
+    var nebulaHighAlpha: Double
+    var nebulaLow: Tone
+    var nebulaLowAlpha: Double
+    /// How bright the stars are (dimmed by day).
+    var stars: Double
+
+    static let night = SkyPalette(top: Tone(0x070816), bottom: Tone(0x020309), nebulaHigh: Tone(0x5B21B6), nebulaHighAlpha: 0.30,
+                                  nebulaLow: Tone(0x312E81), nebulaLowAlpha: 0.18, stars: 1)
+    static let dawn = SkyPalette(top: Tone(0x1C1030), bottom: Tone(0x07050D), nebulaHigh: Tone(0xA8558F), nebulaHighAlpha: 0.30,
+                                 nebulaLow: Tone(0xD97706), nebulaLowAlpha: 0.10, stars: 0.55)
+    static let day = SkyPalette(top: Tone(0x0C1733), bottom: Tone(0x040915), nebulaHigh: Tone(0x2563EB), nebulaHighAlpha: 0.24,
+                                nebulaLow: Tone(0x7C3AED), nebulaLowAlpha: 0.12, stars: 0.35)
+    static let dusk = SkyPalette(top: Tone(0x1A0E2C), bottom: Tone(0x07040D), nebulaHigh: Tone(0x7C3AED), nebulaHighAlpha: 0.34,
+                                 nebulaLow: Tone(0xEA580C), nebulaLowAlpha: 0.11, stars: 0.7)
+
+    /// (minute of the day, palette); wraps around midnight.
+    static let anchors: [(minute: Int, palette: SkyPalette)] = [
+        (0, .night), (300, .night),       // until 5:00 night
+        (390, .dawn), (450, .dawn),       // 6:30–7:30 dawn
+        (600, .day), (960, .day),         // 10:00–16:00 day
+        (1110, .dusk), (1200, .dusk),     // 18:30–20:00 dusk
+        (1320, .night), (1440, .night),   // from 22:00 night
+    ]
+
+    public static func at(_ date: Date, calendar: Calendar = .current) -> SkyPalette {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        return at(minute: (parts.hour ?? 0) * 60 + (parts.minute ?? 0))
+    }
+
+    public static func at(minute: Int) -> SkyPalette {
+        let m = ((minute % 1440) + 1440) % 1440
+        for index in 0..<(anchors.count - 1) {
+            let (from, to) = (anchors[index], anchors[index + 1])
+            guard m >= from.minute, m <= to.minute else { continue }
+            let span = Double(to.minute - from.minute)
+            let t = span == 0 ? 0 : Double(m - from.minute) / span
+            return from.palette.mixed(to.palette, t)
+        }
+        return .night
+    }
+
+    func mixed(_ other: SkyPalette, _ t: Double) -> SkyPalette {
+        let t = min(max(t, 0), 1)
+        func lerp(_ a: Double, _ b: Double) -> Double { a + (b - a) * t }
+        return SkyPalette(top: top.mixed(other.top, t), bottom: bottom.mixed(other.bottom, t),
+                          nebulaHigh: nebulaHigh.mixed(other.nebulaHigh, t), nebulaHighAlpha: lerp(nebulaHighAlpha, other.nebulaHighAlpha),
+                          nebulaLow: nebulaLow.mixed(other.nebulaLow, t), nebulaLowAlpha: lerp(nebulaLowAlpha, other.nebulaLowAlpha),
+                          stars: lerp(stars, other.stars))
     }
 }
 

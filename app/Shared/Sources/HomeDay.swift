@@ -119,20 +119,9 @@ public struct AmbientLight: Equatable, Sendable {
 struct HomeAmbientBackground: View {
     var sportSlug: String? = nil
 
-    /// The starfield, with the hour's light faintly over the top.
+    /// The sky of the hour (AppBackground follows the time of day).
     var body: some View {
-        TimelineView(.everyMinute) { context in
-            let light = AmbientLight.at(context.date)
-            ZStack(alignment: .top) {
-                AppBackground(.hero)
-                RadialGradient(colors: [light.color.opacity(light.strength * 0.45), .clear],
-                               center: UnitPoint(x: 0.5, y: -0.05), startRadius: 0, endRadius: 460)
-                    .frame(height: 560)
-                    .animation(.easeInOut(duration: 2), value: light)
-                    .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
-        }
+        AppBackground(.hero)
     }
 }
 
