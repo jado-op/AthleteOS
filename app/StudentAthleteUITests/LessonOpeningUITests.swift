@@ -24,7 +24,8 @@ final class LessonOpeningUITests: XCTestCase {
 
     func testTheRecommendedLessonOpensTheLessonPlayer() {
         let app = launch(tab: "campus")
-        let start = app.buttons.matching(NSPredicate(format: "label IN %@", ["Start", "Continue"])).firstMatch
+        // Campus is a sheet over the Academy now; its first row continues the path.
+        let start = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", "Continue", "Start here")).firstMatch
         XCTAssertTrue(start.waitForExistence(timeout: 20), "Campus shows a lesson to start")
         screenshot(app, "campus")
         start.tap()
@@ -37,7 +38,8 @@ final class LessonOpeningUITests: XCTestCase {
 
     func testALessonFromALearningAreaOpensTheLessonPlayer() {
         let app = launch(tab: "campus")
-        let area = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Training science")).firstMatch
+        // The area row itself (the Continue row also mentions its area).
+        let area = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Training science")).firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 20))
         area.tap()
         let lesson = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "How training makes you better")).firstMatch
