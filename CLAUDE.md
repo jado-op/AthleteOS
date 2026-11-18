@@ -159,10 +159,13 @@ Reading files, CI logs or the GitHub API needs no lock.
   once dispatched the same build in the same second). Only the session whose commit is the
   **newest code commit** on master dispatches (`work-lock:` commits don't count). If the
   other session pushed code after yours, don't dispatch: its green run covers your commit
-  too, and it builds. Right before dispatching, list `testflight.yml` runs: if one is
-  queued or in progress, or one was created after that newest code commit, don't dispatch;
-  watch that one instead. A duplicate you started by mistake: cancel your own run, never
-  the other session's.
+  too, and it builds. Right before dispatching, list `testflight.yml` runs and look at each
+  run's commit (`head_sha`), not just its status: a run builds master as it was when it was
+  created, never later pushes. Don't dispatch only if a run (queued, in progress or
+  succeeded) already has the newest code commit. A run on an older commit doesn't count —
+  dispatch anyway: `concurrency: testflight` queues yours behind it (a newer queued run
+  replaces an older queued one), and the higher build number wins on the phone. A duplicate
+  you started by mistake: cancel your own run, never the other session's.
 - "UPLOAD SUCCEEDED" ≠ in TestFlight. Apple can process for an hour; check with
   `asc-inspect.yml` ("Recent uploads": PROCESSING / COMPLETE / FAILED) before diagnosing.
 - CI is the only compiler for the app (~8 min per round), except the Foundation-only
