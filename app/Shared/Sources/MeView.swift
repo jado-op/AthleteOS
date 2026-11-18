@@ -295,8 +295,8 @@ struct MeView: View {
 
     // MARK: - Profile
 
-    /// V5: a performance profile — the name big, the sport and season as
-    /// a tracked line, the numbers on glass.
+    /// V8: the name big, then one sentence that says who this athlete is
+    /// right now (sport, position, age, season); the one streak quietly under it.
     private var profileCard: some View {
         let hasName = athlete.displayName?.isEmpty == false
         return VStack(alignment: .leading, spacing: 18) {
@@ -338,23 +338,30 @@ struct MeView: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.6)
                             .multilineTextAlignment(.leading)
-                            .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -60) }
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Edit your first name")
-                    Text([sportInfo?.name, positionName, "age \(age)"].compactMap { $0 }.joined(separator: " · "))
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Text(AthleteStats.phaseLabel(phase))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.brightRed)
+                    Headline(profileLine, size: 22)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             // The one streak (rest never breaks it), there quietly.
-            TelemetryStat("\(streak)", "day streak")
+            Text(streak == 1 ? "1-day streak · rest days never break it" : "\(streak)-day streak · rest days never break it")
+                .font(.footnote.weight(.semibold).monospacedDigit())
+                .foregroundStyle(AppTheme.secondaryText)
         }
         .padding(.top, 8)
+    }
+
+    /// "Soccer · goalkeeper · 16. In-season." — the strong words white.
+    private var profileLine: [Headline.Part] {
+        var parts: [Headline.Part] = []
+        if let name = sportInfo?.name { parts.append(.strong(name)) }
+        if let positionName { parts.append(.soft(parts.isEmpty ? positionName : " · \(positionName)")) }
+        parts.append(.soft(parts.isEmpty ? "Age \(age). " : " · \(age). "))
+        parts.append(.strong(AthleteStats.phaseLabel(phase)))
+        parts.append(.soft("."))
+        return parts
     }
 
     /// My Development Goals: what the plan leans towards.

@@ -220,6 +220,47 @@ public struct MetricTile: View {
     }
 }
 
+/// A big ring around one figure (V8): the focal point of a live set or a rest —
+/// sits on an AuraCard, white ring on the card's colour, the figure light and big.
+public struct RingTimer: View {
+    let progress: Double
+    let value: String
+    let unit: String
+    let caption: String
+    let size: CGFloat
+
+    public init(progress: Double, value: String, unit: String = "", caption: String, size: CGFloat = 220) {
+        self.progress = progress
+        self.value = value
+        self.unit = unit
+        self.caption = caption
+        self.size = size
+    }
+
+    public var body: some View {
+        let lineWidth = max(8, size * 0.055)
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.16), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: max(0, min(1, progress)))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.5), value: progress)
+            VStack(spacing: 2) {
+                Text(caption)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+                BigFigure(value, unit: unit, size: size * 0.3)
+            }
+            .padding(lineWidth * 2)
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(caption): \(value) \(unit)")
+    }
+}
+
 /// The floating tab bar: a dark pill, the open tab a white circle.
 struct PillTabBar: View {
     @Binding var selection: AppTab

@@ -143,7 +143,8 @@ struct CheckInSheet: View {
             question("How sore are you?", hint: "Normal muscle soreness from training.", options: CheckInOptions.soreness, selection: $soreness)
         case .pain:
             QuestionPage(progress: progress, question: "Any pain or discomfort?", hint: "Something that hurts — not normal soreness.",
-                         buttonTitle: hasPain == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .pain) }) {
+                         buttonTitle: hasPain == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .pain) },
+                         tone: .body) {
                 ChoiceGrid([false, true], title: { (answer: Bool) -> String in answer ? "Yes" : "No" },
                            isSelected: { (answer: Bool) -> Bool in answer == hasPain }) { (answer: Bool) in
                     hasPain = answer
@@ -175,7 +176,8 @@ struct CheckInSheet: View {
         case .illness:
             QuestionPage(progress: progress, question: "Are you ill, or told to hold back?",
                          hint: "By a doctor, athletic trainer or coach. Not sure is a fine answer.",
-                         buttonTitle: illness == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .illness) }) {
+                         buttonTitle: illness == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .illness) },
+                         tone: .body) {
                 ChoiceGrid(IllnessAnswer.allCases, title: { (answer: IllnessAnswer) -> String in answer.title },
                            isSelected: { (answer: IllnessAnswer) -> Bool in answer == illness }) { (answer: IllnessAnswer) in
                     illness = answer
@@ -186,7 +188,7 @@ struct CheckInSheet: View {
             question("How do you feel today?", hint: "Mood and stress — school, home, anything.", options: CheckInOptions.mood, selection: $mood)
         case .schedule:
             QuestionPage(progress: progress, question: "Today's schedule", hint: "Is this right? Your plan is built around it.",
-                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
+                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }, tone: .body) {
                 if let game = athlete.competitions.first(where: { Calendar.current.isDateInToday($0.date) }) {
                     ListRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: game.kind == .tournament ? "Tournament" : (AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"),
                             detail: game.date.formatted(date: .omitted, time: .shortened)) { EmptyView() }
@@ -221,7 +223,7 @@ struct CheckInSheet: View {
         let backAction: (() -> Void)? = current == .sleepHours && !hasSummary ? nil : { back() }
         let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
         return QuestionPage(progress: progress, question: text, hint: hint, buttonTitle: buttonTitle,
-                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }) {
+                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }, tone: .body) {
             ChoiceGrid(options, title: { (option: CheckInOption) -> String in option.title },
                        isSelected: { (option: CheckInOption) -> Bool in option == selection.wrappedValue }) { (option: CheckInOption) in
                 selection.wrappedValue = option
@@ -308,7 +310,7 @@ struct CheckInSheet: View {
         QuestionPage(progress: 0, question: "Your morning",
                      hint: "Filled in from Apple Health. Confirm, or change anything.",
                      buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil,
-                     onClose: { dismiss() }, onButton: { confirm() }) {
+                     onClose: { dismiss() }, onButton: { confirm() }, tone: .body) {
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
                     ListRow(systemImage: "moon.fill", color: AppTheme.purple,
@@ -441,7 +443,7 @@ struct CheckInSheet: View {
     // MARK: Result
 
     private var resultPage: some View {
-        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }) {
+        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }, tone: .body) {
             if let readiness = DailyLoop.today(athlete) {
                 ReadinessBlock(level: readiness.level, reason: readiness.reason)
             }
@@ -464,27 +466,28 @@ struct CheckInSheet: View {
     }
 }
 
-/// Today's readiness in words — never a score.
+/// Today's readiness in words — never a score. V8: the word big on a blue
+/// (body) card with the aura behind it, the three-step scale, the reason.
 struct ReadinessBlock: View {
     let level: TodayReadiness
     let reason: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(AppTheme.color(for: level.band))
-                    .frame(width: 14, height: 14)
+        AuraCard(.body, focus: UnitPoint(x: 0.25, y: 0.3), radius: 200) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text(level.title)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 44, weight: .bold))
+                    .tracking(-1)
                     .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                ReadinessScale(level: level)
+                Text(reason)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(reason)
-                .font(.body)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }

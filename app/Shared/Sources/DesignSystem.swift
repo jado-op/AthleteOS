@@ -838,11 +838,16 @@ public struct QuestionPage<Content: View>: View {
     let onClose: () -> Void
     let onBack: (() -> Void)?
     let onButton: () -> Void
+    /// V8: what the flow is about (check-in = body, reflection = mind). The
+    /// question gets bigger and a faint glow of that colour sits behind it.
+    let tone: AuraTone?
     let content: Content
 
     public init(progress: Double, question: String, hint: String? = nil, buttonTitle: String? = "Next", buttonEnabled: Bool = true,
                 onClose: @escaping () -> Void, onBack: (() -> Void)? = nil, onButton: @escaping () -> Void = {},
+                tone: AuraTone? = nil,
                 @ViewBuilder content: () -> Content) {
+        self.tone = tone
         self.progress = progress
         self.question = question
         self.hint = hint
@@ -870,11 +875,14 @@ public struct QuestionPage<Content: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(question)
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(AppTheme.ink)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityAddTraits(.isHeader)
+                        if !question.isEmpty {
+                            Text(question)
+                                .font(.system(size: tone == nil ? 26 : 34, weight: .bold))
+                                .tracking(tone == nil ? 0 : -0.7)
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityAddTraits(.isHeader)
+                        }
                         if let hint {
                             Text(hint)
                                 .font(.subheadline)
@@ -895,6 +903,16 @@ public struct QuestionPage<Content: View>: View {
                     .disabled(!buttonEnabled)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 16)
+            }
+        }
+        .background(alignment: .top) {
+            if let tone {
+                RadialGradient(colors: [tone.mark.opacity(0.26), .clear], center: UnitPoint(x: 0.2, y: 0.1),
+                               startRadius: 0, endRadius: 360)
+                    .frame(height: 520)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
         .appScreen()

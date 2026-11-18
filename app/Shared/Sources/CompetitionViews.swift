@@ -67,9 +67,11 @@ struct CompetitionHubView: View {
         let prepFirst = opening == .gamePrep || daysToNext == 0
         var shown: [Section] = [.next]
         if prepFirst { shown.append(.gamePrep) }
+        // V8: what to work on sits right under the countdown.
+        shown.append(.focus)
         if upcoming.count > 1 { shown.append(.comingUp) }
         if !prepFirst { shown.append(.gamePrep) }
-        shown += [.focus, .last]
+        shown.append(.last)
         if !past.isEmpty { shown.append(.record) }
         return shown
     }
@@ -129,8 +131,6 @@ struct CompetitionHubView: View {
                     Button("Cancel") { adding = false }
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AppTheme.brightRed)
-                } else if let next {
-                    Text(next.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()))
                 }
             }
             if adding {
@@ -141,17 +141,33 @@ struct CompetitionHubView: View {
                     onChanged()
                 }
             } else if let next, let days = daysToNext {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(days == 0 ? "Today" : days == 1 ? "Tomorrow" : "\(days)")
-                        .font(days > 1 ? .telemetry(56, weight: .medium) : .system(size: 44, weight: .semibold))
-                        .foregroundStyle(AppTheme.ink)
-                    if days > 1 {
-                        Text("days to go").font(.headline).foregroundStyle(AppTheme.secondaryText)
+                // V8: the countdown is the one thing to see — big, on the green games card.
+                AuraCard(.game, focus: UnitPoint(x: 0.22, y: 0.42), radius: 210) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("\(kindWord(next.kind)) · \(next.isHome ? "Home" : "Away")")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                        if days > 1 {
+                            BigFigure("\(days)", unit: "days to go", size: 84)
+                        } else {
+                            Text(days == 0 ? "Today" : "Tomorrow")
+                                .font(.system(size: 60, weight: .bold))
+                                .tracking(-1.2)
+                                .foregroundStyle(AppTheme.ink)
+                        }
+                        if let note = next.notes, !note.isEmpty {
+                            Text(note)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text(next.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).hour().minute()))
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink.opacity(0.75))
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if let note = next.notes, !note.isEmpty {
-                    Text(note).font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
-                }
+                .accessibilityElement(children: .combine)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Your chance")
@@ -159,13 +175,13 @@ struct CompetitionHubView: View {
                             .foregroundStyle(AppTheme.ink)
                         Spacer()
                         Text("\(Int(chance))% · \(CompetitionCoach.chanceWord(Int(chance)))")
-                            .font(.telemetry(13))
-                            .foregroundStyle(AppTheme.brightRed)
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(AuraTone.game.mark)
                     }
                     Slider(value: $chance, in: 0...100, step: 5, onEditingChanged: { editing in
                         if !editing { CompetitionStore.save(CompetitionOutlook(id: next.id, chance: Int(chance))) }
                     })
-                    .tint(AppTheme.brightRed)
+                    .tint(AuraTone.game.mark)
                     Text("Your own read — how you rate it, not a prediction.")
                         .font(.caption)
                         .foregroundStyle(AppTheme.mutedText)
@@ -274,10 +290,10 @@ struct CompetitionHubView: View {
             SpaceSection(number(.focus), "Until the next one") { Text("\(focus.count) things") }
             ForEach(Array(focus.enumerated()), id: \.element.id) { index, point in
                 HStack(alignment: .top, spacing: 14) {
-                    Text(String(format: "%02d", index + 1))
-                        .font(.telemetry(12))
-                        .foregroundStyle(AppTheme.brightRed)
-                        .padding(.top, 3)
+                    Text("\(index + 1)")
+                        .font(.title3.weight(.bold).monospacedDigit())
+                        .foregroundStyle(AuraTone.game.mark)
+                        .frame(width: 22, alignment: .leading)
                     VStack(alignment: .leading, spacing: 5) {
                         Text(family.fill(point.title))
                             .font(.body.weight(.semibold))

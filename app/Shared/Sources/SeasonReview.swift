@@ -138,14 +138,18 @@ struct SeasonReviewSheet: View {
             SpaceSection(1, "Your season") {
                 Text("since \(current.from.formatted(.dateTime.month(.abbreviated).day()))")
             }
-            HStack(alignment: .top, spacing: 6) {
-                TelemetryStat("\(current.workouts)", "workouts")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TelemetryStat("\(current.minutes / 60) h", "trained")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TelemetryStat("\(current.practices)", "practices logged")
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            // V8: a reflection, so the mind card — the season's work as one big
+            // figure, the rest in one line.
+            AuraCard(.mind, focus: UnitPoint(x: 0.22, y: 0.45), radius: 200) {
+                VStack(alignment: .leading, spacing: 6) {
+                    BigFigure("\(current.workouts)", unit: current.workouts == 1 ? "workout" : "workouts", size: 76)
+                    Text("\(current.minutes / 60) h trained · \(current.practices) \(current.practices == 1 ? "practice" : "practices") logged")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.8))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .accessibilityElement(children: .combine)
         }
     }
 

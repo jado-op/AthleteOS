@@ -117,13 +117,16 @@ public struct LiveSessionView: View {
                         if allDone {
                             doneCard
                         }
-                        poseHero
+                        // V8: the name big, then one coloured ring where the eye
+                        // lands — ember while working, blue while resting.
                         itemHeader(current)
                         if restRemaining > 0 {
                             restCard
                         } else {
+                            workCard(current)
                             doseControls(current)
                         }
+                        poseHero
                         cuesCard
                         upNext
                     }
@@ -234,36 +237,20 @@ public struct LiveSessionView: View {
         .transition(.opacity)
     }
 
-    /// V5: "03 / 08", the name big, the dose as one tracked line, rest and
-    /// why underneath.
+    /// V8: "Exercise 3 of 8", the name big; the dose, set and rest live in
+    /// the ring card below. Notes (best, last time, target) stay small.
     private func itemHeader(_ current: GeneratedPlannedItem) -> some View {
         let done = setsLogged[index, default: 0]
         return VStack(alignment: .leading, spacing: 10) {
-            Text(String(format: "%02d / %02d", index + 1, queue.count))
-                .font(.footnote.weight(.bold).monospacedDigit())
-                .tracking(2)
-                .foregroundStyle(AppTheme.brightRed)
-                .accessibilityLabel("Exercise \(index + 1) of \(queue.count)")
+            Text("Exercise \(index + 1) of \(queue.count)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
             Text(currentItem?.name ?? displayName(forSlug: current.itemSlug))
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 36, weight: .bold))
+                .tracking(-0.8)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(DoseFormatter.text(current.dose))
-                .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundStyle(AppTheme.ink)
-            HStack(spacing: 18) {
-                Text(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)")
-                    .foregroundStyle(done >= current.dose.sets ? AppTheme.green : AppTheme.ink)
-                if current.restSec > 0 {
-                    Text("Rest \(current.restSec) s")
-                }
-                if let why = whyLine {
-                    Text("Why: \(why)")
-                        .lineLimit(1)
-                }
-            }
-            .font(.subheadline.weight(.semibold).monospacedDigit())
-            .foregroundStyle(AppTheme.secondaryText)
+                .accessibilityAddTraits(.isHeader)
             if let bestNote {
                 Label(bestNote, systemImage: "trophy.fill")
                     .font(.subheadline.weight(.semibold))
@@ -272,7 +259,7 @@ public struct LiveSessionView: View {
             }
             if let lastTimeNote, done == 0 {
                 Text(lastTimeNote)
-                    .font(.telemetry(12))
+                    .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
             }
             if let targetNote, done == 0 {
@@ -353,32 +340,89 @@ public struct LiveSessionView: View {
         .cardStyle(padding: 16)
     }
 
-    private var restCard: some View {
-        VStack(spacing: 14) {
-            Text("Rest")
-                .font(.headline)
-                .foregroundStyle(AppTheme.secondaryText)
-            RingView(progress: restTotal > 0 ? Double(restRemaining) / Double(restTotal) : 0, color: AppTheme.ink, lineWidth: 12) {
-                Text(String(format: "%d:%02d", restRemaining / 60, restRemaining % 60))
-                    .font(.system(size: 40, weight: .bold).monospacedDigit())
+    /// The working set: an ember card, the ring filling set by set, the
+    /// dose under it and what comes after this set in one small line.
+    private func workCard(_ current: GeneratedPlannedItem) -> some View {
+        let done = setsLogged[index, default: 0]
+        let sets = max(current.dose.sets, 1)
+        let finished = done >= current.dose.sets
+        return AuraCard(.training, focus: UnitPoint(x: 0.5, y: 0.36), radius: 220) {
+            VStack(spacing: 14) {
+                RingTimer(progress: Double(min(done, sets)) / Double(sets),
+                          value: finished ? "Done" : "\(min(done + 1, sets))",
+                          unit: finished ? "" : "of \(sets)",
+                          caption: finished ? "All sets" : "Set", size: 200)
+                Text(DoseFormatter.text(current.dose))
+                    .font(.title2.weight(.bold).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
-                    .contentTransition(.numericText())
-            }
-            .frame(width: 180, height: 180)
-            ButtonRow {
-                Button("+15s") {
-                    restEndsAt = (restEndsAt ?? .now).addingTimeInterval(15)
-                    restRemaining += 15
-                    restTotal += 15
-                    updateActivity()
+                    .multilineTextAlignment(.center)
+                if let line = workDetailLine(current, done: done) {
+                    Text(line)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.78))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.secondary)
-                Button("Skip rest") { endRest(silently: true) }
-                    .buttonStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
-        .cardStyle()
+    }
+
+    /// "Then: rest 90 s · Why: power" — or the next exercise on the last set.
+    private func workDetailLine(_ current: GeneratedPlannedItem, done: Int) -> String? {
+        var parts: [String] = []
+        if done + 1 >= current.dose.sets, let next = nextOpenName {
+            parts.append("Then: \(next)")
+        } else if current.restSec > 0, done < current.dose.sets {
+            parts.append("Then: rest \(current.restSec) s")
+        }
+        if let why = whyLine { parts.append("Why: \(why)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// The next exercise still open after this one.
+    private var nextOpenName: String? {
+        guard let next = queue.indices.first(where: { $0 > index && !isFinished($0) })
+            ?? queue.indices.first(where: { $0 != index && !isFinished($0) }) else { return nil }
+        return catalogue.item(queue[next].itemSlug)?.name ?? displayName(forSlug: queue[next].itemSlug)
+    }
+
+    /// What comes when the rest is over: "Next: set 3 of 4".
+    private var restNextLine: String? {
+        guard let current else { return nil }
+        let done = setsLogged[index, default: 0]
+        guard done < current.dose.sets else { return nil }
+        return "Next: set \(done + 1) of \(current.dose.sets)"
+    }
+
+    /// The rest: a calm blue card, the countdown big inside the ring.
+    private var restCard: some View {
+        AuraCard(.body, focus: UnitPoint(x: 0.5, y: 0.36), radius: 220) {
+            VStack(spacing: 14) {
+                RingTimer(progress: restTotal > 0 ? Double(restRemaining) / Double(restTotal) : 0,
+                          value: String(format: "%d:%02d", restRemaining / 60, restRemaining % 60),
+                          caption: "Rest", size: 200)
+                if let restNextLine {
+                    Text(restNextLine)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.78))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                ButtonRow {
+                    Button("+15s") {
+                        restEndsAt = (restEndsAt ?? .now).addingTimeInterval(15)
+                        restRemaining += 15
+                        restTotal += 15
+                        updateActivity()
+                    }
+                    .buttonStyle(.secondary)
+                    Button("Skip rest") { endRest(silently: true) }
+                        .buttonStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 
     @ViewBuilder

@@ -151,7 +151,7 @@ struct ReflectionSheet: View {
             areas("What should improve next time?", selection: $needsWork, note: $improveNote, placeholder: "One small thing to try (optional)")
         case .learned:
             QuestionPage(progress: progress, question: "What did you learn today?", hint: "Optional. One line is plenty.",
-                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
+                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }, tone: .mind) {
                 TextField("e.g. Call for the ball earlier", text: $learned, axis: .vertical)
                     .lineLimit(2...4)
                     .font(.body)
@@ -162,43 +162,35 @@ struct ReflectionSheet: View {
             if let review { reviewPage(review) }
         case .done:
             // Calm, not a trophy: rest days finish the same way.
-            QuestionPage(progress: 1, question: "", buttonTitle: nil, onClose: { dismiss() }) {
-                VStack(spacing: 14) {
-                    Text("Day complete")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(AppTheme.brand)
-                        .frame(width: 72, height: 72)
-                        .background(Circle().stroke(AppTheme.brand.opacity(0.5), lineWidth: 2))
-                    Text(restDay ? "Rest day done." : "Day done.")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text("Your answers shape tomorrow's plan.")
-                        .font(.body)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .multilineTextAlignment(.center)
+            // V8: one sentence says it; what today showed sits on the mind card.
+            QuestionPage(progress: 1, question: "", buttonTitle: nil, onClose: { dismiss() }, tone: .mind) {
+                VStack(alignment: .leading, spacing: 20) {
+                    Headline([.icon("checkmark"), .strong(restDay ? " Rest day done." : " Day done."),
+                              .soft(" Your answers shape tomorrow's plan.")])
                     if let insight {
-                        Text(insight)
-                            .font(.body)
-                            .foregroundStyle(AppTheme.ink)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(18)
+                        AuraCard(.mind, focus: UnitPoint(x: 0.2, y: 0.3), radius: 200) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("What today shows")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                                Text(insight)
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .glassSurface()
-                            .padding(.top, 10)
+                        }
+                        .accessibilityElement(children: .combine)
                     } else if bodyFeel == 4 {
                         Text("Something hurt? Tell a coach or parent, and add it in tomorrow's check-in.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.coral)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 6)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
             }
         }
     }
@@ -212,7 +204,8 @@ struct ReflectionSheet: View {
             }
         }()
         return QuestionPage(progress: 1, question: "One quick question", hint: prompt,
-                            buttonTitle: reviewAnswer == nil ? nil : "Next", onClose: { dismiss() }, onButton: { finishReview(review, right: reviewAnswer == answer) }) {
+                            buttonTitle: reviewAnswer == nil ? nil : "Next", onClose: { dismiss() }, onButton: { finishReview(review, right: reviewAnswer == answer) },
+                            tone: .mind) {
             VStack(alignment: .leading, spacing: 12) {
                 ChoiceGrid(Array(options.indices), title: { (index: Int) -> String in options[index] },
                            isSelected: { (index: Int) -> Bool in reviewAnswer == index }) { (index: Int) in
@@ -247,7 +240,7 @@ struct ReflectionSheet: View {
         let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
         let values: [Int] = Array(1...options.count)
         return QuestionPage(progress: progress, question: question, buttonTitle: buttonTitle,
-                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }) {
+                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }, tone: .mind) {
             ChoiceGrid(values, title: { (value: Int) -> String in options[value - 1] },
                        isSelected: { (value: Int) -> Bool in selection.wrappedValue == value }) { (value: Int) in
                 selection.wrappedValue = value
@@ -270,7 +263,7 @@ struct ReflectionSheet: View {
         let empty = selection.wrappedValue.isEmpty && note.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty
         return QuestionPage(progress: progress, question: question, hint: "Tap any that fit.",
                             buttonTitle: last ? "Save" : (empty ? "Skip" : "Next"),
-                            onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: current) }) {
+                            onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: current) }, tone: .mind) {
             VStack(alignment: .leading, spacing: 14) {
                 ChoiceGrid(EveningOptions.areas, title: { (area: String) -> String in area },
                            isSelected: { (area: String) -> Bool in selection.wrappedValue.contains(area) }) { (area: String) in

@@ -250,8 +250,8 @@ struct ProgressTabView: View {
     // MARK: Summary
 
     /// This week at a glance: how many of each, Monday to Sunday.
-    /// V5: the week as telemetry — one big number, a line of light split
-    /// by what it was made of, and the parts underneath.
+    /// V8: the total big on the ember (training) card with what it was made
+    /// of in one line; the colour-coded split (the calendar's key) underneath.
     private var summaryCard: some View {
         let all = marksByDay
         let week = weekTotals(all)
@@ -261,21 +261,24 @@ struct ProgressTabView: View {
             (week.games, "Games", ProgressColors.game),
         ]
         let total = parts.reduce(0) { $0 + $1.value }
+        let madeOf: String = parts.filter { $0.value > 0 }.map { (part: (value: Int, label: String, color: Color)) -> String in
+            let word = part.label == "After" ? "after practice" : part.label.lowercased()
+            return "\(part.value) \(word)"
+        }.joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("This week")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.mutedText)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(total < 10 ? "0\(total)" : "\(total)")
-                    .font(.system(size: 88, weight: .bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                Text(total == 1 ? "session" : "sessions")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
+            AuraCard(.training, focus: UnitPoint(x: 0.2, y: 0.55), radius: 200) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("This week")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.8))
+                        .accessibilityAddTraits(.isHeader)
+                    BigFigure("\(total)", unit: total == 1 ? "session" : "sessions", size: 88)
+                    Text(total == 0 ? "Nothing logged this week yet." : madeOf)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .accessibilityElement(children: .combine)
             GeometryReader { proxy in
@@ -289,7 +292,6 @@ struct ProgressTabView: View {
                                 Capsule()
                                     .fill(part.color)
                                     .frame(width: max(4, (proxy.size.width - 12) * CGFloat(part.value) / CGFloat(total)))
-                                    .shadow(color: part.color.opacity(0.6), radius: 5)
                             }
                         }
                     }

@@ -66,27 +66,28 @@ struct TellView: View {
     }
 
     private var editor: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("What's coming up, what hurts, what you want. Your words — the app adjusts.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+        // V8: calm — one big question, then a big, quiet place to write.
+        VStack(alignment: .leading, spacing: 14) {
+            Headline([.strong("What's going on?"), .soft(" Games, pain, exams, goals — in your words. The app adjusts.")], size: 30)
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text("e.g. Match on Saturday at 4pm against Central. My knee hurts a bit. Exams next week. I want to get faster.")
-                        .font(.body)
+                        .font(.title3)
                         .foregroundStyle(AppTheme.mutedText)
                         .padding(.top, 2)
+                        .accessibilityHidden(true)
                 }
                 TextField("", text: $text, axis: .vertical)
                     .accessibilityLabel("What's going on")
-                    .lineLimit(4...10)
-                    .font(.body)
+                    .lineLimit(5...12)
+                    .font(.title3)
                     .foregroundStyle(AppTheme.ink)
                     .focused($writing)
                     .onChange(of: text) { skipped = [] }
             }
-            .padding(16)
-            .glassSurface(cornerRadius: 18)
+            .padding(18)
+            .frame(minHeight: 170, alignment: .topLeading)
+            .glassSurface(cornerRadius: 24)
             HStack(spacing: 8) {
                 if reading { ProgressView().controlSize(.small) }
                 Text(reading ? "Reading…" : "Read on your phone. Nothing is sent anywhere.")

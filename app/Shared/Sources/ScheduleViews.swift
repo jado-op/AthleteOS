@@ -35,7 +35,7 @@ struct ScheduleSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Your schedule", subtitle: "Your workouts are built around it: a short one after practice, gym sessions on free days, nothing heavy before games, lighter weeks during exams.")
+                    header
                     calendarsSection
                     practiceSection
                     extraTrainingSection
@@ -91,6 +91,39 @@ struct ScheduleSheet: View {
                 Text("Its upcoming games, practices and exams are removed from your plan. Games you added yourself stay.")
             }
         }
+    }
+
+    // MARK: - Header
+
+    /// V8: the week this screen sets up, in one sentence; how it's used, small.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Your schedule")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+            Headline(headlineParts, size: 30)
+            Text("Short workouts after practice, gym on free days, nothing heavy before games, lighter weeks during exams.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 8)
+    }
+
+    private var headlineParts: [Headline.Part] {
+        var parts: [Headline.Part] = [.soft("Built around ")]
+        parts.append(.strong(practiceDays.isEmpty ? "no set practice days" : "practice \(practiceDayNames)"))
+        let games = upcoming.filter { $0.kind == .game }.count
+        if games > 0 {
+            parts += [.soft(", "), .strong(games == 1 ? "1 game ahead" : "\(games) games ahead")]
+        }
+        if examThisWeek {
+            parts += [.soft(" and "), .strong("exams this week")]
+        } else if examNextWeek {
+            parts += [.soft(" and "), .strong("exams next week")]
+        }
+        parts.append(.soft("."))
+        return parts
     }
 
     // MARK: - Calendars

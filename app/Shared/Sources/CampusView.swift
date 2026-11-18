@@ -242,17 +242,13 @@ struct CampusView: View {
     // MARK: Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        // V8: the count in one sentence; the next lesson is the card below.
+        VStack(alignment: .leading, spacing: 8) {
             Text("Short lessons")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
                 .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 6) {
-                Text("\(learned.count)/\(totalLessons)").font(.telemetry(15))
-                Text("learned · a few minutes each")
-            }
-            .font(.footnote)
-            .foregroundStyle(AppTheme.secondaryText)
+            Headline([.strong("\(learned.count) of \(totalLessons)"), .soft(" learned. A few minutes each.")], size: 30)
         }
         .padding(.top, 8)
         .padding(.trailing, 44) // the sheet's close button
@@ -283,29 +279,31 @@ struct CampusView: View {
     private var continueRow: some View {
         if let next {
             Button { start(next.lesson) } label: {
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(learned.isEmpty ? "Start here" : "Continue")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Self.color(for: next.topic))
-                        Text(next.lesson.title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("\(next.topic.title) · \(next.lesson.minutes) min")
-                            .font(.footnote)
-                            .foregroundStyle(AppTheme.secondaryText)
+                // V8: the one place to look — the next lesson on the mind card.
+                AuraCard(.mind, focus: UnitPoint(x: 0.2, y: 0.4), radius: 200, padding: 20) {
+                    HStack(spacing: 14) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(learned.isEmpty ? "Start here" : "Continue")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink.opacity(0.8))
+                            Text(next.lesson.title)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(AppTheme.ink)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("\(next.topic.title) · \(next.lesson.minutes) min")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink.opacity(0.75))
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "play.fill")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(Color.black)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white))
+                            .accessibilityHidden(true)
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: "play.fill")
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(AppTheme.ink)
-                        .frame(width: 40, height: 40)
-                        .glassCapsule()
                 }
-                .padding(18)
-                .glassSurface(tint: Self.color(for: next.topic))
             }
             .buttonStyle(.plain)
         } else {
