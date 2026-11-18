@@ -190,7 +190,7 @@ struct ReportPage: View {
             }
             Divider()
             grid([("Workouts", "\(report.workouts)"), ("Minutes", "\(report.minutes)"), ("Team practices", "\(report.practices)"),
-                  ("Check-ins", "\(report.checkIns)"), ("Longest streak", "\(report.longestStreak) days"),
+                  ("Check-ins", "\(report.checkIns)"),
                   ("Average sleep", report.averageSleep.map { String(format: "%.1f h", $0) } ?? "—")])
             if !report.tests.isEmpty {
                 Text("Tests").font(.system(size: 15, weight: .semibold))
@@ -241,7 +241,7 @@ struct SeasonCard: View {
             Text(report.sport).font(.system(size: 40, weight: .bold))
             big("\(report.workouts)", "workouts")
             big("\(report.minutes)", "minutes of training")
-            big("\(report.longestStreak)", "days in a row, my longest streak")
+            big("\(report.practices)", "team practices")
             if let test = report.tests.first(where: { $0.change != nil }) {
                 big(test.change ?? "", test.name.lowercased())
             }

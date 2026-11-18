@@ -233,9 +233,6 @@ struct HomeView: View {
         return (minutes, early != nil ? "Early start tomorrow: 9 h of sleep" : "9 h before tomorrow")
     }
 
-    private var streak: Int {
-        AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: allSessions.map(\.startedAt))
-    }
 
     private var daysToNextGame: Int? {
         AthleteStats.upcomingCompetitions(athlete).first.map { AthleteStats.daysUntil($0.date) }

@@ -6,7 +6,6 @@ import WidgetKit
 struct StudentAthleteWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
-        StreakWidget()
         EmergencyWidget()
         WorkoutLiveActivity()
     }
@@ -254,28 +253,6 @@ struct TodayWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
-
-struct StreakWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "StreakWidget", provider: TodayProvider()) { entry in
-            VStack(spacing: 4) {
-                Image(systemName: "flame.fill")
-                    .font(.title)
-                    .foregroundStyle(WidgetInk.orange)
-                Text("\(entry.snapshot?.streak ?? 0)")
-                    .font(.system(size: 34, weight: .bold))
-                Text("day streak")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(WidgetInk.muted)
-            }
-            .containerBackground(.background, for: .widget)
-        }
-        .configurationDisplayName("Streak")
-        .description("Days in a row you've checked in or trained.")
-        .supportedFamilies([.systemSmall, .accessoryCircular])
-    }
-}
-
 
 /// The emergency card on the Lock Screen (opt-in: it shows only if the
 /// athlete adds it). Readable without unlocking, for someone helping.

@@ -187,18 +187,23 @@ final class LoadCalculatorTests: XCTestCase {
 
 @MainActor
 final class AthleteStatsTests: XCTestCase {
-    func testStreakCountsConsecutiveDaysAndSurvivesTodayNotYetDone() {
+    func testStreakCountsActiveDaysAndRestNeverBreaksIt() {
         let calendar = Calendar.current
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let days = (1...4).map { calendar.date(byAdding: .day, value: -$0, to: now)! }
         XCTAssertEqual(AthleteStats.streak(checkInDates: days, sessionDates: [], now: now), 4)
         XCTAssertEqual(AthleteStats.streak(checkInDates: [now] + days, sessionDates: [], now: now), 5)
-        XCTAssertEqual(AthleteStats.streak(checkInDates: [calendar.date(byAdding: .day, value: -3, to: now)!], sessionDates: [], now: now), 0)
-        // Sick or travel days in between neither count nor break it.
+        // Two rest days don't break it; three days away do.
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [calendar.date(byAdding: .day, value: -3, to: now)!], sessionDates: [], frozen: [], now: now), 1)
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [calendar.date(byAdding: .day, value: -4, to: now)!], sessionDates: [], frozen: [], now: now), 0)
+        // Sick or travel days in between neither count nor break it, however many.
         let twoAgo = calendar.date(byAdding: .day, value: -2, to: now)!
         let threeAgo = calendar.date(byAdding: .day, value: -3, to: now)!
         let frozen: Set<String> = [DayKey.of(calendar.date(byAdding: .day, value: -1, to: now)!, calendar: calendar)]
         XCTAssertEqual(AthleteStats.streak(checkInDates: [now, twoAgo, threeAgo], sessionDates: [], frozen: frozen, now: now, calendar: calendar), 3)
-        XCTAssertEqual(AthleteStats.streak(checkInDates: [now, twoAgo, threeAgo], sessionDates: [], frozen: [], now: now, calendar: calendar), 1)
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [now, twoAgo, threeAgo], sessionDates: [], frozen: [], now: now, calendar: calendar), 3, "a rest day")
+        let sixAgo = calendar.date(byAdding: .day, value: -6, to: now)!
+        let away: Set<String> = Set((1...5).map { DayKey.of(calendar.date(byAdding: .day, value: -$0, to: now)!, calendar: calendar) })
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [now, sixAgo], sessionDates: [], frozen: away, now: now, calendar: calendar), 2)
     }
 }

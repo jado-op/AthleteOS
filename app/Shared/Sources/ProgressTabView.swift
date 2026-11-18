@@ -270,7 +270,6 @@ struct ProgressTabView: View {
     private var summaryCard: some View {
         let all = marksByDay
         let week = weekTotals(all)
-        let streak = AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: sessions.map(\.startedAt))
         let parts: [(value: Int, label: String, color: Color)] = [
             (week.gym, "Gym", ProgressColors.workout), (week.practices, "Practice", ProgressColors.practice),
             (week.afterPractice, "After", ProgressColors.afterPractice), (week.mobility, "Mobility", ProgressColors.mobility),
@@ -284,19 +283,11 @@ struct ProgressTabView: View {
                     .foregroundStyle(AppTheme.mutedText)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                Label("\(streak)", systemImage: "flame.fill")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
-                    .glassCapsule()
-                    .accessibilityLabel("\(streak) day streak")
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(total < 10 ? "0\(total)" : "\(total)")
                     .font(.system(size: 88, weight: .bold).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
-                    .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -40) }
                 Text(total == 1 ? "session" : "sessions")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)

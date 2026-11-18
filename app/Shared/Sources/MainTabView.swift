@@ -518,24 +518,27 @@ enum AthleteStats {
         return calendar.dateComponents([.day], from: calendar.startOfDay(for: .now), to: calendar.startOfDay(for: date)).day ?? 0
     }
 
-    /// Consecutive days, ending today (or yesterday, so the streak doesn't
-    /// read zero before the morning check-in), with a check-in or a logged
-    /// session — the daily-habit number Cal AI shows as its flame.
-    /// Days in a row with a check-in or a workout. Sick, travel and holiday
-    /// days (StreakFreeze) are skipped: they neither count nor break it.
+    /// The one streak: days with a check-in or a workout, and rest never
+    /// breaks it. Up to two days in a row without either are rest days
+    /// (they neither count nor break it); sick, travel, holiday and
+    /// head-injury days (StreakFreeze) are skipped however many. Today not
+    /// done yet is never a missed day. Only three days away in a row end it.
+    static let restDaysAllowed = 2
+
     static func streak(checkInDates: [Date], sessionDates: [Date], frozen: Set<String> = StreakFreeze.days(),
                        now: Date = .now, calendar: Calendar = .current) -> Int {
         let active = Set((checkInDates + sessionDates).map { calendar.startOfDay(for: $0) })
-        var day = calendar.startOfDay(for: now)
-        if !active.contains(day) {
-            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
-        }
+        let today = calendar.startOfDay(for: now)
+        var day = today
         var count = 0
+        var rest = 0
         for _ in 0..<3650 {
             if active.contains(day) {
                 count += 1
-            } else if !frozen.contains(DayKey.of(day, calendar: calendar)) {
-                break
+                rest = 0
+            } else if day != today, !frozen.contains(DayKey.of(day, calendar: calendar)) {
+                rest += 1
+                if rest > restDaysAllowed { break }
             }
             guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
             day = previous

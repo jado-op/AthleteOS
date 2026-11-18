@@ -104,12 +104,11 @@ struct MindsetView: View {
     private var reflectionSection: some View {
         _ = revision
         let today = MindsetStore.reflection(on: .now)
-        let streak = MindsetStore.reflectionStreak()
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Evening reflection", subtitle: "Forty-five seconds before bed: how today felt shapes tomorrow's plan.")
             if let today {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Done for today\(streak > 1 ? " · \(streak) days in a row" : "")", systemImage: "checkmark.circle.fill")
+                    Label("Done for today", systemImage: "checkmark.circle.fill")
                         .font(.headline)
                         .foregroundStyle(AppTheme.green)
                     reflectionLines(today)
