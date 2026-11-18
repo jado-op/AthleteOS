@@ -113,8 +113,10 @@ struct AcademyHomeView: View {
             // Screenshots: `-tab academy -sheet intake` opens the interview.
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
             openPendingBriefing()
+            openPendingInterview()
         }
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
+        .onChange(of: navigation.pendingInterview) { openPendingInterview() }
         .fullScreenCover(item: $reading, onDismiss: reload) { target in
             BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil,
                                familyID: AcademyContent.familyID(forSport: sportSlug))
@@ -141,6 +143,13 @@ struct AcademyHomeView: View {
         }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
         .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
+    }
+
+    private func openPendingInterview() {
+        guard navigation.pendingInterview else { return }
+        navigation.pendingInterview = false
+        interviewStart = nil
+        showingInterview = true
     }
 
     /// Home's "Next step · read": open that briefing, with the insight behind it.

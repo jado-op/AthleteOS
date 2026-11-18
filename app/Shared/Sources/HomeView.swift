@@ -28,6 +28,8 @@ struct HomeView: View {
     /// the day's reading comes from the twin first (one recommender).
     @State private var twinBriefing: Briefing?
     @State private var briefingReadToday = false
+    /// No twin yet: after the first check-in the day's learning step is the interview.
+    @State private var twinInterviewDue = false
     /// "Train as planned instead": one choice for today, shared by Home and Workout.
     @AppStorage(ReadinessOverride.key) private var readinessOverrideDay = ""
     private var readinessOverridden: Bool {
@@ -275,6 +277,7 @@ struct HomeView: View {
     private func refreshTwinBriefing() {
         let state = AcademyStore.load()
         briefingReadToday = state.read.values.contains { calendar.isDateInToday($0) }
+        twinInterviewDue = state.intakeDoneAt == nil && !athlete.checkIns.isEmpty
         let report = TwinAnalysis.report(TwinInputBuilder.input(athlete: athlete, state: state))
         twinBriefing = report.insights.compactMap(\.briefing).first { state.read[$0.id] == nil }
     }
@@ -843,7 +846,7 @@ struct HomeView: View {
     /// Today as a numbered plan and the one step that is next (TodayPlan.swift).
     private var todayPlan: TodayPlan {
         TodayPlan.make(.init(minute: minuteNow, checkedIn: todaysCheckIn != nil, reflected: reflectedToday, learned: learnedToday,
-                             lessonAvailable: twinBriefing != nil || nextLesson != nil, fixed: fixedPoint, workoutPlanned: todaysWorkout != nil,
+                             lessonAvailable: twinInterviewDue || twinBriefing != nil || nextLesson != nil, fixed: fixedPoint, workoutPlanned: todaysWorkout != nil,
                              workoutDone: workoutDoneToday, practiceLogged: practiceLogToday != nil, sick: status == .sick))
     }
 
@@ -1052,7 +1055,20 @@ struct HomeView: View {
     /// Nothing to train right now: a few minutes of Campus are the next step.
     @ViewBuilder
     private var lessonHero: some View {
-        if let briefing = twinBriefing {
+        if twinInterviewDue {
+            VStack(spacing: 14) {
+                NextStepEyebrow("Next step · your twin", accent: phase.red)
+                Button { openLesson() } label: { heroTitle("Meet your twin") }
+                    .buttonStyle(.plain)
+                bigNumber("5", unit: "min")
+                heroMeta("Ten questions about how you think and train — no right answers. Only you see it.")
+                Button { openLesson() } label: { HeroCTALabel("Start the interview") }
+                    .buttonStyle(.primary)
+                    .padding(.top, 6)
+                    .frame(maxWidth: 300)
+            }
+            .frame(maxWidth: .infinity)
+        } else if let briefing = twinBriefing {
             VStack(spacing: 14) {
                 NextStepEyebrow("Next step · read", accent: phase.red)
                 Button { openLesson() } label: { heroTitle(briefing.title) }
@@ -1083,6 +1099,12 @@ struct HomeView: View {
 
     /// Today's lesson, opened in Campus (the tab alone once it is learned).
     private func openLesson() {
+        if twinInterviewDue {
+            AcademyNavigation.shared.page = .twin
+            AcademyNavigation.shared.pendingInterview = true
+            selectedTab = .academy
+            return
+        }
         if let briefing = twinBriefing {
             AcademyNavigation.shared.page = .twin
             AcademyNavigation.shared.pendingBriefingID = briefing.id
@@ -1284,6 +1306,7 @@ struct HomeView: View {
         case .rest:
             return (status == .sick ? "Rest and recover" : "Rest day", nil)
         case .lesson:
+            if !done, twinInterviewDue { return ("Meet your twin", "5 min") }
             if !done, let briefing = twinBriefing { return (briefing.title, "\(briefing.minutes) min read") }
             guard !done, let next = nextLesson else { return ("Lesson", nil) }
             return (next.lesson.title, "\(next.lesson.minutes) min")

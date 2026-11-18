@@ -12,7 +12,7 @@ public struct SetupFlowView: View {
     @Environment(\.modelContext) private var modelContext
 
     private enum Step: Int, CaseIterable {
-        case sport, position, season, equipment, coach, finishing
+        case sport, position, season, equipment, finishing
     }
 
     @State private var step: Step = .sport
@@ -31,8 +31,9 @@ public struct SetupFlowView: View {
 
     private var sport: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
 
+    /// One bar across the whole first run: age and sign-in filled the first 40%.
     private var progress: Double {
-        Double(step.rawValue + 1) / Double(Step.allCases.count)
+        0.4 + 0.6 * Double(step.rawValue + 1) / Double(Step.allCases.count - 1)
     }
 
     public var body: some View {
@@ -65,17 +66,9 @@ public struct SetupFlowView: View {
             case .equipment:
                 StepScaffold(
                     progress: progress, title: "What can you train with?", subtitle: "Only pick what you actually have access to. Nothing is fine too.",
-                    onBack: { go(.season) }, onContinue: { go(.coach) }
+                    buttonTitle: "Finish setup", onBack: { go(.season) }, onContinue: finish
                 ) {
                     EquipmentChooser(selection: $equipment)
-                }
-            case .coach:
-                StepScaffold(
-                    progress: progress, title: "Do you train under a coach?", subtitle: "Someone who watches you lift. If not, you only get moves you can learn alone.",
-                    buttonTitle: "Finish setup", buttonEnabled: trainsUnderCoach != nil,
-                    onBack: { go(.equipment) }, onContinue: finish
-                ) {
-                    CoachChooser(selection: $trainsUnderCoach)
                 }
             case .finishing:
                 finishingView
@@ -126,7 +119,15 @@ public struct SetupFlowView: View {
         guard let sport else { return }
         go(.finishing)
         Task {
-            await SportPackInstaller.install(slug: sport.slug, context: modelContext)
+            // The library downloads in the background; a slow signal never
+            // holds the first plan for more than a few seconds (the sport's
+            // profile is compiled in).
+            let context = modelContext
+            Task { await SportPackInstaller.install(slug: sport.slug, context: context) }
+            for _ in 0..<10 {
+                if (try? DownloadedPackRecorder(context: context).isDownloaded(slug: sport.slug, atLeastVersion: 0)) == true { break }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
             athlete.equipmentAvailable = Array(equipment).sorted()
             athlete.trainsUnderCoach = trainsUnderCoach ?? false
             modelContext.insert(AthleteSport(

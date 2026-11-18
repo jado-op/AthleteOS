@@ -222,11 +222,10 @@ public struct MainTabView: View {
             // First run: a short tour of the five tabs, then (once) the
             // HealthKit ask, reason first — never two prompts stacked.
             if DemoData.showsPaywall { demoPaywall = true }
-            if !appTourSeen, !DemoData.isEnabled {
-                showingTour = true
-            } else {
-                askForHealthIfNeeded()
-            }
+            // The tour stays in Me → Help; first run goes straight to the day
+            // (Home's next step guides), with the one Health ask.
+            if !appTourSeen { appTourSeen = true }
+            askForHealthIfNeeded()
             regenerate()
             await openPendingLink()
             await backUp()

@@ -24,6 +24,8 @@ final class AcademyNavigation: ObservableObject {
     @Published var showingLessons = false
     /// A briefing to open (Home's "Next step · read").
     @Published var pendingBriefingID: String?
+    /// Home's "Meet your twin": open the interview.
+    @Published var pendingInterview = false
 }
 
 /// The top of both pages: the profile button and the Twin | Progress switch.
