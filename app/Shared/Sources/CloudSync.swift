@@ -69,15 +69,32 @@ public enum CloudSync {
             guard (try? await apiClient.deleteState(key, sessionToken: token)) != nil else { return false }
             pendingDeletes.removeAll { $0 == key }
         }
+        // "Delete twin": a marker (a date, no content) so the athlete's other
+        // phones delete their copy too instead of pushing it back.
+        if let deletedAt = twinDeletedAt {
+            let marker = try? JSONSerialization.data(withJSONObject: ["at": deletedAt.timeIntervalSince1970])
+            guard let marker, (try? await apiClient.pushState([twinMarkerKey: .init(json: marker, updatedAt: deletedAt)], sessionToken: token)) != nil
+            else { return false }
+            twinDeletedAt = nil
+        }
         guard let remote = try? await apiClient.fetchState(sessionToken: token) else { return false }
         // The fetch suspended; the athlete may have logged out meanwhile.
         guard !athlete.isDeleted, athlete.modelContext != nil else { return false }
 
         var meta = loadMeta()
+        // Deleted on another phone after this one last synced its twin: delete it here too.
+        if let marker = remote[twinMarkerKey], remote[twinKey] == nil,
+           (meta[twinKey]?.updatedAt ?? .distantPast) < marker.updatedAt {
+            AcademyStore.delete()
+            meta[twinKey] = nil
+        }
         var toPush: [String: APIClient.SyncedDoc] = [:]
         for (key, local) in exportAll(athlete: athlete, now: now) {
             // Private groups go up sealed (CloudSeal); without a key they stay on this phone.
-            let sealKey = CloudSeal.isSealed(documentKey: key) ? CloudSeal.key() : nil
+            // A sealed backup already on the server: wait for its key (iCloud
+            // Keychain may still be bringing it) rather than making a new one.
+            let sealedOnServer = remote[key].map { CloudSeal.isEnvelope($0.json) } ?? false
+            let sealKey = CloudSeal.isSealed(documentKey: key) ? CloudSeal.key(createIfMissing: !sealedOnServer) : nil
             if CloudSeal.isSealed(documentKey: key), sealKey == nil { continue }
             var server = remote[key]
             var serverIsPlain = false
@@ -194,9 +211,20 @@ public enum CloudSync {
         }
     }
 
+    private static let discardedSessionsKey = "cloud.discardedSessions"
+
+    /// A workout the athlete discarded: never brought back by a restore.
+    static func discard(sessionClientId: String) {
+        var ids = UserDefaults.standard.stringArray(forKey: discardedSessionsKey) ?? []
+        if !ids.contains(sessionClientId) { ids.append(sessionClientId) }
+        UserDefaults.standard.set(Array(ids.suffix(200)), forKey: discardedSessionsKey)
+    }
+
     static func mergeSessions(_ remote: [APIClient.RemoteSession], into athlete: Athlete, context: ModelContext, now: Date) {
-        let known = Set(athlete.sessions.map(\.clientId))
+        let known = Set(athlete.sessions.map(\.clientId)).union(UserDefaults.standard.stringArray(forKey: discardedSessionsKey) ?? [])
         for row in remote where !known.contains(row.clientId) {
+            // An empty open workout uploaded by an older app: not a real session.
+            guard row.endedAt != nil || !row.sets.isEmpty else { continue }
             guard let startedAt = APIClient.parseTimestamp(row.startedAt) else { continue }
             let session = Session(
                 startedAt: startedAt, endedAt: row.endedAt.flatMap(APIClient.parseTimestamp),
@@ -549,9 +577,20 @@ public enum CloudSync {
     /// "Delete twin": the interview, briefings read and performances — on this
     /// phone and in the backup.
     @discardableResult
+    static let twinKey = "settings.academyTwin"
+    static let twinMarkerKey = "deleted.academyTwin"
+    private static let twinDeletedAtKey = "cloud.twinDeletedAt"
+
+    /// A twin deletion still to be announced to the server (offline).
+    static var twinDeletedAt: Date? {
+        get { UserDefaults.standard.object(forKey: twinDeletedAtKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: twinDeletedAtKey) }
+    }
+
     public static func deleteTwin() async -> Bool {
         AcademyStore.delete()
-        return await deleteBackup("settings.academyTwin")
+        twinDeletedAt = .now
+        return await deleteBackup(twinKey)
     }
 
     // MARK: - Bookkeeping

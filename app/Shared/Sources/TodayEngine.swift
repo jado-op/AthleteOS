@@ -112,10 +112,14 @@ enum TodayEngine {
         var pain: Set<PainArea> = []
         var reflection: ReflectionSignal?
         if isToday {
-            switch DailyLoop.today(athlete)?.level {
-            case .recovery?: readiness = .low
-            case .reduced?: readiness = .belowNormal
-            default: readiness = .normal
+            // "Train as planned instead" chosen today: full readiness (pain
+            // and illness are still handled on their own).
+            if !ReadinessOverride.isOn(date, calendar: calendar) {
+                switch DailyLoop.today(athlete)?.level {
+                case .recovery?: readiness = .low
+                case .reduced?: readiness = .belowNormal
+                default: readiness = .normal
+                }
             }
             if let checkIn = AthleteStats.todaysCheckIn(athlete) { soreLegs = checkIn.soreness >= 5 }
             pain = TodaysPain.areas(now: date)
@@ -185,7 +189,7 @@ enum TodayEngine {
         let hour = calendar.component(.hour, from: .now)
         return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar), "\(hour)",
                 "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", "\(athlete.competitions.count)",
-                DayStatusStore.status().rawValue, TodaysPain.areas().map(\.rawValue).sorted().joined(),
+                DayStatusStore.status().rawValue, "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",

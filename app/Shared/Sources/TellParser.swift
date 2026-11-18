@@ -54,7 +54,8 @@ public enum TellParser {
                     when = timed
                     hasTime = true
                 } else {
-                    when = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day) ?? day
+                    // Midnight means "time not known": the app uses the usual start time.
+                    when = calendar.startOfDay(for: day)
                 }
                 proposals.append(.competition(date: when, kind: kind, note: opponent(sentence), hasTime: hasTime))
             }
@@ -125,7 +126,8 @@ public enum TellParser {
         (["knee", "knees", "knie"], "knee"),
         (["ankle", "ankles", "foot", "feet", "heel", "achilles", "knöchel", "sprunggelenk", "fuß", "füße", "ferse", "achillessehne"], "ankle"),
         (["shoulder", "shoulders", "schulter", "schultern"], "shoulder"),
-        (["back", "lower back", "spine", "rücken", "kreuz"], "back"),
+        // "back" alone is too often "since I got back".
+        (["lower back", "upper back", "my back", "the back", "back hurts", "back pain", "back is", "spine", "rücken", "kreuz"], "back"),
         (["hip", "hips", "groin", "hüfte", "leiste"], "hip"),
         (["neck", "nacken", "hals"], "neck"),
         (["wrist", "elbow", "arm", "arms", "hand", "finger", "handgelenk", "ellbogen", "ellenbogen"], "arm"),
@@ -145,7 +147,13 @@ public enum TellParser {
 
     static func competitionWord(_ words: [String], _ sentence: String) -> CompetitionWord? {
         if containsAny(words, sentence, ["tournament", "tourney", "turnier", "cup", "championship", "championships", "meisterschaft"]) { return .tournament }
-        if containsAny(words, sentence, ["meet", "race", "regatta", "rennen", "wettkampf", "competition", "lauf"]) { return .meet }
+        // "meet with my coach", "meet up": not a competition.
+        let socialMeet = sentence.contains("meet with") || sentence.contains("meet up") || sentence.contains("meet my") || sentence.contains("to meet")
+        if containsAny(words, sentence, ["race", "regatta", "rennen", "wettkampf", "competition", "lauf"])
+            || (!socialMeet && containsAny(words, sentence, ["meet"])) { return .meet }
+        // "Finals" at school are exams, not a final.
+        let schoolFinals = containsAny(words, sentence, ["finals"]) && containsAny(words, sentence, ["exam", "exams", "school", "study", "studying", "class", "classes"])
+        if schoolFinals { return nil }
         if containsAny(words, sentence, ["game", "match", "final", "finals", "playoff", "playoffs", "derby", "spiel", "finale", "tryout", "tryouts", "probetraining"]) { return .game }
         return nil
     }
@@ -288,7 +296,7 @@ public enum TellParser {
 
     /// "at 4pm", "at 16:30", "um 16 uhr", "um 9:30" → (hour, minute).
     static func findTime(_ sentence: String) -> (Int, Int)? {
-        if let match = sentence.range(of: #"(at|um|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|uhr)?"#, options: .regularExpression) {
+        if let match = sentence.range(of: #"(\bat\b|\bum\b|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|uhr)?\b"#, options: .regularExpression) {
             let text = String(sentence[match])
             let numbers = text.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap { Int($0) }
             guard var hour = numbers.first, hour <= 23 else { return nil }

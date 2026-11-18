@@ -31,7 +31,9 @@ public struct SyncQueue {
         // "Keychain read failed" (throw) the same way.
         guard let token = try? tokenStore.read() else { return (0, 0) }
 
-        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.syncedAt == nil })
+        // Only finished sessions: one still open (the phone locked during a
+        // rest) goes up once it ends, with every set.
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.syncedAt == nil && $0.endedAt != nil })
         guard let pending = try? modelContext.fetch(descriptor) else { return (0, 0) }
 
         var succeeded = 0

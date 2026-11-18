@@ -34,8 +34,20 @@ public struct SessionLogger {
             distanceM: distanceM, contacts: contacts, side: side, session: session
         )
         modelContext.insert(set)
+        // Changed since its last upload: send it again (the server upserts by clientId).
+        session.syncedAt = nil
         try modelContext.save()
         return set
+    }
+
+    /// Workouts opened and left without a single set (a crash, a force-quit):
+    /// gone after six hours, so they never count as training.
+    public func removeAbandoned(now: Date = .now) {
+        let cutoff = now.addingTimeInterval(-6 * 3600)
+        let descriptor = FetchDescriptor<Session>(predicate: #Predicate { $0.endedAt == nil && $0.startedAt < cutoff })
+        guard let open = try? modelContext.fetch(descriptor) else { return }
+        for session in open where session.sets.isEmpty { modelContext.delete(session) }
+        try? modelContext.save()
     }
 
     /// §15: "It ends with the single RPE question and nothing else."
@@ -47,6 +59,7 @@ public struct SessionLogger {
         session.endedAt = endedAt
         session.sessionRPE = sessionRPE
         session.minutes = max(0, Int(endedAt.timeIntervalSince(session.startedAt) / 60))
+        session.syncedAt = nil
         try modelContext.save()
     }
 }

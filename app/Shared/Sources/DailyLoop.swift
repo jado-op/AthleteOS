@@ -304,13 +304,17 @@ public enum DailyLoop {
             candidates.append((.reduced, wearable))
         }
         if let answers {
-            var flags = 0
-            if (answers.sleepHours ?? 8) < 6 || answers.sleepQuality <= 1 { flags += 1 }
-            if answers.energy <= 1 { flags += 1 }
-            if answers.soreness >= 5 { flags += 1 }
-            if answers.stress >= 5 { flags += 1 }
+            var named: [String] = []
+            if (answers.sleepHours ?? 8) < 6 || answers.sleepQuality <= 1 { named.append("short sleep") }
+            if answers.energy <= 1 { named.append("low energy") }
+            if answers.soreness >= 5 { named.append("heavy soreness") }
+            if answers.stress >= 5 { named.append("a lot of stress") }
+            let flags = named.count
             if flags >= 2 {
-                candidates.append((.recovery, "Low sleep and energy together: a recovery day helps you bounce back."))
+                // Named by what actually showed up today.
+                let list = named.count == 2 ? named.joined(separator: " and ")
+                    : named.dropLast().joined(separator: ", ") + " and " + (named.last ?? "")
+                candidates.append((.recovery, list.prefix(1).uppercased() + list.dropFirst() + " together: a recovery day helps you bounce back."))
             } else if flags == 1 || answers.soreness >= 4 || answers.energy <= 2 {
                 let reason = answers.soreness >= 4 ? "You're more sore than usual, so today is a bit lighter."
                     : (answers.energy <= 2 ? "Your energy is low, so today is a bit lighter."

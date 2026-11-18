@@ -286,14 +286,25 @@ struct ReflectionSheet: View {
         self.practiceToday = practiceToday
         self.restDay = restDay
         self.onSaved = onSaved
-        let existing = MindsetStore.reflection(on: .now)
+        let existing = MindsetStore.reflection(on: Self.reflectionDay())
         _hardness = State(initialValue: existing?.hardness)
         _bodyFeel = State(initialValue: existing?.body)
         _practice = State(initialValue: existing?.practice)
-        _wentWell = State(initialValue: Set(existing?.wentWell ?? []))
-        _needsWork = State(initialValue: Set(existing?.needsWork ?? []))
+        // Chips are the known areas; anything else is the athlete's own note.
+        let areas = Set(EveningOptions.areas)
+        _wentWell = State(initialValue: Set((existing?.wentWell ?? []).filter { areas.contains($0) }))
+        _needsWork = State(initialValue: Set((existing?.needsWork ?? []).filter { areas.contains($0) }))
+        _wentWellNote = State(initialValue: (existing?.wentWell ?? []).first { !areas.contains($0) } ?? "")
+        _improveNote = State(initialValue: (existing?.needsWork ?? []).first { !areas.contains($0) } ?? "")
         _learned = State(initialValue: existing?.learned ?? "")
         if restDay { _step = State(initialValue: .body) }
+    }
+
+    /// The day being reflected on: after midnight (until 5:00) it is still yesterday.
+    static func reflectionDay(_ now: Date = .now, calendar: Calendar = .current) -> Date {
+        let minute = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+        guard minute < TodayPlan.nightEnd else { return now }
+        return calendar.date(byAdding: .day, value: -1, to: now) ?? now
     }
 
     /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
@@ -339,7 +350,9 @@ struct ReflectionSheet: View {
                     if answer == .no { advance(from: .symptoms) }
                 }
                 if symptoms == .yes || symptoms == .unsure {
-                    Text("Tomorrow's check-in asks where, and the plan stays lighter until it's gone. If it's sharp, swelling or getting worse, tell an adult tonight.")
+                    Text(symptoms == .yes
+                         ? "Tomorrow's plan stays lighter until it's gone. If it's sharp, swelling or getting worse, tell an adult tonight."
+                         : "Mention it in tomorrow's check-in if it's still there. If it's sharp, swelling or getting worse, tell an adult tonight.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -522,7 +535,7 @@ struct ReflectionSheet: View {
 
     private func save() {
         // Symptoms after training are kept like pain in the check-in (no diagnosis).
-        if symptoms == .yes, PainStore.report() == nil {
+        if symptoms == .yes, bodyFeel == 4, PainStore.report() == nil {
             PainStore.set(PainReport(day: DayKey.of(.now), areas: [.other], level: .some))
             HealthShare.send(kind: "pain", areas: [.other], level: .some)
         }
@@ -533,10 +546,11 @@ struct ReflectionSheet: View {
             hardness: restDay ? nil : hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
             wentWell: order.filter { wentWell.contains($0) } + (wellNote.isEmpty ? [] : [wellNote]),
             needsWork: order.filter { needsWork.contains($0) } + (improve.isEmpty ? [] : [improve]),
-            learned: learned.isEmpty ? nil : learned
+            learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
+        ReminderScheduler.markDone(reflection: true)
         // Sometimes one small thing back (V6 §19), never the same one twice in a row.
-        if let saved = MindsetStore.reflection(on: .now) {
+        if let saved = MindsetStore.reflection(on: Self.reflectionDay()) {
             let last = UserDefaults.standard.string(forKey: "reflection.lastInsight")
             if let found = ReflectionInsight.make(today: saved, recent: MindsetStore.reflections, practiceToday: practiceToday, lastShown: last) {
                 insight = found.text

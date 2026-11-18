@@ -408,6 +408,7 @@ struct CheckInSheet: View {
 
     private func save() {
         guard let sleepQuality, let energy, let soreness, let mood else { return }
+        ReminderScheduler.markDone(checkIn: true)
         let day = DayKey.of(.now)
         // Only a day that differs from the schedule is remembered.
         PracticeOverride.set(nil, on: day)

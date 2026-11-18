@@ -37,17 +37,22 @@ final class TellParserTests: XCTestCase {
     }
 
     func testDates() {
-        XCTAssertEqual(firstCompetitionDay(parse("game tomorrow")), day(19, hour: 10))
+        XCTAssertEqual(firstCompetitionDay(parse("game tomorrow")), day(19, hour: 0))
         XCTAssertEqual(firstCompetitionDay(parse("match today at 4")), day(18, hour: 16))
-        XCTAssertEqual(firstCompetitionDay(parse("race on 24.11.")), day(24, hour: 10))
-        XCTAssertEqual(firstCompetitionDay(parse("meet on nov 29")), day(29, hour: 10))
-        XCTAssertEqual(firstCompetitionDay(parse("final next friday")), day(27, hour: 10))
-        XCTAssertEqual(firstCompetitionDay(parse("match in 5 days")), day(23, hour: 10))
-        XCTAssertEqual(firstCompetitionDay(parse("Turnier übermorgen")), day(20, hour: 10))
+        XCTAssertEqual(firstCompetitionDay(parse("race on 24.11.")), day(24, hour: 0))
+        XCTAssertEqual(firstCompetitionDay(parse("meet on nov 29")), day(29, hour: 0))
+        XCTAssertEqual(firstCompetitionDay(parse("final next friday")), day(27, hour: 0))
+        XCTAssertEqual(firstCompetitionDay(parse("match in 5 days")), day(23, hour: 0))
+        XCTAssertEqual(firstCompetitionDay(parse("Turnier übermorgen")), day(20, hour: 0))
         // A date earlier this year means next year.
-        XCTAssertEqual(firstCompetitionDay(parse("game on 3.2.")), calendar.date(from: DateComponents(year: 2027, month: 2, day: 3, hour: 10)))
+        XCTAssertEqual(firstCompetitionDay(parse("game on 3.2.")), calendar.date(from: DateComponents(year: 2027, month: 2, day: 3, hour: 0)))
         // No day, no competition.
         XCTAssertNil(firstCompetitionDay(parse("I love my games")))
+        // Not competitions.
+        XCTAssertNil(firstCompetitionDay(parse("I meet with my coach tomorrow")))
+        XCTAssertNil(firstCompetitionDay(parse("finals at school on friday")))
+        // "that 3" is not a time.
+        XCTAssertEqual(firstCompetitionDay(parse("game tomorrow, that 3 hour bus ride")), day(19))
     }
 
     private func firstCompetitionDay(_ result: TellParser.Result) -> Date? {
@@ -64,6 +69,8 @@ final class TellParserTests: XCTestCase {
         let sharp = parse("my shoulder really hurts")
         XCTAssertTrue(sharp.proposals.contains(.pain(areas: ["shoulder"], level: "lot")))
         XCTAssertTrue(sharp.safety?.contains("get it checked") == true)
+        // "Since I got back" isn't back pain.
+        XCTAssertTrue(parse("my knee hurts since I got back").proposals.contains(.pain(areas: ["knee"], level: "some")))
         // Being sore isn't pain.
         XCTAssertTrue(parse("legs are sore after the game").proposals.isEmpty)
     }

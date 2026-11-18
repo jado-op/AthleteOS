@@ -189,7 +189,13 @@ struct TellView: View {
 
     private func apply(_ proposals: [TellParser.Proposal]) {
         var lines: [String] = []
-        for (index, proposal) in proposals.enumerated() where !skipped.contains(index) {
+        // A head knock goes last, so no other status can replace the pause;
+        // and nothing typed here lifts a pause that is already on.
+        let paused = DayStatusStore.status() == .concussion
+        let chosen = proposals.enumerated().filter { !skipped.contains($0.offset) }.map(\.element)
+        let isKnock: (TellParser.Proposal) -> Bool = { if case .headKnock = $0 { true } else { false } }
+        let ordered = chosen.filter { !isKnock($0) } + chosen.filter(isKnock)
+        for proposal in ordered {
             switch proposal {
             case .competition(let date, let kind, let note, _):
                 let stored: CompetitionKind = switch kind {
@@ -201,13 +207,25 @@ struct TellView: View {
                                                 isHome: true, notes: note, athlete: athlete))
                 try? modelContext.save()
             case .pain(let areas, let level):
-                PainStore.set(PainReport(day: DayKey.of(.now), areas: areas.compactMap(PainArea.init(rawValue:)),
-                                         level: PainLevel(rawValue: level) ?? .some))
+                // Added to today's report, never replacing it; the higher level wins.
+                let new = areas.compactMap(PainArea.init(rawValue:))
+                let told = PainLevel(rawValue: level) ?? .some
+                let today = PainStore.report()
+                let merged = (today?.areas ?? []) + new.filter { !(today?.areas ?? []).contains($0) }
+                let order: [PainLevel] = [.little, .some, .lot]
+                let higher = max(order.firstIndex(of: told) ?? 1, today.flatMap { order.firstIndex(of: $0.level) } ?? 0)
+                PainStore.set(PainReport(day: DayKey.of(.now), areas: merged, level: order[higher]))
+                HealthShare.send(kind: "pain", areas: merged, level: order[higher])
             case .headKnock:
                 DayStatusStore.set(.concussion, days: nil)
+                HealthShare.send(kind: "paused")
             case .examWeek(let date):
                 ScheduleStore.setManualExamWeek(date, true)
             case .dayStatus(let status, let from, let days):
+                guard !paused else {
+                    lines.append("Training stays paused until a doctor clears you")
+                    continue
+                }
                 if let status = DayStatus(rawValue: status) { DayStatusStore.set(status, days: days, now: from) }
             case .goals(let goals):
                 var merged = goals.compactMap(Struggle.init(rawValue:))

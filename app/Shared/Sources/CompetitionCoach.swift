@@ -63,13 +63,20 @@ public struct CompetitionOutlook: Codable, Equatable, Sendable {
     }
 }
 
-/// Results and outlooks, kept with the athlete's progress (backed up with it).
+/// Results and outlooks. Results hold the athlete's own words (notes, what
+/// went well), so they live in the sealed `mindset.` group (encrypted before
+/// backup); outlooks are just numbers.
 public enum CompetitionStore {
-    static let resultsKey = "progress.competitionResults"
+    static let resultsKey = "mindset.competitionResults"
+    static let oldResultsKey = "progress.competitionResults"
     static let outlooksKey = "progress.competitionOutlooks"
 
     public static func results(_ defaults: UserDefaults = .standard) -> [String: CompetitionResult] {
-        defaults.data(forKey: resultsKey).flatMap { try? JSONDecoder().decode([String: CompetitionResult].self, from: $0) } ?? [:]
+        if let old = defaults.data(forKey: oldResultsKey) {
+            if defaults.data(forKey: resultsKey) == nil { defaults.set(old, forKey: resultsKey) }
+            defaults.removeObject(forKey: oldResultsKey)
+        }
+        return defaults.data(forKey: resultsKey).flatMap { try? JSONDecoder().decode([String: CompetitionResult].self, from: $0) } ?? [:]
     }
 
     public static func save(_ result: CompetitionResult, _ defaults: UserDefaults = .standard) {

@@ -327,8 +327,7 @@ struct WeekPlanBar: View {
     }
 }
 
-/// The week (V5): one 2x2 of glass numbers and a dot per day. The only
-/// weekly summary on Home.
+/// The week: the plan bar and one telemetry line. The only weekly summary on Home.
 struct HomeWeekBlock: View {
     let week: WeekSummary
     let accent: Color
@@ -338,31 +337,24 @@ struct HomeWeekBlock: View {
         VStack(spacing: 14) {
             HomeEyebrow("This week")
             if let plan, plan.isVisible { WeekPlanBar(plan: plan).frame(maxWidth: 400) }
-            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-                GridRow {
-                    GlassMetric(value: Self.twoDigits(week.practices), label: week.practices == 1 ? "Practice" : "Practices",
-                                height: 92, accent: AppTheme.orange)
-                    GlassMetric(value: Self.twoDigits(week.workouts), label: week.workouts == 1 ? "Workout" : "Workouts",
-                                height: 92, accent: AppTheme.red)
-                }
-                GridRow {
-                    GlassMetric(value: Self.twoDigits(week.mobility), label: "Mobility", height: 76, accent: AppTheme.cyan)
-                    GlassMetric(value: "\(week.checkIns)/\(week.daysSoFar)", label: "Check-ins", height: 76)
-                }
-            }
-            .frame(maxWidth: 400)
-            HStack(spacing: 10) {
-                ForEach(Array(week.active.enumerated()), id: \.offset) { index, active in
-                    Circle()
-                        .fill(active ? accent : (index < week.daysSoFar ? AppTheme.fill : AppTheme.fill.opacity(0.5)))
-                        .frame(width: 7, height: 7)
-                        .shadow(color: active ? accent.opacity(0.7) : .clear, radius: 4)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Active on \(week.active.filter { $0 }.count) of \(week.daysSoFar) days this week")
+            // One telemetry line, not a grid of the same numbers again.
+            Text(summaryLine)
+                .font(.telemetry(13))
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "2 practices · 1 workout · 1 mobility · 4/5 check-ins"
+    private var summaryLine: String {
+        var parts: [String] = []
+        if week.practices > 0 { parts.append("\(week.practices) \(week.practices == 1 ? "practice" : "practices")") }
+        if week.workouts > 0 { parts.append("\(week.workouts) \(week.workouts == 1 ? "workout" : "workouts")") }
+        if week.mobility > 0 { parts.append("\(week.mobility) mobility") }
+        parts.append("\(week.checkIns)/\(week.daysSoFar) check-ins")
+        return parts.joined(separator: " · ")
     }
 
     static func twoDigits(_ value: Int) -> String {

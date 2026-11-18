@@ -19,18 +19,31 @@ struct CompetitionHubView: View {
     @State private var leaned = false
 
     private var family: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
-    private var next: Competition? { AthleteStats.upcomingCompetitions(athlete).first }
+    /// Over once it has started and had two hours (midnight = time unknown:
+    /// the athlete's usual start time).
+    private func isOver(_ game: Competition) -> Bool {
+        let calendar = Calendar.current
+        let start = FuelEngine.gameStart(game.date, usualMinutes: UserDefaults.standard.object(forKey: "gameStartMinutes") as? Int ?? 17 * 60)
+        return calendar.startOfDay(for: game.date) < calendar.startOfDay(for: .now) || start.addingTimeInterval(2 * 3600) < .now
+    }
+    private var next: Competition? { AthleteStats.upcomingCompetitions(athlete).first { !isOver($0) } }
     private var past: [Competition] {
-        athlete.competitions.filter { $0.date < .now }.sorted { $0.date > $1.date }
+        athlete.competitions.filter(isOver).sorted { $0.date > $1.date }
     }
     private var last: Competition? { past.first }
     private var daysToNext: Int? { next.map { AthleteStats.daysUntil($0.date) } }
 
+    /// The twin's insights, read once (not on every redraw of the slider).
+    @State private var twinInsights: [TwinInsightKind]?
+
     private var focus: [CompetitionFocus] {
-        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load())
-        let insights = TwinAnalysis.report(input).insights.map(\.kind)
         let lastResult = past.lazy.compactMap { results[$0.id] }.first
-        return CompetitionCoach.focus(last: lastResult, insights: insights, daysToNext: daysToNext, team: family.team)
+        return CompetitionCoach.focus(last: lastResult, insights: twinInsights ?? [], daysToNext: daysToNext, team: family.team)
+    }
+
+    private func loadTwinInsights() {
+        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load())
+        twinInsights = TwinAnalysis.report(input).insights.map(\.kind)
     }
 
     var body: some View {
@@ -54,6 +67,7 @@ struct CompetitionHubView: View {
             }
             .onAppear {
                 if let next { chance = Double(CompetitionStore.outlooks()[next.id]?.chance ?? 50) }
+                loadTwinInsights()
             }
             .fullScreenCover(item: $reading) { briefing in
                 BriefingReaderView(briefing: briefing, insight: nil, alreadyRead: AcademyStore.load().read[briefing.id] != nil,

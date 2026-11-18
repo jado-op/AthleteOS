@@ -651,6 +651,8 @@ public struct LiveSessionView: View {
     private func discard() {
         endActivity()
         if let session {
+            // Never restored from the backup later (it may have gone up already).
+            CloudSync.discard(sessionClientId: session.clientId)
             modelContext.delete(session)
             try? modelContext.save()
         }

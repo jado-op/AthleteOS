@@ -30,6 +30,12 @@ final class ReminderPlanTests: XCTestCase {
         XCTAssertEqual(monday.bedtime, 22 * 60 - 30, "the nudge comes 30 minutes before")
         let friday = ReminderScheduler.plan(for: day(25), settings: settings, practice: nil, sessionTomorrowStart: nil, calendar: calendar)
         XCTAssertEqual(friday.bedtime, 22 * 60 + 75 - 30, "Saturday's later wake-up means a later bedtime")
+        // Up at 9:30: bed at 0:30, the nudge at 0:00 — not pulled back to 20:00.
+        var late = settings
+        late.checkInHour = 9
+        late.checkInMinute = 30
+        XCTAssertEqual(ReminderScheduler.plan(for: day(21), settings: late, practice: nil, sessionTomorrowStart: nil, calendar: calendar).bedtime,
+                       24 * 60, "after midnight stays after midnight")
     }
 
     func testHydrationComesTwoHoursBeforeAGameOrALongPractice() {

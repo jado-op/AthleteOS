@@ -130,4 +130,8 @@ public enum StreakFreeze {
 /// The athlete chose to train as planned on a low-readiness day (today only).
 public enum ReadinessOverride {
     public static let key = "progress.readinessOverrideDay"
+
+    public static func isOn(_ date: Date = .now, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
+        defaults.string(forKey: key) == DayKey.of(date, calendar: calendar)
+    }
 }

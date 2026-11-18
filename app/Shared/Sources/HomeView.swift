@@ -78,7 +78,7 @@ struct HomeView: View {
     private var practiceToday: Bool { _ = practiceDays; _ = revision; return PracticeSchedule.hasPractice(on: .now) }
     private var practicesToday: [ScheduleEvent] { ScheduleStore.imported.practices(on: .now) }
     private var examWeek: Bool { _ = practiceDays; return ScheduleStore.isExamWeek(.now) }
-    private var loggedToday: Bool { allSessions.contains { calendar.isDateInToday($0.startedAt) } }
+    private var loggedToday: Bool { !todaysSessions.isEmpty }
     private var isTrainingDay: Bool { status != .sick && status != .concussion }
 
     private var modeContext: WorkoutModeContext {
@@ -264,6 +264,14 @@ struct HomeView: View {
         return briefingReadToday || CampusProgress.newLessonDates().contains { calendar.isDateInToday($0) }
     }
 
+    /// After Tell AthleteOS or the Competitions hub: the day status, the plan
+    /// and the reading may all have changed.
+    private func refreshAfterChange() {
+        status = DayStatusStore.status()
+        revision += 1
+        refreshTwinBriefing()
+    }
+
     private func refreshTwinBriefing() {
         let state = AcademyStore.load()
         briefingReadToday = state.read.values.contains { calendar.isDateInToday($0) }
@@ -344,6 +352,7 @@ struct HomeView: View {
                     clock = .now
                     revision += 1
                     refreshTwinBriefing()
+                    status = DayStatusStore.status()
                     announcement = TeamAnnouncements.current
                     switch IntentRoute.take([.checkIn, .reflection]) {
                     case .checkIn?: activeSheet = .checkIn
@@ -358,10 +367,10 @@ struct HomeView: View {
                 announcement = TeamAnnouncements.current
             }
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showingCompetitions) {
+            .sheet(isPresented: $showingCompetitions, onDismiss: refreshAfterChange) {
                 CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged)
             }
-            .sheet(isPresented: $showingTell) {
+            .sheet(isPresented: $showingTell, onDismiss: refreshAfterChange) {
                 TellView(athlete: athlete, onChanged: onPlanInputsChanged)
             }
             .task(id: allSessions.count + athlete.checkIns.count) {
@@ -387,6 +396,7 @@ struct HomeView: View {
             .sheet(item: $activeSheet, onDismiss: {
                 status = DayStatusStore.status()
                 revision += 1
+                refreshTwinBriefing()
                 runPendingAction()
                 runPendingSearch()
             }) { sheet in
@@ -734,7 +744,11 @@ struct HomeView: View {
     /// Refreshed every minute and when the app comes back, so Home follows the day.
     private var phase: DayPhase { DayPhase.at(clock) }
 
-    private var todaysSessions: [Session] { allSessions.filter { calendar.isDateInToday($0.startedAt) } }
+    /// Today's real sessions: finished, or with at least one set (an open or
+    /// abandoned workout isn't "training done").
+    private var todaysSessions: [Session] {
+        allSessions.filter { calendar.isDateInToday($0.startedAt) && ($0.endedAt != nil || !$0.sets.isEmpty) }
+    }
     private var workoutDoneToday: Bool { todaysSessions.contains { SessionKinds.kind(of: $0.clientId) != .mobility } }
     private var mobilityDoneToday: Bool { todaysSessions.contains { SessionKinds.kind(of: $0.clientId) == .mobility } }
     private var practiceLogToday: PracticeLog? {
@@ -744,7 +758,13 @@ struct HomeView: View {
 
     private var weekPlan: WeekPlanProgress {
         let summary = weekSummary
-        return WeekPlanProgress(workoutsPlanned: week?.sessions.count ?? 0, workoutsDone: summary.workouts,
+        // Planned and done over the same Monday-to-Sunday week (the plan's own
+        // week starts on Sunday in some countries).
+        var monday = calendar
+        monday.firstWeekday = 2
+        let interval = monday.dateInterval(of: .weekOfYear, for: clock)
+        let planned = week?.sessions.filter { interval?.contains($0.date) ?? true }.count ?? 0
+        return WeekPlanProgress(workoutsPlanned: planned, workoutsDone: summary.workouts,
                                 practicesPlanned: practiceDays.count, practicesDone: summary.practices)
     }
 

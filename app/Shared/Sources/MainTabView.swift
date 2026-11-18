@@ -249,6 +249,7 @@ public struct MainTabView: View {
         guard !DemoData.isEnabled, !athlete.isDeleted, !backingUp else { return }
         backingUp = true
         defer { backingUp = false }
+        SessionLogger(modelContext: modelContext).removeAbandoned()
         #if os(iOS) && !APP_EXTENSION
         // Leaving the app: ask iOS for the few seconds the upload needs.
         let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "backup")

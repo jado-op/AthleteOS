@@ -96,6 +96,9 @@ struct WorkoutTabView: View {
             if gameToday != nil { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
             if practiceToday { return (.afterPractice, "You have practice today, so the gym work is short.") }
             if gymSession?.isToday == true { return (.gymDay, "No team practice today, so this is your main session.") }
+            // The engine may still want a primer, recovery or conditioning day
+            // (the same session Home shows).
+            if let day = engineDay { return (.gymDay, day.explanation?.summary ?? "Today's session, built around your week.") }
             return (.mobility, "A rest day: a few minutes of movement keeps you fresh.")
         }
     }
@@ -215,9 +218,17 @@ struct WorkoutTabView: View {
         return session(for: mode)
     }
 
+    /// On a day without practice or a planned gym day: what the engine
+    /// builds (a primer before a game, recovery, conditioning), as on Home.
+    private var engineDay: GeneratedSession? {
+        guard status == .active, gameToday == nil, !practiceToday, gymSession?.isToday != true,
+              TodayEngine.isAvailable(catalogue) else { return nil }
+        return TodayEngine.session(nil, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, plannedGymDay: false)
+    }
+
     private func session(for mode: WorkoutMode) -> GeneratedSession? {
         switch mode {
-        case .gymDay: gymSession?.session
+        case .gymDay: engineDay ?? gymSession?.session
         case .afterPractice:
             TodayEngine.workout(.afterPractice, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
                                 plannedGymDay: gymSession?.isToday == true).map { adjusted($0) }

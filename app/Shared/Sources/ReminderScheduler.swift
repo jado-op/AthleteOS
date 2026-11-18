@@ -42,6 +42,24 @@ public enum Bedtime {
 /// none") and a heads-up the evening before each game.
 public enum ReminderScheduler {
     static let checkInIdentifier = "reminder.check-in"
+    static let checkedInDayKey = "reminders.checkedInDay"
+
+    /// The check-in or reflection is done for today: today's reminder for it
+    /// goes (and isn't scheduled again on the next reschedule).
+    public static func markDone(checkIn: Bool = false, reflection: Bool = false, now: Date = .now, calendar: Calendar = .current) {
+        let c = calendar.dateComponents([.year, .month, .day], from: now)
+        let suffix = "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+        var ids: [String] = []
+        if checkIn {
+            UserDefaults.standard.set(DayKey.of(now, calendar: calendar), forKey: checkedInDayKey)
+            ids.append("\(checkInIdentifier).\(suffix)")
+        }
+        if reflection { ids.append("\(reflectionIdentifier).\(suffix)") }
+        #if canImport(UserNotifications)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        #endif
+    }
+
     static let gamePrefix = "reminder.game."
     static let reflectionIdentifier = "reminder.reflection"
 
@@ -127,7 +145,9 @@ public enum ReminderScheduler {
                                     firstSessionTomorrow: sessionTomorrowStart)
         return (settings.checkInEnabled ? checkIn : nil,
                 settings.reflectionEnabled ? reflection : nil,
-                settings.bedtimeEnabled ? max(20 * 60, bed - 30) : nil)
+                // A bedtime after midnight stays after midnight (minutes past
+                // 24:00), never pulled back to 20:00.
+                settings.bedtimeEnabled ? max(20 * 60, (bed < 12 * 60 ? bed + 24 * 60 : bed) - 30) : nil)
     }
 
     /// Tomorrow's wake-up: the check-in time (later at weekends).
@@ -192,9 +212,10 @@ public enum ReminderScheduler {
                 components.hour = minutes / 60
                 components.minute = minutes % 60
                 guard let when = calendar.date(from: components), when > .now else { continue }
+                if offset == 0, UserDefaults.standard.string(forKey: checkedInDayKey) == DayKey.of(day, calendar: calendar) { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "Morning check-in"
-                content.body = "Four taps: how did you sleep? Your plan adjusts to how you feel."
+                content.body = "30 seconds: how did you sleep? Your plan adjusts to how you feel."
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let id = "\(checkInIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
@@ -215,6 +236,7 @@ public enum ReminderScheduler {
                 components.hour = minutes / 60
                 components.minute = minutes % 60
                 guard let when = calendar.date(from: components), when > .now else { continue }
+                if offset == 0, MindsetStore.reflection(on: day) != nil { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "Evening reflection"
                 content.body = "45 seconds: how today felt shapes tomorrow's plan."
@@ -258,11 +280,10 @@ public enum ReminderScheduler {
                 // The game reminder already says "bed early": never two nudges in one evening.
                 if current.gameRemindersEnabled, gameDates.contains(where: { calendar.isDate($0, inSameDayAs: tomorrow) }) { continue }
                 let early = Bedtime.firstSessionStart(on: tomorrow, games: gameDates, calendar: calendar)
-                guard let minutes = plan(for: day, settings: current, practice: nil, sessionTomorrowStart: early).bedtime else { continue }
-                var components = calendar.dateComponents([.year, .month, .day], from: day)
-                components.hour = minutes / 60
-                components.minute = minutes % 60
-                guard let when = calendar.date(from: components), when > .now else { continue }
+                guard let minutes = plan(for: day, settings: current, practice: nil, sessionTomorrowStart: early).bedtime,
+                      let at = calendar.date(byAdding: .minute, value: minutes, to: day) else { continue }
+                let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: at)
+                guard at > .now else { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "Wind down"
                 content.body = "Bed in 30 minutes gives you enough sleep for tomorrow. Screens away."
