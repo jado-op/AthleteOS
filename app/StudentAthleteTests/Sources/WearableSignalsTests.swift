@@ -51,8 +51,8 @@ final class WearableSignalsTests: XCTestCase {
 
     // MARK: Brand and band
 
-    func testFitbitThroughGoogleHealthIsNamedFitbit() {
-        XCTAssertEqual(WearableBrand.name(fromSource: "Google Health"), "Fitbit")
+    func testABrandIsNamedOnlyFromItsOwnName() {
+        XCTAssertNil(WearableBrand.name(fromSource: "Google Health"), "no brand-specific rules")
         XCTAssertEqual(WearableBrand.name(fromSource: "Fitbit"), "Fitbit")
         XCTAssertEqual(WearableBrand.name(fromSource: "Suunto"), "Suunto")
         XCTAssertEqual(WearableBrand.name(fromSource: "Garmin Connect"), "Garmin")

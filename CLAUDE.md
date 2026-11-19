@@ -282,9 +282,10 @@ Reading files, CI logs or the GitHub API needs no lock.
   `<Location>` has none (see `backend/deploy/apache/`).
 
 - Apple Health is the only wearable integration (owner, 2026-11-19: "remove the Suunto API… HealthKit becomes the
-  single source of truth"). No brand APIs (the Suunto Cloud connection, `SuuntoLink`, Me → Suunto and Me → Fitbit Air
-  were removed; migration `remove_suunto_link`). Apple Watch, Garmin, Suunto, Fitbit (Google Health), Polar, Oura,
-  WHOOP… all arrive through Health and are read the same way; `WearableBrand` only names a source in a sentence.
+  single source of truth"; then "the same with the Google Fitbit side"). No brand APIs and no brand-specific code: the
+  Suunto Cloud connection, `SuuntoLink`, Me → Suunto, Me → Fitbit Air and the "Google Health = Fitbit" rule were
+  removed (migration `remove_suunto_link`). Apple Watch, Garmin, Suunto, Fitbit, Polar, Oura, WHOOP… all arrive through
+  Health and are read the same way; `WearableBrand` only names a source in a sentence from its own name.
   Layers: `HealthKitManager` (+ `HealthKitInsights.swift`: daily statistics per `HealthMetric` — sums merged across
   sources by Health so steps aren't double-counted — newest sample, nights, workouts with routes, observer queries
   + background delivery, an anchored workout query) → `HealthDataRepository` (actor; in-memory snapshot, re-reads

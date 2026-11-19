@@ -30,8 +30,8 @@ Proposed 2026-09-26. Status 2026-10-01: everything is built except what's marked
 14. Check-in and evening reflection on the watch in two taps.
 15. Live Activities / Dynamic Island for a running workout and rest timer.
 
-Wearables come in through Apple Health only (owner, 2026-11-19): no brand APIs. Garmin Connect, Suunto, Google
-Health (Fitbit), Polar Flow and the rest write to Health, and the twin's "More insights into your health" reads it.
+Wearables come in through Apple Health only (owner, 2026-11-19): no brand APIs (Suunto, Garmin, Fitbit/Google).
+Garmin Connect, Suunto, Fitbit, Polar Flow and the rest write to Health, and the twin's "More insights into your health" reads it.
 Android (Health Connect) only once there is an Android app.
 
 ## 3. Training quality

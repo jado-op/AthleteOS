@@ -283,7 +283,7 @@ struct HealthEmptyState: View {
                 if available {
                     VStack(alignment: .leading, spacing: 10) {
                         step(1, "Allow AthleteOS to read your Health data.")
-                        step(2, "Let your watch or band's app write to Apple Health: Apple Watch does it by itself; Garmin Connect, Suunto, Google Health (Fitbit), Polar Flow, COROS, Oura or WHOOP in their own settings.")
+                        step(2, "Let your watch or band's app write to Apple Health: Apple Watch does it by itself; Garmin Connect, Suunto, Fitbit, Polar Flow, COROS, Oura or WHOOP in their own settings.")
                         if !compact {
                             step(3, "Cards appear here as soon as data arrives: only the ones your devices actually measure.")
                         }

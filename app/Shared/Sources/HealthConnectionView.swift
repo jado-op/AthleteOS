@@ -86,7 +86,7 @@ struct HealthConnectionView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Set it up once").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
             step(1, "Allow AthleteOS to read Health: sleep, heart, activity, workouts and body measurements.")
-            step(2, "Apple Watch writes to Health by itself. For any other watch, band or ring, turn on Apple Health in its own app (Garmin Connect, Suunto, Google Health for Fitbit, Polar Flow, COROS, Oura, WHOOP…) and allow it to write.")
+            step(2, "Apple Watch writes to Health by itself. For any other watch, band or ring, turn on Apple Health in its own app (Garmin Connect, Suunto, Fitbit, Polar Flow, COROS, Oura, WHOOP…) and allow it to write.")
             step(3, "That's all. New data shows up by itself, and only what your devices actually measure.")
             Button(working ? "Connecting…" : "Allow in Apple Health") {
                 working = true

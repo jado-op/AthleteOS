@@ -91,22 +91,21 @@ public enum WearableRead {
 
 /// Which brand recorded something, from the name of the app that wrote it to
 /// Apple Health — only to name it in a sentence ("Your Garmin saw a hard run").
-/// Nothing depends on it: every source is read the same way. A Fitbit syncs
-/// through Google's app, which names itself "Google Health" (older "Fitbit").
+/// Nothing depends on it: every source is read the same way, and no brand gets
+/// its own rule (owner, 2026-11-19: Suunto and Fitbit/Google alike).
 public enum WearableBrand {
     public static let known = ["Suunto", "Garmin", "Polar", "Coros", "WHOOP", "Oura", "Fitbit", "Wahoo"]
 
-    /// "Suunto", "Fitbit"…; nil when the source isn't a known brand (an Apple Watch, the iPhone).
+    /// "Suunto", "Garmin"…; nil when the source isn't a known brand (an Apple Watch, the iPhone, another app).
     public static func name(fromSource source: String?) -> String? {
         let name = (source ?? "").lowercased()
         guard !name.isEmpty else { return nil }
-        if name.contains("google health") || name.contains("google fit") { return "Fitbit" }
         return known.first { name.contains($0.lowercased()) }
     }
 }
 
 /// Last night's sleep by stage, in minutes. Apple Health holds the stages a
-/// watch or band wrote (Apple Watch, Fitbit through Google Health…).
+/// watch, band or app wrote.
 public struct SleepStages: Sendable, Equatable {
     public var deep: Double
     public var rem: Double
