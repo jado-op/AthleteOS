@@ -261,34 +261,52 @@ public struct RingTimer: View {
     }
 }
 
-/// The floating tab bar: a dark pill, the open tab a white circle.
+/// The floating tab bar: a dark pill, the open tab a white circle that
+/// slides to the tab you tap (with a selection tick on the phone).
 struct PillTabBar: View {
     @Binding var selection: AppTab
     let items: [(tab: AppTab, title: String, symbol: String)]
+    @Namespace private var pill
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(items, id: \.title) { item in
                 let selected = selection == item.tab
                 Button {
-                    selection = item.tab
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) { selection = item.tab }
                 } label: {
                     Image(systemName: item.symbol)
                         .font(.system(size: 19, weight: .semibold))
                         .foregroundStyle(selected ? Color.black : Color.white.opacity(0.62))
                         .frame(width: 58, height: 52)
-                        .background(Capsule().fill(selected ? Color.white : Color.clear))
+                        .background {
+                            if selected {
+                                Capsule().fill(Color.white).matchedGeometryEffect(id: "selected", in: pill)
+                            }
+                        }
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel(item.title)
                 .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-                .animation(.easeOut(duration: 0.2), value: selected)
             }
         }
         .padding(6)
         .background(Capsule().fill(Color(rgb: 0x141417).opacity(0.94)))
         .overlay { Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1) }
         .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 8)
+        .modifier(TabTick(selection: selection))
+    }
+}
+
+/// The selection tick when the tab changes (phone only).
+private struct TabTick: ViewModifier {
+    let selection: AppTab
+    func body(content: Content) -> some View {
+        #if os(iOS) && !APP_EXTENSION
+        content.sensoryFeedback(.selection, trigger: selection)
+        #else
+        content
+        #endif
     }
 }

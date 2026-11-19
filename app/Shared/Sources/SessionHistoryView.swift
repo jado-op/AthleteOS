@@ -81,6 +81,29 @@ struct SessionDetailView: View {
     let session: Session
     let catalogue: Catalogue
 
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmingDelete = false
+
+    /// Deletes the workout here, keeps a restore from bringing it back, and
+    /// removes the server copy when online (best effort; a restore still skips it).
+    private func deleteSession() {
+        let clientId = session.clientId
+        let wasBackedUp = session.syncedAt != nil
+        let context = modelContext
+        let doomed = session
+        CloudSync.discard(sessionClientId: clientId)
+        // Leave the screen first: a view must never draw a deleted model.
+        dismiss()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            context.delete(doomed)
+            try? context.save()
+            guard wasBackedUp, let token = try? KeychainTokenStore().read() else { return }
+            try? await APIClient(baseURL: AppConfig.backendBaseURL).deleteSession(clientId: clientId, sessionToken: token)
+        }
+    }
+
     private var byItem: [(slug: String, sets: [SetLog])] {
         var order: [String] = []
         var grouped: [String: [SetLog]] = [:]
@@ -142,6 +165,22 @@ struct SessionDetailView: View {
                         }
                     }
                     .cardStyle(padding: 16)
+                }
+
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Label("Delete this workout", systemImage: "trash")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+                .confirmationDialog("Delete this workout?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                    Button("Delete", role: .destructive, action: deleteSession)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Its sets leave your history, progress and the twin's analysis. This can't be undone.")
                 }
             }
             .padding(20)

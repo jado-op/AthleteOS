@@ -331,7 +331,7 @@ struct AcademyHomeView: View {
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             if let evidence = insight.evidence {
                 TwinEvidenceChart(evidence: evidence).frame(height: 84)
@@ -360,7 +360,7 @@ struct AcademyHomeView: View {
                     .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .padding(.vertical, 20)
@@ -469,7 +469,7 @@ struct AcademyHomeView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(records) { record in
                     Button { openRecord = record } label: { PerformanceTile(record: record) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                 }
                 Button { addingPerformance = true } label: {
                     VStack(spacing: 6) {
@@ -485,7 +485,7 @@ struct AcademyHomeView: View {
                             .strokeBorder(Color.white.opacity(0.14), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             if records.isEmpty {
                 Text("Your best lifts and tests appear here by themselves as you log them. Add anything else — a bench press from your school gym, a 5 km run, a beep test.")
@@ -498,7 +498,7 @@ struct AcademyHomeView: View {
                 Button { showingTests = true } label: {
                     ListRow(systemImage: "stopwatch", color: AppTheme.brightRed, title: "Tests", detail: "Sprint, jump and more · every 6–8 weeks")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Button {
                     if ProAccess.isPro {
                         if catalogue.itemsBySlug.isEmpty { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
@@ -509,7 +509,7 @@ struct AcademyHomeView: View {
                 } label: {
                     ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AppTheme.brightRed, title: "Exercise progress", detail: "Each lift over time")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             .padding(.top, 6)
         }
@@ -546,7 +546,7 @@ struct AcademyHomeView: View {
                     .contentShape(Rectangle())
                     .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityHint("Change this answer")
             }
         }
@@ -593,7 +593,7 @@ struct AcademyHomeView: View {
                     .padding(.vertical, 12)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -604,7 +604,7 @@ struct AcademyHomeView: View {
             ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: "Short lessons",
                     detail: "100 quick lessons on training, sleep and mind")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     /// Mental skills (practice options) and "Talking it through" drafts.
@@ -614,7 +614,7 @@ struct AcademyHomeView: View {
             ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mental skills",
                     detail: "Confidence, focus, talking it through")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private var supportRow: some View {
@@ -622,7 +622,7 @@ struct AcademyHomeView: View {
             ListRow(systemImage: "bubble.left.and.bubble.right.fill", color: AppTheme.purple, title: "Need to talk to someone?",
                     detail: "Free, confidential help — any time")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     /// Whose this is, and the way out.
@@ -637,7 +637,7 @@ struct AcademyHomeView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.danger)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
     }
 

@@ -336,7 +336,7 @@ struct WorkoutTabView: View {
                     .foregroundStyle(AppTheme.ink.opacity(0.8))
                     .frame(minHeight: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 if showingContents {
                     sessionContents(session)
                         .transition(.opacity)
@@ -352,7 +352,7 @@ struct WorkoutTabView: View {
                 .foregroundStyle(AppTheme.ink.opacity(0.8))
                 .frame(minHeight: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             if showingReason {
                 Text(recommendedSession?.explanation?.summary ?? reason)
                     .font(.subheadline)
@@ -405,7 +405,7 @@ struct WorkoutTabView: View {
             ForEach(Array(main.enumerated()), id: \.offset) { _, planned in
                 if let item = catalogue.item(planned.itemSlug) {
                     Button { detailItem = item } label: { exerciseRow(item, planned) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                 }
             }
             if !coolDown.isEmpty {
@@ -530,7 +530,7 @@ struct WorkoutTabView: View {
                             }
                             .padding(.vertical, 8)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         if index < week.sessions.count - 1 { Divider().overlay(AppTheme.hairline) }
                     }
                 }
@@ -561,7 +561,7 @@ struct WorkoutTabView: View {
                         ListRow(systemImage: "target", color: AppTheme.orange, title: "\(day.skillName) drills",
                                 detail: "\(day.session.items.count) drills · \(day.session.estimatedMinutes) min · skill plan")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             .padding(12)
@@ -584,7 +584,7 @@ struct WorkoutTabView: View {
                     } label: {
                         ListRow(systemImage: icon(mode), color: color(mode), title: mode.title, detail: detail(mode, modeSession))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .disabled(modeSession == nil)
                     if mode != others.last { Divider().padding(.leading, 54) }
                 }
@@ -597,25 +597,25 @@ struct WorkoutTabView: View {
                     ListRow(systemImage: "target", color: AppTheme.orange, title: "Skill plans",
                             detail: skillPlanDays.isEmpty ? "Get better at one skill of your sport before a game" : "Your drills show up here and on Home")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { showingMuscles = true } label: {
                     ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts",
                             detail: "Pick the muscles, get a workout")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { showingLibrary = true } label: {
                     ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
                             detail: "Every exercise and drill, with how it looks")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { showingMuscleExercises = true } label: {
                     ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle",
                             detail: "Tap a muscle: what trains it, and how")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             .cardStyle(padding: 12)
         }
@@ -731,7 +731,7 @@ struct WorkoutTabView: View {
                 Button { showingPlanSettings = true } label: {
                     ListRow(systemImage: "calendar", color: AppTheme.ink, title: "Gym days and length", detail: summary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 // Only for athletes who built a new plan before that sheet was cut (focus cut).
                 if planVariant > 0 {
                     Divider().padding(.leading, 54)
@@ -741,7 +741,7 @@ struct WorkoutTabView: View {
                     } label: {
                         ListRow(systemImage: "arrow.uturn.backward", color: AppTheme.ink, title: "Back to my first plan")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             .cardStyle(padding: 12)

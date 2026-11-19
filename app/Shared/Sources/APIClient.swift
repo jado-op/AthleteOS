@@ -366,6 +366,15 @@ public struct APIClient: Sendable {
     }
 
     /// DELETE /sync/state/:key — removes one backed-up document for real.
+    /// Deletes a logged workout (and its sets) on the server. 204 also when it was never there.
+    public func deleteSession(clientId: String, sessionToken: String) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "sync/sessions/\(clientId)"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 204 else { throw apiError(from: response, data: data) }
+    }
+
     public func deleteState(_ key: String, sessionToken: String) async throws {
         var request = URLRequest(url: baseURL.appending(path: "sync/state/\(key)"))
         request.httpMethod = "DELETE"

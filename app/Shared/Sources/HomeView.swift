@@ -596,7 +596,7 @@ struct HomeView: View {
                 .frame(height: 36)
                 .glassCapsule()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .fixedSize()
             .layoutPriority(1)
             Spacer(minLength: 4)
@@ -609,7 +609,7 @@ struct HomeView: View {
                     .frame(width: 40, height: 40)
                     .glassCapsule()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("Add: log a workout or add a game")
         }
     }
@@ -633,7 +633,7 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .glassSurface(cornerRadius: 22)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("Tell AthleteOS what's going on")
             Button { openHub(.overview) } label: {
                 HStack(spacing: 7) {
@@ -654,7 +654,7 @@ struct HomeView: View {
                 .frame(minHeight: 44)
                 .glassSurface(cornerRadius: 22)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel(next.map { "Next \(family.event) in \(AthleteStats.daysUntil($0.date)) days. Results and plan." } ?? "\(family.tokens["Events"] ?? "Games"): results and plan")
         }
     }
@@ -669,7 +669,7 @@ struct HomeView: View {
                 .glassCapsule()
                 .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("Search")
         .accessibilityHint("Find any part of the app, a workout, a lesson or an exercise")
     }
@@ -980,7 +980,7 @@ struct HomeView: View {
                     .frame(minHeight: 40)
                     .background(AppTheme.coral.opacity(0.12), in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .frame(maxWidth: .infinity)
         }
     }
@@ -1009,7 +1009,7 @@ struct HomeView: View {
                 Button { preview = PreviewBox(session: session, kind: workoutKind(workout.mode)) } label: {
                     heroTitle(focusTitle(session, mode: workout.mode))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 bigNumber("\(session.estimatedMinutes)", unit: "min")
                 if let qualities = qualityLine(session) {
                     heroMeta(qualities)
@@ -1035,7 +1035,7 @@ struct HomeView: View {
             VStack(spacing: 14) {
                 NextStepEyebrow("Next step · your twin", accent: .white)
                 Button { openLesson() } label: { heroTitle("Meet your twin") }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 bigNumber("5", unit: "min")
                 heroMeta("Ten questions about how you think and train — no right answers. Only you see it.")
                 Button { openLesson() } label: { HeroCTALabel("Start the interview") }
@@ -1048,7 +1048,7 @@ struct HomeView: View {
             VStack(spacing: 14) {
                 NextStepEyebrow("Next step · read", accent: .white)
                 Button { openLesson() } label: { heroTitle(briefing.title) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 bigNumber("\(briefing.minutes)", unit: "min")
                 heroMeta("Your coach assigned it from your twin")
                 Button { openLesson() } label: { HeroCTALabel("Read") }
@@ -1061,7 +1061,7 @@ struct HomeView: View {
             VStack(spacing: 14) {
                 NextStepEyebrow("Next step · learn", accent: .white)
                 Button { openLesson() } label: { heroTitle(next.lesson.title) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 bigNumber("\(next.lesson.minutes)", unit: "min")
                 heroMeta(next.topic.title)
                 Button { openLesson() } label: { HeroCTALabel("Start lesson") }
@@ -1270,7 +1270,7 @@ struct HomeView: View {
             Button { open(row.step) } label: {
                 PlanStepRow(row: row, title: text.title, detail: text.detail, accent: .white)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
     }
 
@@ -1363,31 +1363,31 @@ struct HomeView: View {
                     HomeDetailRow(systemImage: "target", color: AppTheme.orange, title: "\(day.skillName) drills") {
                         Text("\(day.session.items.count) drills · \(day.session.estimatedMinutes) min")
                     }
-                }.buttonStyle(.plain)))
+                }.buttonStyle(.pressable)))
             }
         }
         // Game day: get the head ready.
         if gameToday != nil && status == .active && phase != .night {
             rows.append(AnyView(Button { openHub(.gamePrep) } label: {
                 HomeDetailRow(systemImage: "wind", color: AppTheme.purple, title: "Get your head ready") { Text("2 min") }
-            }.buttonStyle(.plain)))
+            }.buttonStyle(.pressable)))
         }
         if status == .travel {
             rows.append(AnyView(Button { activeSheet = .tournament } label: {
                 HomeDetailRow(systemImage: "airplane", color: AppTheme.ink, title: "Tournament & travel") { Text("Tips") }
-            }.buttonStyle(.plain)))
+            }.buttonStyle(.pressable)))
         }
         if SeasonReviewStore.due(athlete) != nil {
             rows.append(AnyView(Button { activeSheet = .seasonReview } label: {
                 HomeDetailRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Your season review") { Text("3 min") }
-            }.buttonStyle(.plain)))
+            }.buttonStyle(.pressable)))
         }
         if let movementPrep = movementPrep {
             rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
                 HomeDetailRow(systemImage: "figure.flexibility", color: AppTheme.cyan, title: movementPrep.title) {
                     if mobilityDoneToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(movementPrep.estimatedMinutes) min") }
                 }
-            }.buttonStyle(.plain)))
+            }.buttonStyle(.pressable)))
         }
         return rows
     }
@@ -1407,7 +1407,7 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.ink)
                     .frame(minHeight: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 if showingWhy {
                     if todaysCheckIn != nil, let readiness = readiness {
                         VStack(spacing: 8) {
@@ -1612,7 +1612,7 @@ struct HomeView: View {
                 .frame(minHeight: 40)
                 .background(AppTheme.accent, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private func workoutKind(_ mode: WorkoutMode) -> WorkoutKind {
@@ -1674,7 +1674,7 @@ struct DayStatusSheet: View {
                     Button { choice = status } label: {
                         OptionRow(title: status.title, subtitle: status.explanation, systemImage: status.systemImage, isSelected: choice == status)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             if choice != .active {
@@ -1685,7 +1685,7 @@ struct DayStatusSheet: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
                         ForEach(lengths.indices, id: \.self) { index in
                             Button { days = lengths[index].1 } label: { Chip(lengths[index].0, isSelected: days == lengths[index].1) }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                         }
                     }
                 }
@@ -1715,7 +1715,7 @@ struct PracticeDaysSheet: View {
                         OptionRow(title: calendar.weekdaySymbols[weekday - 1], subtitle: selection.contains(weekday) ? "Practice" : "No practice",
                                   systemImage: selection.contains(weekday) ? "sportscourt.fill" : "circle", isSelected: selection.contains(weekday))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
         }
@@ -1815,7 +1815,7 @@ struct SessionPreviewSheet: View {
             }
             .cardStyle(padding: 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .disabled(catalogueItem == nil)
     }
 }
@@ -1841,7 +1841,7 @@ struct AnnouncementCard: View {
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel("Close the announcement")
             }
             Text(announcement.text)

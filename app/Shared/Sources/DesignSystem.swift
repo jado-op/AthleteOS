@@ -455,8 +455,9 @@ public struct PrimaryButtonStyle: ButtonStyle {
                 .overlay { Capsule().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5) }
                 .shadow(color: Color(rgb: 0xC4B5FD).opacity(isEnabled ? 0.22 : 0), radius: 16, x: 0, y: 4)
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
-                .scaleEffect(configuration.isPressed ? 0.98 : 1)
-                .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+                .modifier(PressHaptic(pressed: configuration.isPressed))
         }
     }
 }
@@ -474,8 +475,38 @@ public struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(Color.white.opacity(0.04), in: Capsule())
             .overlay { Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1) }
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
     }
+}
+
+/// A light tap felt when a primary button goes down (phone only).
+struct PressHaptic: ViewModifier {
+    let pressed: Bool
+    func body(content: Content) -> some View {
+        #if os(iOS) && !APP_EXTENSION
+        content.sensoryFeedback(.impact(weight: .light, intensity: 0.7), trigger: pressed) { _, isDown in isDown }
+        #else
+        content
+        #endif
+    }
+}
+
+/// Cards and rows that open something: they give a little under the finger,
+/// so a tap feels answered before the next screen arrives.
+public struct PressableStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+public extension ButtonStyle where Self == PressableStyle {
+    static var pressable: PressableStyle { PressableStyle() }
 }
 
 /// Buttons side by side when every label fits on one line, stacked

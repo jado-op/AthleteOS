@@ -27,6 +27,12 @@ function fakePrisma() {
         sessionsByClientId.set(clientId, row);
         return row;
       },
+      async delete({ where: { id } }) {
+        const row = sessionsById.get(id);
+        sessionsById.delete(id);
+        if (row) sessionsByClientId.delete(row.clientId);
+        return row;
+      },
     },
     setLog: {
       async findUnique({ where: { clientId } }) {
@@ -38,6 +44,13 @@ function fakePrisma() {
         setsById.set(row.id, row);
         setsByClientId.set(clientId, row);
         return row;
+      },
+      async deleteMany({ where: { sessionId } }) {
+        let count = 0;
+        for (const [key, row] of setsByClientId) {
+          if (row.sessionId === sessionId) { setsByClientId.delete(key); setsById.delete(row.id); count++; }
+        }
+        return { count };
       },
     },
     _sessionsByClientId: sessionsByClientId,
@@ -222,4 +235,24 @@ test('a plannedSessionId from an older app is ignored, not stored', async () => 
 test('the /sync router is not mounted at all when required config is missing (fails closed)', () => {
   const app = createApp({ prisma: fakePrisma() }); // no sessionSecret
   assert.ok(app, 'createApp should not throw, just omit the router');
+});
+
+test('DELETE /sync/sessions/:clientId removes only the caller\'s own workout and its sets', async () => {
+  const prisma = fakePrisma();
+  const { url, close } = await serve(buildApp(prisma));
+  try {
+    const created = await post(url, '/sync/sessions', { session: validSession, sets: validSets }, authHeader('athlete-1'));
+    assert.ok(created.status < 300);
+    const other = await fetch(`${url}/sync/sessions/${validSession.clientId}`, { method: 'DELETE', headers: authHeader('athlete-2') });
+    assert.equal(other.status, 204);
+    assert.ok(prisma._sessionsByClientId.has(validSession.clientId), "someone else can't delete it");
+    const own = await fetch(`${url}/sync/sessions/${validSession.clientId}`, { method: 'DELETE', headers: authHeader('athlete-1') });
+    assert.equal(own.status, 204);
+    assert.equal(prisma._sessionsByClientId.has(validSession.clientId), false);
+    assert.equal(prisma._setsByClientId.size, 0);
+    const again = await fetch(`${url}/sync/sessions/${validSession.clientId}`, { method: 'DELETE', headers: authHeader('athlete-1') });
+    assert.equal(again.status, 204);
+  } finally {
+    await close();
+  }
 });

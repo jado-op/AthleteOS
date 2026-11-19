@@ -373,7 +373,7 @@ struct ProgressTabView: View {
                         .frame(maxWidth: .infinity, minHeight: 40)
                         .background(zoom == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .accessibilityLabel(value.rawValue)
                 }
             }
@@ -474,7 +474,7 @@ struct ProgressTabView: View {
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
                 }
             }
@@ -547,7 +547,7 @@ struct ProgressTabView: View {
                             }
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
         }
@@ -583,7 +583,7 @@ struct ProgressTabView: View {
                         .padding(.horizontal, 6)
                         .background(tracking == level ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             if loggedToday {
@@ -624,7 +624,7 @@ struct ProgressTabView: View {
                     } label: {
                         Chip(period.rawValue, isSelected: statsPeriod == period)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             if counts.isEmpty {
@@ -664,7 +664,7 @@ struct ProgressTabView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(AppTheme.ink)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                             .padding(.top, 4)
                         }
                     }
@@ -716,22 +716,22 @@ struct ProgressTabView: View {
                 Button { sheet = .history } label: {
                     ListRow(systemImage: "clock.arrow.circlepath", color: AppTheme.ink, title: "All workouts", detail: "\(sessions.count)")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { sheet = .trends } label: {
                     ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Last 30 days, sleep, load")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { sheet = .checkIns } label: {
                     ListRow(systemImage: "sun.max.fill", color: AppTheme.ink, title: "Past check-ins", detail: "\(athlete.checkIns.count)")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button { sheet = .seasonReview } label: {
                     ListRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Season review", detail: "Your season, PDF, recruiting")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             .cardStyle(padding: 12)
         }
@@ -914,7 +914,7 @@ struct PracticeLogSheet: View {
                         Button { sportSlug = sport.sportSlug; types = [] } label: {
                             Chip(allSportsBySlug[sport.sportSlug]?.name ?? sport.sportSlug, isSelected: sportSlug == sport.sportSlug)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -931,7 +931,7 @@ struct PracticeLogSheet: View {
                     } label: {
                         Chip(value.title, isSelected: level == value)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
 
@@ -959,7 +959,7 @@ struct PracticeLogSheet: View {
                                 }
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         .accessibilityLabel("Mood \(value) of 5")
                         .accessibilityAddTraits(selected ? .isSelected : [])
                     }
@@ -970,7 +970,7 @@ struct PracticeLogSheet: View {
                 WrapLayout(spacing: 8) {
                     ForEach(PracticeIntent.keys, id: \.self) { key in
                         Button { intent = intent == key ? nil : key } label: { Chip(PracticeIntent.title(key), isSelected: intent == key) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                     }
                 }
             }
@@ -980,7 +980,7 @@ struct PracticeLogSheet: View {
                         Button { enjoyment = enjoyment == value ? nil : value } label: {
                             Chip(value == 1 ? "Not much" : (value == 2 ? "It was OK" : "A lot"), isSelected: enjoyment == value)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -990,7 +990,7 @@ struct PracticeLogSheet: View {
                         Button {
                             if types.contains(type) { types.remove(type) } else { types.insert(type) }
                         } label: { Chip(type, isSelected: types.contains(type)) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                     }
                 }
             }
@@ -1002,7 +1002,7 @@ struct PracticeLogSheet: View {
                             Button {
                                 if tiredMuscles.contains(region.rawValue) { tiredMuscles.remove(region.rawValue) } else { tiredMuscles.insert(region.rawValue) }
                             } label: { Chip(region.displayName, isSelected: tiredMuscles.contains(region.rawValue)) }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                         }
                     }
                 }
@@ -1023,7 +1023,7 @@ struct PracticeLogSheet: View {
                                                 .frame(maxWidth: .infinity, minHeight: 38)
                                                 .background(ratings[component] == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(.pressable)
                                     }
                                 }
                             }
@@ -1069,7 +1069,7 @@ struct PracticeLogSheet: View {
                                 .frame(maxWidth: .infinity, minHeight: 46)
                                 .background(value.wrappedValue == option ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 HStack { Text(low); Spacer(); Text(high) }

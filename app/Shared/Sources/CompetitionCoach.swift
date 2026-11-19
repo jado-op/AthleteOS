@@ -94,6 +94,14 @@ public enum CompetitionStore {
         all[outlook.id] = outlook
         defaults.set(try? JSONEncoder().encode(all), forKey: outlooksKey)
     }
+
+    /// A deleted competition takes its result and outlook with it.
+    public static func forget(_ id: String, _ defaults: UserDefaults = .standard) {
+        var all = results(defaults)
+        if all.removeValue(forKey: id) != nil { defaults.set(try? JSONEncoder().encode(all), forKey: resultsKey) }
+        var looks = outlooks(defaults)
+        if looks.removeValue(forKey: id) != nil { defaults.set(try? JSONEncoder().encode(looks), forKey: outlooksKey) }
+    }
 }
 
 /// One thing to work on before the next competition.

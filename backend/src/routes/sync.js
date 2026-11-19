@@ -19,6 +19,18 @@ export function syncRouter({ prisma, sessionSecret }) {
   const router = express.Router();
   router.use(requireAuth({ sessionSecret }));
 
+  // The athlete deleted a logged workout: remove it (and its sets, by
+  // cascade) so a restore on a new phone doesn't bring it back. Idempotent,
+  // and someone else's clientId is answered the same way without touching it.
+  router.delete('/sessions/:clientId', async (req, res) => {
+    const existing = await prisma.session.findUnique({ where: { clientId: req.params.clientId } });
+    if (existing && existing.athleteId === req.athleteId) {
+      await prisma.setLog.deleteMany({ where: { sessionId: existing.id } });
+      await prisma.session.delete({ where: { id: existing.id } });
+    }
+    res.status(204).end();
+  });
+
   router.post('/sessions', async (req, res) => {
     const { session, sets } = req.body ?? {};
     const sessionError = validateSession(session);

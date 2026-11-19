@@ -23,11 +23,30 @@ struct CompetitionHubView: View {
     @State private var editingResult = false
     @State private var reading: Briefing?
     @State private var adding = false
+    /// The game being changed or deleted.
+    @State private var editingGame: Competition?
     @State private var leaned = false
     @State private var routine: MindsetRoutine?
     @State private var showingVisualizationPaywall = false
     /// Bumped after a game is added, so the lists redraw.
     @State private var revision = 0
+
+    /// Closes the edit sheet, then deletes the game (a view must never draw a
+    /// deleted model) with its result and outlook; the plan rearranges.
+    private func delete(_ game: Competition) {
+        let context = modelContext
+        CompetitionStore.forget(game.id)
+        editingGame = nil
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            context.delete(game)
+            try? context.save()
+            revision += 1
+            results = CompetitionStore.results()
+            if let next { chance = Double(CompetitionStore.outlooks()[next.id]?.chance ?? 50) }
+            onChanged()
+        }
+    }
 
     private var family: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
     /// Over once it has started and had two hours (midnight = time unknown:
@@ -40,7 +59,8 @@ struct CompetitionHubView: View {
     private var upcoming: [Competition] { _ = revision; return AthleteStats.upcomingCompetitions(athlete).filter { !isOver($0) } }
     private var next: Competition? { upcoming.first }
     private var past: [Competition] {
-        athlete.competitions.filter(isOver).sorted { $0.date > $1.date }
+        _ = revision
+        return athlete.competitions.filter(isOver).sorted { $0.date > $1.date }
     }
     private var last: Competition? { past.first }
     private var daysToNext: Int? { next.map { AthleteStats.daysUntil($0.date) } }
@@ -114,6 +134,25 @@ struct CompetitionHubView: View {
                 BriefingReaderView(briefing: briefing, insight: nil, alreadyRead: AcademyStore.load().read[briefing.id] != nil,
                                    familyID: AcademyContent.familyID(forSport: athlete.activeSport?.sportSlug))
             }
+            .sheet(item: $editingGame) { game in
+                NavigationStack {
+                    ScrollView {
+                        AddGameForm(athlete: athlete, family: family, editing: game, onDelete: delete) {
+                            editingGame = nil
+                            revision += 1
+                            results = CompetitionStore.results()
+                            onChanged()
+                        }
+                        .padding(24)
+                    }
+                    .background(AppBackground(.hero).ignoresSafeArea())
+                    .navigationTitle("Edit \(family.event)")
+                    .navigationBarTitleDisplayModeInline()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { editingGame = nil } }
+                    }
+                }
+            }
             .sheet(isPresented: $editingResult, onDismiss: { results = CompetitionStore.results() }) {
                 if let last {
                     CompetitionResultForm(competition: last, existing: results[last.id], family: family)
@@ -168,6 +207,9 @@ struct CompetitionHubView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .accessibilityElement(children: .combine)
+                .contentShape(Rectangle())
+                .onTapGesture { editingGame = next }
+                .accessibilityAction(named: "Edit") { editingGame = next }
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Your chance")
@@ -188,8 +230,12 @@ struct CompetitionHubView: View {
                 }
                 .padding(16)
                 .glassSurface(cornerRadius: 18)
-                Button { adding = true } label: { Text("Add a \(family.event)") }
-                    .buttonStyle(.secondary)
+                HStack(spacing: 10) {
+                    Button { editingGame = next } label: { Text("Edit or delete") }
+                        .buttonStyle(.secondary)
+                    Button { adding = true } label: { Text("Add another") }
+                        .buttonStyle(.secondary)
+                }
             } else {
                 Text("Nothing planned yet.")
                     .font(.subheadline)
@@ -208,7 +254,7 @@ struct CompetitionHubView: View {
         VStack(alignment: .leading, spacing: 4) {
             SpaceSection(number(.comingUp), "Coming up") { Text("\(upcoming.count - 1)") }
             ForEach(Array(upcoming.dropFirst().prefix(8))) { game in
-                HStack(spacing: 12) {
+                Button { editingGame = game } label: { HStack(spacing: 12) {
                     Text(game.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                         .font(.telemetry(12))
                         .foregroundStyle(AppTheme.secondaryText)
@@ -218,8 +264,14 @@ struct CompetitionHubView: View {
                         .foregroundStyle(AppTheme.ink)
                         .lineLimit(2)
                     Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.mutedText)
                 }
                 .padding(.vertical, 8)
+                .contentShape(Rectangle()) }
+                .buttonStyle(.pressable)
+                .accessibilityHint("Edit or delete")
             }
         }
     }
@@ -248,14 +300,14 @@ struct CompetitionHubView: View {
                 Button { routine = .breathing } label: {
                     ListRow(systemImage: "wind", color: AppTheme.purple, title: "2-minute breathing", detail: "Calm your nerves or lock in")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 Divider().padding(.leading, 54)
                 Button {
                     if ProAccess.isPro { routine = .visualization } else { showingVisualizationPaywall = true }
                 } label: {
                     ListRow(systemImage: "eye", color: AppTheme.purple, title: "Visualization", detail: "5 minutes: play the \(family.event) in your head first")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
@@ -308,7 +360,7 @@ struct CompetitionHubView: View {
                                     .font(.footnote.weight(.semibold))
                                     .foregroundStyle(AppTheme.brightRed)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                         }
                     }
                 }
@@ -386,7 +438,7 @@ struct CompetitionHubView: View {
                 Text("\(record.wins)–\(record.draws)–\(record.losses)")
             }
             ForEach(past.prefix(8)) { competition in
-                HStack {
+                Button { editingGame = competition } label: { HStack {
                     Text(competition.date.formatted(.dateTime.day().month(.abbreviated)))
                         .font(.telemetry(12))
                         .foregroundStyle(AppTheme.secondaryText)
@@ -399,8 +451,14 @@ struct CompetitionHubView: View {
                     Text(results[competition.id]?.summary ?? "–")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.ink)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.mutedText)
                 }
                 .padding(.vertical, 6)
+                .contentShape(Rectangle()) }
+                .buttonStyle(.pressable)
+                .accessibilityHint("Edit or delete")
             }
         }
     }
@@ -412,6 +470,10 @@ struct CompetitionHubView: View {
 struct AddGameForm: View {
     let athlete: Athlete
     let family: SportFamily
+    /// A game to change instead of adding a new one (date, time, type, place, note; or delete it).
+    var editing: Competition? = nil
+    /// Deleting is the owner's job (it closes the sheet before the model goes).
+    var onDelete: ((Competition) -> Void)? = nil
     let onSaved: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -421,14 +483,20 @@ struct AddGameForm: View {
     @State private var kind: CompetitionKind = .game
     @State private var isHome = true
     @State private var notes = ""
+    @State private var loaded = false
+    @State private var confirmingDelete = false
+
+    /// New games start today at the earliest; an existing one can be moved anywhere.
+    private var earliestDay: Date { editing == nil ? Calendar.current.startOfDay(for: .now) : .distantPast }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Your week rearranges around it — heavy work early, sharp and fresh on the day.")
+            Text(editing == nil ? "Your week rearranges around it — heavy work early, sharp and fresh on the day."
+                                : "Change anything — your week rearranges around the new day.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            DatePicker("Day", selection: $day, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
+            DatePicker("Day", selection: $day, in: earliestDay..., displayedComponents: .date)
                 .labelsHidden()
                 .calendarDatePickerStyle()
                 .tint(AppTheme.brightRed)
@@ -463,9 +531,45 @@ struct AddGameForm: View {
                     .padding(14)
                     .glassSurface(cornerRadius: 14)
             }
-            Button(action: save) { HeroCTALabel("Save") }
+            Button(action: save) { HeroCTALabel(editing == nil ? "Save" : "Save changes") }
                 .buttonStyle(.primary)
+            if editing != nil, onDelete != nil {
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Label("Delete this \(family.event)", systemImage: "trash")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.pressable)
+                .confirmationDialog("Delete this \(family.event)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                    Button("Delete", role: .destructive, action: delete)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Your plan around it goes back to normal. Its result and notes are deleted too.")
+                }
+            }
         }
+        .onAppear(perform: load)
+    }
+
+    /// Fills the form from the game being changed (once).
+    private func load() {
+        guard !loaded, let game = editing else { return }
+        loaded = true
+        let calendar = Calendar.current
+        day = game.date
+        let minutes = calendar.component(.hour, from: game.date) * 60 + calendar.component(.minute, from: game.date)
+        knowsTime = minutes > 0
+        if knowsTime { time = game.date }
+        kind = game.kind
+        isHome = game.isHome
+        notes = game.notes ?? ""
+    }
+
+    private func delete() {
+        guard let game = editing else { return }
+        onDelete?(game)
     }
 
     /// Midnight means "time unknown" (the usual start time is used then).
@@ -479,6 +583,15 @@ struct AddGameForm: View {
 
     private func save() {
         let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let game = editing {
+            game.date = date
+            game.kind = kind
+            game.isHome = isHome
+            game.notes = trimmed.isEmpty ? nil : trimmed
+            try? modelContext.save()
+            onSaved()
+            return
+        }
         modelContext.insert(Competition(sportSlug: athlete.activeSport?.sportSlug ?? "general", date: date, kind: kind, isHome: isHome,
                                         notes: trimmed.isEmpty ? nil : trimmed, athlete: athlete))
         try? modelContext.save()
@@ -504,7 +617,7 @@ struct AddGameForm: View {
                 .background(Capsule().fill(on ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.04)))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(on ? 0 : 0.12), lineWidth: 1) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 
@@ -553,7 +666,7 @@ struct CompetitionResultForm: View {
                                         .background(Circle().fill(n == rating ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.05)))
                                         .overlay { Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1) }
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                             }
                         }
                         Text("1 poorly · 5 your best").font(.caption).foregroundStyle(AppTheme.mutedText)
@@ -628,7 +741,7 @@ struct CompetitionResultForm: View {
                 .background(Capsule().fill(on ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.04)))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(on ? 0 : 0.12), lineWidth: 1) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 
