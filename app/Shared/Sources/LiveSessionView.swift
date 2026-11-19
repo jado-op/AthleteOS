@@ -524,7 +524,7 @@ public struct LiveSessionView: View {
         case "reps":
             HStack(spacing: 12) {
                 DoseStepper(label: "Reps", value: "\(reps)", onMinus: { reps = max(1, reps - 1) }, onPlus: { reps = min(100, reps + 1) })
-                DoseStepper(label: "Weight added", value: weightKg < 0.1 ? "Body" : unit.format(kg: weightKg),
+                DoseStepper(label: "Weight added", value: weightKg < 0.1 ? "Bodyweight" : unit.format(kg: weightKg),
                             onMinus: { weightKg = max(0, weightKg - unit.stepKg) }, onPlus: { weightKg = min(400, weightKg + unit.stepKg) })
             }
         case "time":

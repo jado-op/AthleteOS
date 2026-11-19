@@ -88,15 +88,18 @@ struct HealthConnectionView: View {
             step(1, "Allow AthleteOS to read Health: sleep, heart, activity, workouts and body measurements.")
             step(2, "Apple Watch writes to Health by itself. For any other watch, band or ring, turn on Apple Health in its own app (Garmin Connect, Suunto, Fitbit, Polar Flow, COROS, Oura, WHOOP…) and allow it to write.")
             step(3, "That's all. New data shows up by itself, and only what your devices actually measure.")
-            Button(working ? "Connecting…" : "Allow in Apple Health") {
-                working = true
-                Task {
-                    await model.connect()
-                    working = false
+            // Once data arrives the athlete has allowed it; changes go through Settings.
+            if model.phase != .ready {
+                Button(working ? "Connecting…" : "Allow in Apple Health") {
+                    working = true
+                    Task {
+                        await model.connect()
+                        working = false
+                    }
                 }
+                .buttonStyle(.secondary)
+                .disabled(working || !HealthKitManager.shared.isAvailable)
             }
-            .buttonStyle(.secondary)
-            .disabled(working || !HealthKitManager.shared.isAvailable)
             Text("Changed your mind? Settings → Health → Data Access & Devices → AthleteOS.")
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)

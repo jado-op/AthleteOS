@@ -1,5 +1,8 @@
 import Combine
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 
 /// A section of the health insights page.
 struct HealthSection: Identifiable, Equatable {
@@ -28,15 +31,46 @@ final class HealthInsightsViewModel: ObservableObject {
     @Published private(set) var sections: [HealthSection] = []
 
     private var changes: AnyCancellable?
+    private var activation: AnyCancellable?
     private var loading = false
+    /// A reload asked for while one was running: done right after it.
+    private var pending: Bool?
+    /// Health changed while the app was in the background: read on return.
+    private var changedInBackground = false
 
     init() {
         changes = NotificationCenter.default.publisher(for: HealthDataRepository.didChange)
             .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
             .sink { [weak self] _ in
-                guard let self else { return }
-                Task { await self.load() }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    // Background wakes only mark the change; no reading Health
+                    // from the background for a page nobody is looking at.
+                    guard Self.isActive else {
+                        self.changedInBackground = true
+                        return
+                    }
+                    await self.load()
+                }
             }
+        #if os(iOS)
+        activation = NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, self.changedInBackground else { return }
+                    self.changedInBackground = false
+                    await self.load()
+                }
+            }
+        #endif
+    }
+
+    private static var isActive: Bool {
+        #if os(iOS)
+        UIApplication.shared.applicationState == .active
+        #else
+        true
+        #endif
     }
 
     /// Every widget shown, in page order.
@@ -51,11 +85,18 @@ final class HealthInsightsViewModel: ObservableObject {
             phase = .unavailable
             return
         }
-        guard !loading else { return }
+        guard !loading else {
+            pending = (pending ?? false) || force
+            return
+        }
         loading = true
         let snapshot = await HealthDataRepository.shared.snapshot(force: force)
         loading = false
         apply(snapshot)
+        if let again = pending {
+            pending = nil
+            await load(force: again)
+        }
     }
 
     /// Asks for Health access (Apple's sheet), then reads again.

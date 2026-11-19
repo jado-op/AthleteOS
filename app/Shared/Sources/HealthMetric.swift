@@ -213,7 +213,8 @@ public enum HealthFormat {
             }
             return (whole < 0 ? "-" : "") + String(grouped.reversed())
         }
-        return String(format: "%.\(decimals)f", rounded)
+        // Never "-0.00": a value that rounds to zero has no sign.
+        return String(format: "%.\(decimals)f", rounded == 0 ? 0 : rounded)
     }
 }
 
@@ -378,9 +379,11 @@ public struct HealthSummary: Sendable, Equatable {
     public var currentDate: Date?
     /// Today's day bucket, when there is one.
     public var today: Double?
-    /// Mean of the days with data in the last 7 (today included).
+    /// Mean of the days with data in the last 7. For totals (steps) the 7
+    /// finished days before today: today's count is still growing, and a
+    /// morning's 600 steps would otherwise drag the week down.
     public var week: Double?
-    /// Mean of the days with data 8–14 days ago.
+    /// Mean of the 7 days before those.
     public var previousWeek: Double?
     /// Median of the days before today (up to 4 weeks); needs 7 of them.
     public var usual: Double?
@@ -397,8 +400,10 @@ public struct HealthSummary: Sendable, Equatable {
         dayCount = recent.count
         let todayDay = recent.first { calendar.isDate($0.date, inSameDayAs: now) }
         self.today = todayDay?.value
-        let thisWeek = recent.filter { $0.date >= back(6) }.map(\.value)
-        let lastWeek = recent.filter { $0.date >= back(13) && $0.date < back(6) }.map(\.value)
+        let isSum = series.metric.aggregation == .sum
+        let newest = isSum ? 1 : 0
+        let thisWeek = recent.filter { $0.date >= back(newest + 6) && $0.date <= back(newest) }.map(\.value)
+        let lastWeek = recent.filter { $0.date >= back(newest + 13) && $0.date < back(newest + 6) }.map(\.value)
         week = thisWeek.isEmpty ? nil : thisWeek.reduce(0, +) / Double(thisWeek.count)
         previousWeek = lastWeek.isEmpty ? nil : lastWeek.reduce(0, +) / Double(lastWeek.count)
         // The usual: like the morning check-in (`WearableRead.reading`), the
@@ -414,6 +419,11 @@ public struct HealthSummary: Sendable, Equatable {
         if series.metric.aggregation == .sum {
             current = todayDay?.value ?? series.days.last?.value
             currentDate = todayDay != nil ? series.latestDate : series.days.last?.date
+        } else if series.metric == .heartRate, let todayDay {
+            // Heart rate swings all day (a sample mid-practice reads 140): the
+            // day's average is what compares with a usual made of averages.
+            current = todayDay.value
+            currentDate = series.latestDate
         } else {
             current = series.latest ?? series.days.last?.value
             currentDate = series.latestDate
@@ -482,26 +492,38 @@ public struct HealthSummary: Sendable, Equatable {
 // MARK: - Sleep
 
 public enum HealthNights {
-    /// Sleep samples from every source, grouped into nights by the morning
-    /// they end on: a sample ending between 18:00 and noon the next day
-    /// belongs to that morning (afternoon naps are left out). Hours asleep
-    /// merge overlapping sources so nothing counts twice; stages come from
-    /// the one device that recorded the most (`SleepStages.from`).
+    /// Sleep samples from every source, grouped into nights. Samples less
+    /// than two hours apart are one sleep; a sleep belongs to the morning of
+    /// its middle (+6 h), so a weekend lie-in to 12:30 stays one night and a
+    /// 17:30 nap competes with the night after it. Each morning keeps its
+    /// longest sleep, so naps never add hours. Hours asleep merge overlapping
+    /// sources so nothing counts twice; stages come from the one device that
+    /// recorded the most (`SleepStages.from`).
     public static func build(_ samples: [SleepStages.Sample], calendar: Calendar) -> [HealthNight] {
-        var byMorning: [Date: [SleepStages.Sample]] = [:]
-        for sample in samples where sample.end > sample.start {
-            let morning = calendar.startOfDay(for: sample.end.addingTimeInterval(6 * 3600))
-            guard sample.end <= morning.addingTimeInterval(12 * 3600) else { continue }
-            byMorning[morning, default: []].append(sample)
+        let ordered = samples.filter { $0.end > $0.start }.sorted { $0.start < $1.start }
+        var sleeps: [[SleepStages.Sample]] = []
+        var sleepEnd = Date.distantPast
+        for sample in ordered {
+            if sleeps.isEmpty || sample.start.timeIntervalSince(sleepEnd) > 2 * 3600 {
+                sleeps.append([sample])
+            } else {
+                sleeps[sleeps.count - 1].append(sample)
+            }
+            sleepEnd = max(sleepEnd, sample.end)
         }
-        return byMorning.compactMap { morning, samples -> HealthNight? in
-            let asleep = samples.filter { $0.stage != .awake }
-            guard let first = asleep.map(\.start).min(), let last = asleep.map(\.end).max() else { return nil }
+        var byMorning: [Date: HealthNight] = [:]
+        for sleep in sleeps {
+            let asleep = sleep.filter { $0.stage != .awake }
+            guard let first = asleep.map(\.start).min(), let last = asleep.map(\.end).max() else { continue }
             let hours = SleepMath.asleepHours(asleep.map { ($0.start, $0.end) })
-            guard hours >= 1 else { return nil }
-            return HealthNight(morning: morning, asleepHours: hours, fellAsleep: first, wokeUp: last, stages: SleepStages.from(samples))
+            guard hours >= 1 else { continue }
+            let middle = first.addingTimeInterval(last.timeIntervalSince(first) / 2)
+            let morning = calendar.startOfDay(for: middle.addingTimeInterval(6 * 3600))
+            if let kept = byMorning[morning], kept.asleepHours >= hours { continue }
+            byMorning[morning] = HealthNight(morning: morning, asleepHours: hours, fellAsleep: first, wokeUp: last,
+                                             stages: SleepStages.from(sleep))
         }
-        .sorted { $0.morning < $1.morning }
+        return byMorning.values.sorted { $0.morning < $1.morning }
     }
 }
 

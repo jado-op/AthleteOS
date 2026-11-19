@@ -186,7 +186,7 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
             "Fever, body aches or a stomach bug: no training until you've had no fever for 24 hours without medicine.",
             "Just a head cold? Light training can be fine. Stop if you feel worse.",
             "Come back with a few lighter days before full training.",
-            "Set your day to Sick / Rest on Home and the plan backs off.",
+            "Set your day to Sick / rest on Home and the plan backs off.",
             "Chest pain, a racing heart or unusual breathlessness after being ill: see a doctor before training.",
         ]
         case .heat: [

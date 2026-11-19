@@ -582,7 +582,7 @@ struct HealthWorkoutsWidget: View {
     var body: some View {
         AuraCard(.training, focus: UnitPoint(x: 0.15, y: 0.1), radius: 200, padding: 20) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Workouts, last 7 days")
+                Text("Workout minutes, last 7 days")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.ink.opacity(0.8))
                 BigFigure("\(weekMinutes)", unit: "min", size: 52)
@@ -733,12 +733,18 @@ struct HealthMetricDetail: View {
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        if metric.aggregation == .sum, let today = summary.today { stat("Today", today) }
-                        if let week = summary.week { stat(metric.aggregation == .sum ? "Daily, this week" : "This week", week) }
-                        if let before = summary.previousWeek { stat("Week before", before) }
-                        if let usual = summary.usual { stat("Your usual", usual) }
-                        if let lowest, metric.aggregation == .average { stat("Lowest, 4 weeks", lowest) }
-                        if let highest, metric.aggregation == .average { stat("Highest, 4 weeks", highest) }
+                        if metric.showsDeviation {
+                            // Wrist temperature is only ever a difference from the usual.
+                            if let week = summary.week, let usual = summary.usual { stat("This week", week - usual, signed: true) }
+                            if let before = summary.previousWeek, let usual = summary.usual { stat("Week before", before - usual, signed: true) }
+                        } else {
+                            if metric.aggregation == .sum, let today = summary.today { stat("Today so far", today) }
+                            if let week = summary.week { stat(metric.aggregation == .sum ? "Daily, last 7 days" : "This week", week) }
+                            if let before = summary.previousWeek { stat("Week before", before) }
+                            if let usual = summary.usual { stat("Your usual", usual) }
+                            if let lowest, metric.aggregation == .average { stat("Lowest, 4 weeks", lowest) }
+                            if let highest, metric.aggregation == .average { stat("Highest, 4 weeks", highest) }
+                        }
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What it is").font(.headline).foregroundStyle(AppTheme.ink)
@@ -762,13 +768,13 @@ struct HealthMetricDetail: View {
         }
     }
 
-    private func stat(_ label: String, _ value: Double) -> some View {
+    private func stat(_ label: String, _ value: Double, signed: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.secondaryText)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(metric.format(value))
+                Text((signed && metric.format(value) != metric.format(0) && value > 0 ? "+" : "") + metric.format(value))
                     .font(.title2.weight(.light).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
                 Text(metric.unit())

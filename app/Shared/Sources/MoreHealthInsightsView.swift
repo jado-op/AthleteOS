@@ -147,7 +147,8 @@ struct MoreHealthInsightsView: View {
             VStack(alignment: .leading, spacing: 40) {
                 ForEach(model.sections) { section in
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionLabel(section.category.title)
+                        // The recovery card says "This morning" itself.
+                        if section.category != .recovery { SectionLabel(section.category.title) }
                         HealthSectionView(section: section, snapshot: model.snapshot, age: age, readinessDays: readinessDays,
                                           openMetric: { openMetric = $0 }, openRoute: { openRoute = $0 })
                     }

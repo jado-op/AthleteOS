@@ -253,7 +253,15 @@ struct GymSetupView: View {
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(AppTheme.background.opacity(0.92).ignoresSafeArea(edges: .bottom))
+        // Solid, with a short fade above it: the length picker scrolling
+        // underneath must never read through the buttons.
+        .background(AppTheme.background.ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) {
+            LinearGradient(colors: [AppTheme.background.opacity(0), AppTheme.background], startPoint: .top, endPoint: .bottom)
+                .frame(height: 24)
+                .offset(y: -24)
+                .allowsHitTesting(false)
+        }
     }
 
     // MARK: - Building

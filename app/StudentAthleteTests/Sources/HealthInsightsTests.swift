@@ -76,11 +76,12 @@ final class HealthInsightsTests: XCTestCase {
     // MARK: The numbers behind each card
 
     func testSumMetricsCompareTheWeekWithTheWeekBefore() {
-        let values: [Double] = [5000, 5000, 5000, 5000, 5000, 5000, 5000, 6000, 6000, 6000, 6000, 6000, 6000, 6000]
+        // Today's 600 steps so far are not a finished day: the week is the 7 before.
+        let values: [Double] = [5000, 5000, 5000, 5000, 5000, 5000, 5000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 600]
         let summary = HealthSummary(series(.steps, values), now: now, calendar: calendar)
         XCTAssertEqual(summary.week, 6000)
         XCTAssertEqual(summary.previousWeek, 5000)
-        XCTAssertEqual(summary.today, 6000)
+        XCTAssertEqual(summary.today, 600)
         XCTAssertEqual(summary.line(metric: true), "6,000 steps a day this week, 20 % more than last week.")
     }
 
@@ -159,6 +160,36 @@ final class HealthInsightsTests: XCTestCase {
         XCTAssertEqual(nights[1].wokeUp, at(0, 7))
         XCTAssertEqual(nights[1].stages?.deep, 90)
         XCTAssertNil(nights[0].stages, "no stages recorded that night")
+    }
+
+    func testALieInPastNoonStaysOneNightAndAnEveningNapAddsNothing() {
+        func at(_ back: Int, _ hour: Double) -> Date { day(back).addingTimeInterval(hour * 3600) }
+        let samples = [
+            // Saturday: asleep 01:00, up at 12:30, one block from a band.
+            SleepStages.Sample(start: at(1, 1), end: at(1, 12.5), stage: .unspecified, source: "band"),
+            // A nap 17:30–18:30 the same day.
+            SleepStages.Sample(start: at(1, 17.5), end: at(1, 18.5), stage: .unspecified, source: "band"),
+            // Then the real night.
+            SleepStages.Sample(start: at(1, 23), end: at(0, 7), stage: .unspecified, source: "band"),
+        ]
+        let nights = HealthNights.build(samples, calendar: calendar)
+        XCTAssertEqual(nights.map(\.morning), [day(1), day(0)])
+        XCTAssertEqual(nights[0].asleepHours, 11.5, accuracy: 0.001, "the lie-in is kept whole")
+        XCTAssertEqual(nights[1].asleepHours, 8, accuracy: 0.001, "the nap is not part of the night")
+        XCTAssertEqual(nights[1].fellAsleep, at(1, 23))
+    }
+
+    func testHeartRateComparesTheDaysAverageNotOneSample() {
+        var values = Array(repeating: 70.0, count: 14)
+        values.append(74)
+        var heart = series(.heartRate, values)
+        heart.latest = 142  // a sample taken mid-practice
+        let summary = HealthSummary(heart, now: now, calendar: calendar)
+        XCTAssertEqual(summary.current, 74)
+    }
+
+    func testANearZeroDifferenceHasNoSign() {
+        XCTAssertEqual(HealthFormat.number(-0.001, decimals: 2), "0.00")
     }
 
     func testAnOldNightHidesTheSleepCard() {

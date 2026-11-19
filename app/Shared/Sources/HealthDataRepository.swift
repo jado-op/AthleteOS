@@ -18,29 +18,48 @@ public actor HealthDataRepository {
     private var cached: HealthSnapshot?
     private var cachedAt: Date?
     private var dirty: Set<HealthDataPart> = HealthDataPart.all
-    private var refreshing: Task<HealthSnapshot, Never>?
+    private var refreshing: Task<Outcome, Never>?
+    /// Bumped by `reset()`: a read that started before it is never kept.
+    private var generation = 0
+
+    /// A read, and the parts Health could not answer (kept from before).
+    struct Outcome: Sendable {
+        var snapshot: HealthSnapshot
+        var failed: Set<HealthDataPart>
+    }
 
     public init(health: HealthKitManager = .shared) {
         self.health = health
     }
 
     /// The current picture: from memory when fresh, otherwise re-read, only
-    /// the changed parts when there is a recent snapshot to update.
+    /// the changed parts when there is a recent snapshot to update. A part
+    /// Health can't read right now (phone locked) keeps its last values and
+    /// is tried again next time, so a hiccup never empties the page.
     public func snapshot(force: Bool = false) async -> HealthSnapshot {
-        if let refreshing { return await refreshing.value }
+        if let running = refreshing {
+            let shared = await running.value.snapshot
+            // A forced read wants data read after it was asked for.
+            guard force else { return shared }
+            if let another = refreshing, another != running { return await another.value.snapshot }
+        }
         let stale = cachedAt.map { Date.now.timeIntervalSince($0) > Self.maxAge } ?? true
         if !force, !stale, dirty.isEmpty, let cached { return cached }
         let parts = force || stale || cached == nil ? HealthDataPart.all : dirty
         dirty.removeAll()
-        let base = force || stale ? nil : cached
+        let base = cached
         let health = self.health
+        let started = generation
         let task = Task { await Self.read(parts, into: base, health: health) }
         refreshing = task
-        let result = await task.value
-        refreshing = nil
-        cached = result
-        if parts == HealthDataPart.all { cachedAt = .now }
-        return result
+        let outcome = await task.value
+        if refreshing == task { refreshing = nil }
+        // Reset while reading (permission changed): this read is from before.
+        guard started == generation else { return outcome.snapshot }
+        cached = outcome.snapshot
+        dirty.formUnion(outcome.failed)
+        if parts == HealthDataPart.all && outcome.failed.isEmpty { cachedAt = .now }
+        return outcome.snapshot
     }
 
     /// HealthKit said something changed: the next `snapshot()` re-reads it.
@@ -51,32 +70,43 @@ public actor HealthDataRepository {
 
     /// Forget everything (permission changed, account deleted).
     public func reset() {
+        generation += 1
         cached = nil
         cachedAt = nil
         dirty = HealthDataPart.all
     }
 
     /// Reads the parts asked for, all at once, into the previous snapshot.
-    private static func read(_ parts: Set<HealthDataPart>, into base: HealthSnapshot?, health: HealthKitManager) async -> HealthSnapshot {
-        guard health.isAvailable else { return .empty }
+    private static func read(_ parts: Set<HealthDataPart>, into base: HealthSnapshot?, health: HealthKitManager) async -> Outcome {
+        guard health.isAvailable else { return Outcome(snapshot: .empty, failed: []) }
         var series = base?.series ?? [:]
         var nights = base?.nights ?? []
         var workouts = base?.workouts ?? []
+        var failed: Set<HealthDataPart> = []
         let metrics = HealthMetric.allCases.filter { parts.contains(.metric($0)) }
-        await withTaskGroup(of: (HealthMetric, HealthSeries?).self) { group in
+        await withTaskGroup(of: (HealthMetric, HealthSeries?, Bool).self) { group in
             for metric in metrics {
                 // Sparse measurements (VO2 max, weight) look further back.
                 let days = max(28, metric.freshnessDays)
                 group.addTask {
-                    let read = await health.dailySeries(metric, days: days)
-                    return (metric, read)
+                    do {
+                        return (metric, try await health.dailySeries(metric, days: days), true)
+                    } catch {
+                        return (metric, nil, false)
+                    }
                 }
             }
-            for await (metric, read) in group { series[metric] = read }
+            for await (metric, read, succeeded) in group {
+                if succeeded { series[metric] = read } else { failed.insert(.metric(metric)) }
+            }
         }
-        if parts.contains(.sleep) { nights = await health.healthNights(days: 14) }
-        if parts.contains(.workouts) { workouts = await health.healthWorkouts(days: 30) }
-        return HealthSnapshot(series: series, nights: nights, workouts: workouts, fetchedAt: .now)
+        if parts.contains(.sleep) {
+            do { nights = try await health.healthNights(days: 14) } catch { failed.insert(.sleep) }
+        }
+        if parts.contains(.workouts) {
+            do { workouts = try await health.healthWorkouts(days: 30) } catch { failed.insert(.workouts) }
+        }
+        return Outcome(snapshot: HealthSnapshot(series: series, nights: nights, workouts: workouts, fetchedAt: .now), failed: failed)
     }
 }
 

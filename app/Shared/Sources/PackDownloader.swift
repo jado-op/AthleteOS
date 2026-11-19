@@ -60,6 +60,12 @@ public struct PackDownloader: Sendable {
         guard let entry = manifest.packs.first(where: { $0.slug == slug }) else {
             throw PackDownloadError.manifestEntryMissing(slug: slug)
         }
+        let destination = packsDirectory.appending(path: entry.file)
+        // Already here and unchanged: no download, and no rewrite (a new file
+        // date would make the catalogue decode everything again).
+        if let local = try? Data(contentsOf: destination), sha256Hex(local) == entry.checksum {
+            return destination
+        }
         let data = try await client.fetchPack(named: entry.file)
 
         let actualChecksum = sha256Hex(data)
@@ -67,7 +73,6 @@ public struct PackDownloader: Sendable {
             throw PackDownloadError.checksumMismatch(slug: slug, expected: entry.checksum, actual: actualChecksum)
         }
 
-        let destination = packsDirectory.appending(path: entry.file)
         try data.write(to: destination, options: .atomic)
         return destination
     }

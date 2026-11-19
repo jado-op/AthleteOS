@@ -99,7 +99,7 @@ struct MeView: View {
                                 detail: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items") { activeSheet = .equipment }
                         menuDivider
                         menuRow("Training experience", icon: "figure.strengthtraining.traditional", tint: AppTheme.coral,
-                                detail: TrainingExperience.saved?.title ?? "Not set") { activeSheet = .experience }
+                                detail: TrainingExperience.saved?.title ?? "\(TrainingExperience.current.title) (assumed)") { activeSheet = .experience }
                         menuDivider
                         coachToggleRow
                     }

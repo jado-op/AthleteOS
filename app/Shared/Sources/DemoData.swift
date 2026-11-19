@@ -77,7 +77,7 @@ public enum DemoData {
             let stress: Int = 2 + offset % 2
             let checkIn = CheckIn(
                 date: date, sleepQuality: value, sleepHours: gameMorning ? 7.0 : [8.5, 8.0, 8.5, 9.0][offset % 4], soreness: soreness, energy: energy,
-                stress: stress, readinessBand: .green, athlete: athlete
+                stress: stress, readinessBand: soreness >= 4 ? .amber : .green, athlete: athlete
             )
             context.insert(checkIn)
         }

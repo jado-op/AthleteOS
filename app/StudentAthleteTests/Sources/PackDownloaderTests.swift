@@ -81,6 +81,22 @@ final class PackDownloaderTests: XCTestCase {
         XCTAssertTrue(downloader.locallyAvailablePackFiles().isEmpty)
     }
 
+    func testAnUnchangedLocalPackIsNotDownloadedAgain() async throws {
+        let dir = try makeEmptyDirectory()
+        let payload = Data("pack contents".utf8)
+        let checksum = SHA256.hash(data: payload).map { String(format: "%02x", $0) }.joined()
+        try payload.write(to: dir.appending(path: "core-v1.json"))
+        StubURLProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
+
+        let downloader = PackDownloader(client: makeClient(), packsDirectory: dir)
+        let manifest = PackManifest(generatedAt: "2026-01-01T00:00:00Z", packs: [
+            PackManifestEntry(slug: "core", version: 1, file: "core-v1.json", sizeBytes: payload.count, checksum: checksum),
+        ])
+
+        let url = try await downloader.download(slug: "core", manifest: manifest)
+        XCTAssertEqual(url.lastPathComponent, "core-v1.json")
+    }
+
     func testAMatchingChecksumIsWrittenAndBecomesLocallyAvailable() async throws {
         let dir = try makeEmptyDirectory()
         let payload = Data("pack contents".utf8)

@@ -17,10 +17,10 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .active: "Normal Day"
-        case .sick: "Sick / Rest"
+        case .active: "Normal day"
+        case .sick: "Sick / rest"
         case .concussion: "Training paused"
-        case .travel: "Travel Day"
+        case .travel: "Travel day"
         case .holiday: "Holiday"
         }
     }

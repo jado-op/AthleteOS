@@ -34,7 +34,9 @@ extension HealthKitManager {
     /// day's low and high), oldest first. Health's statistics merge every
     /// source by the athlete's source priority, so an iPhone and a watch
     /// counting the same steps count them once.
-    public func dailySeries(_ metric: HealthMetric, days: Int, calendar: Calendar = .current) async -> HealthSeries? {
+    /// Throws when Health could not be read (the phone is locked, the
+    /// database is busy): the caller keeps what it had instead of an empty card.
+    public func dailySeries(_ metric: HealthMetric, days: Int, calendar: Calendar = .current) async throws -> HealthSeries? {
         #if canImport(HealthKit)
         guard isAvailable else { return nil }
         let today = calendar.startOfDay(for: .now)
@@ -45,10 +47,14 @@ extension HealthKitManager {
         let options: HKStatisticsOptions = isSum ? .cumulativeSum : [.discreteAverage, .discreteMin, .discreteMax]
         let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: [])
         let store = self.store
-        let days: [HealthDay] = await withCheckedContinuation { continuation in
+        let days: [HealthDay] = try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsCollectionQuery(quantityType: metric.quantityType, quantitySamplePredicate: predicate,
                                                     options: options, anchorDate: start, intervalComponents: DateComponents(day: 1))
-            query.initialResultsHandler = { _, collection, _ in
+            query.initialResultsHandler = { _, collection, error in
+                if let error, !Self.meansNoData(error) {
+                    continuation.resume(throwing: error)
+                    return
+                }
                 var result: [HealthDay] = []
                 collection?.enumerateStatistics(from: start, to: .now) { statistics, _ in
                     if isSum {
@@ -102,16 +108,20 @@ extension HealthKitManager {
     /// The last `days` nights, each dated by its morning: hours asleep (every
     /// source merged so overlaps count once, never "in bed"), when sleep
     /// started and ended, and the stages from the device that recorded most.
-    public func healthNights(days: Int = 14, calendar: Calendar = .current) async -> [HealthNight] {
+    public func healthNights(days: Int = 14, calendar: Calendar = .current) async throws -> [HealthNight] {
         #if canImport(HealthKit)
         guard isAvailable else { return [] }
         let today = calendar.startOfDay(for: .now)
         guard let first = calendar.date(byAdding: .day, value: -(days - 1), to: today) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: first.addingTimeInterval(-6 * 3600), end: .now, options: [])
         let store = self.store
-        let samples: [SleepStages.Sample] = await withCheckedContinuation { continuation in
+        let samples: [SleepStages.Sample] = try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(sampleType: HKCategoryType(.sleepAnalysis), predicate: predicate,
-                                      limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                                      limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+                if let error, !Self.meansNoData(error) {
+                    continuation.resume(throwing: error)
+                    return
+                }
                 let mapped = (samples as? [HKCategorySample] ?? []).compactMap { sample -> SleepStages.Sample? in
                     guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return nil }
                     let stage: SleepStages.Stage
@@ -141,16 +151,20 @@ extension HealthKitManager {
     /// Workouts every other app and device wrote in the last `days` days
     /// (never the ones AthleteOS saved), newest first, with distance, energy,
     /// heart rate and whether a GPS route is stored.
-    public func healthWorkouts(days: Int = 30, calendar: Calendar = .current) async -> [HealthWorkout] {
+    public func healthWorkouts(days: Int = 30, calendar: Calendar = .current) async throws -> [HealthWorkout] {
         #if canImport(HealthKit)
         guard isAvailable else { return [] }
         let start = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: .now)) ?? .now
         let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
         let own = Self.ownBundlePrefix
         let store = self.store
-        let workouts: [HKWorkout] = await withCheckedContinuation { continuation in
+        let workouts: [HKWorkout] = try await withCheckedThrowingContinuation { continuation in
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: 100, sortDescriptors: [sort]) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: 100, sortDescriptors: [sort]) { _, samples, error in
+                if let error, !Self.meansNoData(error) {
+                    continuation.resume(throwing: error)
+                    return
+                }
                 continuation.resume(returning: (samples as? [HKWorkout] ?? []).filter { !$0.sourceRevision.source.bundleIdentifier.hasPrefix(own) })
             }
             store.execute(query)
@@ -203,6 +217,11 @@ extension HealthKitManager {
     }
 
     #if canImport(HealthKit)
+    /// "Nothing recorded" is an answer, not a failure.
+    static func meansNoData(_ error: Error) -> Bool {
+        (error as? HKError)?.code == .errorNoData
+    }
+
     static var ownBundlePrefix: String {
         Bundle.main.bundleIdentifier.map { String($0.split(separator: ".").prefix(3).joined(separator: ".")) } ?? "com.studentathlete.app"
     }

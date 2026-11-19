@@ -107,7 +107,7 @@ struct ReflectionSheet: View {
             VStack(spacing: 0) {
                 scale("How hard did today feel?", EveningOptions.hardness, selection: $hardness)
                 // Reflection is never forced (Backend Knowledge System §20).
-                Button("Nothing to review today") { saveNothing() }
+                Button("Skip today") { saveNothing() }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -135,7 +135,7 @@ struct ReflectionSheet: View {
             VStack(spacing: 0) {
                 scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
                 if restDay {
-                    Button("Nothing to review today") { saveNothing() }
+                    Button("Skip today") { saveNothing() }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(maxWidth: .infinity, minHeight: 44)
