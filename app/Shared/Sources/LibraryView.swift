@@ -438,21 +438,25 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 ZStack(alignment: .topLeading) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                            .fill(AppTheme.fill)
+                        // V8: the figure stands in a soft ember light, the one focal point.
+                        AuraBackground(.calm)
+                        RadialGradient(colors: [AuraTone.training.mark.opacity(0.3), .clear], center: UnitPoint(x: 0.5, y: 0.6),
+                                       startRadius: 0, endRadius: 190)
                         if let pattern = item.posePattern {
                             RigPoseView(pattern: pattern, muscles: item.muscles)
                                 .padding(24)
                         }
                     }
-                    .frame(height: 280)
+                    .frame(height: 300)
+                    .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
                     CircleIconButton(systemImage: closes ? "xmark" : "chevron.left", accessibilityLabel: closes ? "Close" : "Back") { dismiss() }
                         .padding(14)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(item.name)
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
+                        .tracking(-0.7)
                         .foregroundStyle(AppTheme.ink)
                     FlowLayout(spacing: 6) {
                         Tag(item.kind == "drill" ? "Sport drill" : "Exercise", color: AppTheme.ink)
@@ -562,7 +566,7 @@ struct ItemDetailView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.secondaryText)
             Text(value)
-                .font(.subheadline.bold())
+                .font(.system(size: 22, weight: .light))
                 .foregroundStyle(AppTheme.ink)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -571,7 +575,7 @@ struct ItemDetailView: View {
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 14)
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder

@@ -471,7 +471,7 @@ public enum TwinAnalysis {
             strength: runs.count >= 3 ? .strong : .emerging,
             basis: "\(best.points.count) sessions, \(runs.count) tests",
             evidence: TwinEvidence(style: .lines, points: best.points, unit: "%",
-                                   caption: "Change since the start · violet: \(lift) · white: \(firstRun.name.lowercased())",
+                                   caption: "Change since the start · coloured: \(lift) · white: \(firstRun.name.lowercased())",
                                    comparison: runs.map { TwinPoint(date: c.day($0.date), value: (firstRun.value - $0.value) / firstRun.value * 100) }),
             values: c.family.tokens.merging(["strengthGain": gainText, "sprintChange": sprintChange]) { $1 },
             reason: "Your \(lift) is up \(gainText), your sprint shows \(sprintChange).",

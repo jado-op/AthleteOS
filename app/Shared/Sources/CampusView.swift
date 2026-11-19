@@ -31,8 +31,8 @@ enum Duo {
 
     /// Unit colours along the path, starting with the brand red.
     static let units: [(Color, Color)] = [
-        (AppTheme.brand, Color(hex: "#B8272A")), (AppTheme.water, AppTheme.waterDeep), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
-        (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (AppTheme.coral, Color(hex: "#9F8CE8")),
+        (AppTheme.brand, Color(hex: "#B8272A")), (AppTheme.water, AppTheme.waterDeep), (green, greenLip), (AppTheme.purple, Color(hex: "#9D2B7A")),
+        (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (AppTheme.coral, Color(hex: "#C2410C")),
     ]
 }
 
@@ -675,10 +675,8 @@ private struct TeachCard: View {
         let example = section.heading == CampusLesson.exampleHeading
         VStack(alignment: .leading, spacing: 16) {
             Text(lessonTitle)
-                .font(.caption.weight(.bold))
-                .tracking(0.8)
-                .textCase(.uppercase)
-                .foregroundStyle(AppTheme.secondaryText)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AuraTone.mind.mark)
             if forYou || example {
                 Label(section.heading, systemImage: forYou ? "person.fill.checkmark" : "figure.run")
                     .font(.system(size: 26, weight: .bold))
@@ -695,8 +693,13 @@ private struct TeachCard: View {
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(forYou || example ? 16 : 0)
-                .background(forYou || example ? AppTheme.card : Color.clear, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                .padding(forYou || example ? 20 : 0)
+                .background {
+                    if forYou || example {
+                        AuraBackground(.mind, focus: UnitPoint(x: 0.1, y: 0), radius: 260)
+                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    }
+                }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -903,7 +906,8 @@ private struct FeedbackPanel: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.card)
+        // V8: the answer's own colour — green when right, the calm plate when not.
+        .background(AuraBackground(correct ? .game : .calm, focus: UnitPoint(x: 0.1, y: 0), radius: 260).ignoresSafeArea(edges: .bottom))
         .transition(.move(edge: .bottom))
     }
 }
@@ -918,18 +922,20 @@ private struct CampusComplete: View {
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(AppTheme.green)
-                .opacity(appeared ? 1 : 0)
-                .animation(.easeOut(duration: 0.3), value: appeared)
-            Text("Lesson complete")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-            HStack(spacing: 12) {
-                stat("Accuracy", "\(accuracy)%")
-                stat("Time", String(format: "%d:%02d", seconds / 60, seconds % 60))
+            // V8: one magenta card, the sentence big, two light numbers.
+            AuraCard(.mind, focus: UnitPoint(x: 0.25, y: 0.75), radius: 240) {
+                VStack(alignment: .leading, spacing: 22) {
+                    Headline([.strong("Lesson complete. "), .soft("One more thing you know.")], size: 32)
+                    HStack(alignment: .top, spacing: 12) {
+                        FigureStat("\(accuracy)", unit: "%", label: "Right first time", size: 44)
+                        FigureStat(String(format: "%d:%02d", seconds / 60, seconds % 60), label: "Time", size: 44)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 16)
+            .animation(.spring(response: 0.45, dampingFraction: 0.9), value: appeared)
             Spacer()
             Button("Continue", action: onContinue)
                 .buttonStyle(.primary)
@@ -937,20 +943,5 @@ private struct CampusComplete: View {
         .padding(24)
         .onAppear { appeared = true }
         .sensoryFeedback(.success, trigger: appeared)
-    }
-
-    private func stat(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(label)
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, minHeight: 72)
-        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
     }
 }

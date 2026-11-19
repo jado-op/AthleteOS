@@ -49,6 +49,7 @@ public struct LiveSessionView: View {
     @State private var restTask: Task<Void, Never>?
     @State private var showingCues = false
     @State private var showingPicker = false
+    @State private var showingList = false
     @State private var showingEndOptions = false
     @State private var showingRPE = false
     @State private var rpe = 6
@@ -108,37 +109,29 @@ public struct LiveSessionView: View {
         VStack(spacing: 0) {
             topBar
             if let current {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        if loggedCount == 0 {
-                            TipCard(id: "live", icon: "hand.tap.fill", title: "How a workout works",
-                                    message: "Do a set, log it, rest. Tap Finish when you're done.")
-                        }
-                        if allDone {
-                            doneCard
-                        }
-                        // V8: the name big, then one coloured ring where the eye
-                        // lands — ember while working, blue while resting.
-                        itemHeader(current)
-                        if restRemaining > 0 {
-                            restCard
-                        } else {
-                            workCard(current)
-                            doseControls(current)
-                        }
-                        poseHero
-                        cuesCard
-                        upNext
+                // V8, one screen: everything a set needs is visible without
+                // scrolling — what it is, how it looks, the set and the dose,
+                // what comes next. Details open on a tap.
+                VStack(alignment: .leading, spacing: 14) {
+                    itemHeader(current)
+                    figurePanel
+                        .frame(minHeight: 96, maxHeight: .infinity)
+                    statusCard(current)
+                    if restRemaining == 0 && !allDone {
+                        doseControls(current)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    nextRow
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+                .animation(.easeInOut(duration: 0.3), value: restRemaining > 0)
+                .animation(.easeInOut(duration: 0.3), value: index)
                 bottomBar(current)
             } else {
                 emptyState
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
         .appScreen()
         .sensoryFeedback(.success, trigger: loggedCount)
         .sensoryFeedback(.warning, trigger: restEndedCount)
@@ -156,6 +149,16 @@ public struct LiveSessionView: View {
                 if swapping { swap(to: item) } else { add(item) }
                 swapping = false
             }
+        }
+        .sheet(isPresented: $showingCues) {
+            howToSheet
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingList) {
+            exerciseListSheet
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingRPE) {
             RPEPromptView(rpe: $rpe, heartRate: heartRate, onKeepTraining: { showingRPE = false }) { finish() }
@@ -182,31 +185,63 @@ public struct LiveSessionView: View {
 
     // MARK: - Chrome
 
+    /// Close, the whole workout as one segment per exercise, the clock,
+    /// the list of exercises and Finish.
     private var topBar: some View {
-        HStack(spacing: 14) {
-            CircleIconButton(systemImage: "xmark", accessibilityLabel: "End session") {
-                if totalLogged == 0 {
-                    discard()
-                } else {
-                    showingEndOptions = true
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "End session") {
+                    if totalLogged == 0 {
+                        discard()
+                    } else {
+                        showingEndOptions = true
+                    }
                 }
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                StepProgressBar(progress: Double(totalLogged) / Double(totalTargetSets))
                 TimelineView(.periodic(from: startedAt, by: 1)) { context in
                     Text(elapsedText(context.date))
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .font(.system(size: 20, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
                 }
+                .accessibilityLabel("Time")
+                Spacer()
+                if !queue.isEmpty {
+                    CircleIconButton(systemImage: "list.bullet", accessibilityLabel: "All exercises") { showingList = true }
+                }
+                Button(totalLogged == 0 ? "Close" : "Finish") {
+                    if totalLogged == 0 { discard() } else { showingRPE = true }
+                }
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .frame(minWidth: 44, minHeight: 44)
             }
-            Button(totalLogged == 0 ? "Close" : "Finish") {
-                if totalLogged == 0 { discard() } else { showingRPE = true }
+            if !queue.isEmpty {
+                segments
             }
-            .font(.headline)
-            .foregroundStyle(AppTheme.ink)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+    }
+
+    /// One bar per exercise, filling set by set; the current one in ember.
+    private var segments: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(queue.enumerated()), id: \.offset) { position, item in
+                let fraction = Double(min(setsLogged[position, default: 0], max(item.dose.sets, 1))) / Double(max(item.dose.sets, 1))
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(position == index ? 0.28 : 0.14))
+                        Capsule()
+                            .fill(skipped.contains(position) && fraction < 1 ? Color.white.opacity(0.3) : AuraTone.training.mark)
+                            .frame(width: geo.size.width * (skipped.contains(position) && fraction < 1 ? 1 : fraction))
+                    }
+                }
+                .frame(height: 5)
+            }
+        }
+        .animation(.easeOut(duration: 0.4), value: totalLogged)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Exercise \(index + 1) of \(queue.count), \(totalLogged) of \(totalTargetSets) sets done")
     }
 
     private func elapsedText(_ now: Date) -> String {
@@ -214,73 +249,72 @@ public struct LiveSessionView: View {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    private var poseHero: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-                .fill(AppTheme.card)
-                .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 4)
-            HStack(spacing: 8) {
-                if let pattern = currentItem?.posePattern {
-                    RigPoseView(pattern: pattern, muscles: currentItem?.muscles ?? [:])
-                        .frame(maxWidth: .infinity)
-                }
-                if let currentItem {
-                    MuscleMapView(side: .front, weights: currentItem.muscles)
-                        .frame(width: 80)
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(18)
-        }
-        .frame(height: 230)
-        .id(current?.itemSlug)
-        .transition(.opacity)
-    }
-
-    /// V8: "Exercise 3 of 8", the name big; the dose, set and rest live in
-    /// the ring card below. Notes (best, last time, target) stay small.
+    /// "3 of 8 · Power", the name big, and one small note (a best, a target
+    /// or last time). Swap, skip, add and units live in the menu.
     private func itemHeader(_ current: GeneratedPlannedItem) -> some View {
         let done = setsLogged[index, default: 0]
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Exercise \(index + 1) of \(queue.count)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
-            Text(currentItem?.name ?? displayName(forSlug: current.itemSlug))
-                .font(.system(size: 36, weight: .bold))
-                .tracking(-0.8)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            if let bestNote {
-                Label(bestNote, systemImage: "trophy.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.amber)
-                    .sensoryFeedback(.success, trigger: bestCount)
-            }
-            if let lastTimeNote, done == 0 {
-                Text(lastTimeNote)
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            if let targetNote, done == 0 {
-                Label(targetNote, systemImage: "arrow.up.right")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            // Rack busy, it hurts, no kit: change it or leave it out.
-            if !isFinished(index) {
-                HStack(spacing: 18) {
-                    if done == 0 {
-                        Button { swapping = true; showingPicker = true } label: { Label("Swap", systemImage: "arrow.triangle.2.circlepath") }
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("\(index + 1) of \(queue.count)")
+                        .foregroundStyle(AppTheme.secondaryText)
+                    if let whyLine {
+                        Text("·").foregroundStyle(AppTheme.secondaryText)
+                        Text(whyLine).foregroundStyle(AuraTone.training.mark)
                     }
-                    Button { skipCurrent() } label: { Label("Skip", systemImage: "forward.end") }
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
-                .buttonStyle(.plain)
-                .frame(minHeight: 44)
+                .font(.subheadline.weight(.semibold))
+                Text(currentItem?.name ?? displayName(forSlug: current.itemSlug))
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-0.7)
+                    .foregroundStyle(AppTheme.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityAddTraits(.isHeader)
+                    .id(current.itemSlug)
+                    .transition(.opacity)
+                if let bestNote {
+                    Label(bestNote, systemImage: "trophy.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.amber)
+                        .lineLimit(1)
+                        .sensoryFeedback(.success, trigger: bestCount)
+                } else if let note = (done == 0 ? (targetNote ?? lastTimeNote) : nil) {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
+            Spacer(minLength: 0)
+            exerciseMenu(done: done)
         }
+    }
+
+    private func exerciseMenu(done: Int) -> some View {
+        Menu {
+            if !isFinished(index) {
+                if done == 0 {
+                    Button { swapping = true; showingPicker = true } label: { Label("Swap exercise", systemImage: "arrow.triangle.2.circlepath") }
+                }
+                Button { skipCurrent() } label: { Label("Skip exercise", systemImage: "forward.end") }
+            }
+            Button { showingPicker = true } label: { Label("Add an exercise", systemImage: "plus") }
+            Button { showingCues = true } label: { Label("How to do it", systemImage: "figure.mixed.cardio") }
+            Picker("Weights in", selection: $unitRaw) {
+                ForEach(WeightUnit.allCases, id: \.self) { option in
+                    Text(option == .lb ? "Pounds (lb)" : "Kilograms (kg)").tag(option.rawValue)
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(0.08), in: Circle())
+        }
+        .accessibilityLabel("Exercise options")
     }
 
     /// What the exercise is mainly for, in a word or two ("Power").
@@ -289,101 +323,139 @@ public struct LiveSessionView: View {
         return qualitiesBySlug[top]?.shortName
     }
 
-    // MARK: - Logging
-
-    @ViewBuilder
-    private func doseControls(_ current: GeneratedPlannedItem) -> some View {
-        VStack(spacing: 12) {
-            switch current.dose.kind {
-            case "reps":
-                BigStepper(label: "Reps", value: "\(reps)", onMinus: { reps = max(1, reps - 1) }, onPlus: { reps = min(100, reps + 1) })
-                BigStepper(
-                    label: "Weight added", value: weightKg < 0.1 ? "Bodyweight" : unit.format(kg: weightKg),
-                    onMinus: { weightKg = max(0, weightKg - unit.stepKg) }, onPlus: { weightKg = min(400, weightKg + unit.stepKg) }
-                )
-                HStack(spacing: 6) {
-                    Text("Weights in")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                    ForEach(WeightUnit.allCases, id: \.self) { option in
-                        Button { unitRaw = option.rawValue } label: { Chip(option == .lb ? "lb" : "kg", isSelected: unit == option) }
-                            .buttonStyle(.plain)
+    /// How it looks: the moving figure big, the muscles it works small in the
+    /// corner, the first coaching cue under it. Tap for every cue.
+    private var figurePanel: some View {
+        Button { showingCues = true } label: {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+                HStack(alignment: .bottom, spacing: 0) {
+                    if let pattern = currentItem?.posePattern {
+                        RigPoseView(pattern: pattern, muscles: currentItem?.muscles ?? [:])
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        Spacer()
+                    }
+                    if let currentItem, !currentItem.muscles.isEmpty {
+                        MuscleMapView(side: .front, weights: currentItem.muscles)
+                            .frame(width: 58)
+                            .padding(.bottom, 30)
+                            .accessibilityHidden(true)
                     }
                 }
-            case "time":
-                BigStepper(label: "Seconds", value: "\(seconds)", onMinus: { seconds = max(5, seconds - 5) }, onPlus: { seconds = min(900, seconds + 5) })
-            case "distance":
-                BigStepper(label: "Distance", value: Measure.distance(m: distanceM), onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
-            case "contacts":
-                BigStepper(label: "Contacts", value: "\(contacts)", onMinus: { contacts = max(1, contacts - 1) }, onPlus: { contacts = min(100, contacts + 1) })
-            default:
-                EmptyView()
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 34)
+                if let cue = currentItem?.cues.first {
+                    HStack(spacing: 6) {
+                        Text(cue)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
             }
+            .id(current?.itemSlug)
+            .transition(.opacity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("How to do it")
+    }
+
+    // MARK: - Logging
+
+    /// The set, the rest or "all done": one coloured card, the ring on the
+    /// left where the eye lands, the dose and what's next beside it.
+    @ViewBuilder
+    private func statusCard(_ current: GeneratedPlannedItem) -> some View {
+        if allDone {
+            AuraCard(.game, focus: UnitPoint(x: 0.15, y: 0.5), radius: 160, padding: 18) {
+                HStack(spacing: 16) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 76, height: 76)
+                        .background(Color.white.opacity(0.18), in: Circle())
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Every set done.")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.ink)
+                        Text("Finish to save it — or add an exercise for more.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink.opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        } else if restRemaining > 0 {
+            restCard
+        } else {
+            workCard(current)
         }
     }
 
-    private var doneCard: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.title2)
-                .foregroundStyle(AppTheme.green)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Every set done")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
-                Text("Great work. Tap Finish workout to save it — or add an exercise if you want more.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 16)
-    }
-
-    /// The working set: an ember card, the ring filling set by set, the
-    /// dose under it and what comes after this set in one small line.
+    /// The working set: ember, the ring filling set by set.
     private func workCard(_ current: GeneratedPlannedItem) -> some View {
         let done = setsLogged[index, default: 0]
         let sets = max(current.dose.sets, 1)
         let finished = done >= current.dose.sets
-        return AuraCard(.training, focus: UnitPoint(x: 0.5, y: 0.36), radius: 220) {
-            VStack(spacing: 14) {
+        return AuraCard(.training, focus: UnitPoint(x: 0.18, y: 0.5), radius: 170, padding: 18) {
+            HStack(spacing: 18) {
                 RingTimer(progress: Double(min(done, sets)) / Double(sets),
-                          value: finished ? "Done" : "\(min(done + 1, sets))",
-                          unit: finished ? "" : "of \(sets)",
-                          caption: finished ? "All sets" : "Set", size: 200)
-                Text(DoseFormatter.text(current.dose))
-                    .font(.title2.weight(.bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                    .multilineTextAlignment(.center)
-                if let line = workDetailLine(current, done: done) {
-                    Text(line)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.78))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                          value: finished ? "✓" : "\(min(done + 1, sets))",
+                          unit: finished ? "" : "/\(sets)",
+                          caption: "Set", size: 112)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(DoseFormatter.text(current.dose))
+                        .font(.system(size: 24, weight: .bold).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                    if let line = workDetailLine(current, done: done) {
+                        Text(line)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                    }
+                    if let effort = current.effort {
+                        Text(effort)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.ink.opacity(0.7))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
                 }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
-    /// "Then: rest 90 s · Why: power" — or the next exercise on the last set.
+    /// "Then: rest 90 s" — or the next exercise on the last set.
     private func workDetailLine(_ current: GeneratedPlannedItem, done: Int) -> String? {
-        var parts: [String] = []
         if done + 1 >= current.dose.sets, let next = nextOpenName {
-            parts.append("Then: \(next)")
+            return "Then: \(next)"
         } else if current.restSec > 0, done < current.dose.sets {
-            parts.append("Then: rest \(current.restSec) s")
+            return "Then: rest \(current.restSec) s"
         }
-        if let why = whyLine { parts.append("Why: \(why)") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        return nil
     }
 
     /// The next exercise still open after this one.
+    private var nextOpenPosition: Int? {
+        queue.indices.first(where: { $0 > index && !isFinished($0) })
+            ?? queue.indices.first(where: { $0 != index && !isFinished($0) })
+    }
+
     private var nextOpenName: String? {
-        guard let next = queue.indices.first(where: { $0 > index && !isFinished($0) })
-            ?? queue.indices.first(where: { $0 != index && !isFinished($0) }) else { return nil }
+        guard let next = nextOpenPosition else { return nil }
         return catalogue.item(queue[next].itemSlug)?.name ?? displayName(forSlug: queue[next].itemSlug)
     }
 
@@ -391,114 +463,202 @@ public struct LiveSessionView: View {
     private var restNextLine: String? {
         guard let current else { return nil }
         let done = setsLogged[index, default: 0]
-        guard done < current.dose.sets else { return nil }
+        guard done < current.dose.sets else { return nextOpenName.map { "Next: \($0)" } }
         return "Next: set \(done + 1) of \(current.dose.sets)"
     }
 
-    /// The rest: a calm blue card, the countdown big inside the ring.
+    /// The rest: calm blue, the countdown inside the ring.
     private var restCard: some View {
-        AuraCard(.body, focus: UnitPoint(x: 0.5, y: 0.36), radius: 220) {
-            VStack(spacing: 14) {
+        AuraCard(.body, focus: UnitPoint(x: 0.18, y: 0.5), radius: 170, padding: 18) {
+            HStack(spacing: 18) {
                 RingTimer(progress: restTotal > 0 ? Double(restRemaining) / Double(restTotal) : 0,
                           value: String(format: "%d:%02d", restRemaining / 60, restRemaining % 60),
-                          caption: "Rest", size: 200)
-                if let restNextLine {
-                    Text(restNextLine)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.78))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                ButtonRow {
-                    Button("+15s") {
+                          caption: "Rest", size: 112)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Breathe. Shake it out.")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    if let restNextLine {
+                        Text(restNextLine)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                    }
+                    Button {
                         restEndsAt = (restEndsAt ?? .now).addingTimeInterval(15)
                         restRemaining += 15
                         restTotal += 15
                         updateActivity()
+                    } label: {
+                        Text("+15 s")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(AppTheme.ink)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 40)
+                            .background(Color.black.opacity(0.24), in: Capsule())
                     }
-                    .buttonStyle(.secondary)
-                    Button("Skip rest") { endRest(silently: true) }
-                        .buttonStyle(.secondary)
+                    .buttonStyle(.pressable)
                 }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
+    /// Reps and weight side by side (or seconds, distance, contacts).
     @ViewBuilder
-    private var cuesCard: some View {
-        if let currentItem, !currentItem.cues.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showingCues.toggle() }
-                } label: {
-                    HStack {
-                        Label("Coaching cues", systemImage: "megaphone.fill")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.ink)
-                        Spacer()
-                        Image(systemName: showingCues ? "chevron.up" : "chevron.down")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
-                }
-                .buttonStyle(.plain)
-                if showingCues {
-                    ForEach(currentItem.cues + currentItem.mistakes.map { "Avoid: \($0)" }, id: \.self) { cue in
-                        Text("•  \(cue)")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.ink.opacity(0.85))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                } else if let first = currentItem.cues.first {
-                    Text(first)
-                        .font(.subheadline)
+    private func doseControls(_ current: GeneratedPlannedItem) -> some View {
+        switch current.dose.kind {
+        case "reps":
+            HStack(spacing: 12) {
+                DoseStepper(label: "Reps", value: "\(reps)", onMinus: { reps = max(1, reps - 1) }, onPlus: { reps = min(100, reps + 1) })
+                DoseStepper(label: "Weight added", value: weightKg < 0.1 ? "Body" : unit.format(kg: weightKg),
+                            onMinus: { weightKg = max(0, weightKg - unit.stepKg) }, onPlus: { weightKg = min(400, weightKg + unit.stepKg) })
+            }
+        case "time":
+            DoseStepper(label: "Seconds", value: "\(seconds)", onMinus: { seconds = max(5, seconds - 5) }, onPlus: { seconds = min(900, seconds + 5) })
+        case "distance":
+            DoseStepper(label: "Distance", value: Measure.distance(m: distanceM), onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
+        case "contacts":
+            DoseStepper(label: "Contacts", value: "\(contacts)", onMinus: { contacts = max(1, contacts - 1) }, onPlus: { contacts = min(100, contacts + 1) })
+        default:
+            EmptyView()
+        }
+    }
+
+    /// One line: the exercise after this one and its dose. Tap for the list.
+    @ViewBuilder
+    private var nextRow: some View {
+        if let next = nextOpenPosition, next != index {
+            let item = queue[next]
+            Button { showingList = true } label: {
+                HStack(spacing: 10) {
+                    Text("Up next")
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
+                        .foregroundStyle(AppTheme.ink)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text(DoseFormatter.text(item.dose))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(AppTheme.secondaryText)
                 }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 36)
             }
-            .cardStyle(padding: 16)
+            .buttonStyle(.plain)
         }
     }
 
-    private var upNext: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("All exercises in this workout")
-                    .font(.headline)
+    /// Every cue and mistake for the current exercise, with the figure.
+    private var howToSheet: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(currentItem?.name ?? "How to do it")
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-0.7)
                     .foregroundStyle(AppTheme.ink)
-                Spacer()
+                if let currentItem {
+                    if let pattern = currentItem.posePattern {
+                        HStack(spacing: 8) {
+                            RigPoseView(pattern: pattern, muscles: currentItem.muscles)
+                                .frame(maxWidth: .infinity)
+                            if !currentItem.muscles.isEmpty {
+                                MuscleMapView(side: .front, weights: currentItem.muscles)
+                                    .frame(width: 80)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .frame(height: 220)
+                    }
+                    if !currentItem.cues.isEmpty {
+                        SectionLabel("Do")
+                        ForEach(currentItem.cues, id: \.self) { cue in
+                            Label(cue, systemImage: "checkmark")
+                                .font(.body)
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    if !currentItem.mistakes.isEmpty {
+                        SectionLabel("Avoid")
+                        ForEach(currentItem.mistakes, id: \.self) { mistake in
+                            Label(mistake, systemImage: "xmark")
+                                .font(.body)
+                                .foregroundStyle(AppTheme.ink.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            .padding(24)
+        }
+        .scrollIndicators(.hidden)
+        .background(AppTheme.background.ignoresSafeArea())
+    }
+
+    /// All exercises: tap one to go there; add another at the end.
+    private var exerciseListSheet: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("This workout")
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-0.7)
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.bottom, 12)
+                ForEach(Array(queue.enumerated()), id: \.offset) { position, item in
+                    let done = setsLogged[position, default: 0]
+                    let finished = done >= item.dose.sets
+                    Button {
+                        jump(to: position)
+                        showingList = false
+                    } label: {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(finished ? AppTheme.green : (position == index ? AuraTone.training.mark : Color.white.opacity(0.1)))
+                                if finished {
+                                    Image(systemName: "checkmark").font(.caption.weight(.heavy)).foregroundStyle(Color.black)
+                                } else {
+                                    Text("\(position + 1)").font(.footnote.weight(.bold)).foregroundStyle(AppTheme.ink)
+                                }
+                            }
+                            .frame(width: 30, height: 30)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
+                                    .font(.body.weight(position == index ? .bold : .regular))
+                                    .foregroundStyle(AppTheme.ink)
+                                    .lineLimit(1)
+                                Text(skipped.contains(position) && !finished ? "Skipped" : "\(DoseFormatter.text(item.dose)) · \(done) of \(countedNoun(item.dose.sets, "set"))")
+                                    .font(.footnote)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
                 Button {
+                    showingList = false
                     showingPicker = true
                 } label: {
-                    Label("Add exercise", systemImage: "plus")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
+                    Label("Add an exercise", systemImage: "plus")
                 }
+                .buttonStyle(.secondary)
+                .padding(.top, 16)
             }
-            ForEach(Array(queue.enumerated()), id: \.offset) { position, item in
-                let done = setsLogged[position, default: 0]
-                Button {
-                    jump(to: position)
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: done >= item.dose.sets ? "checkmark.circle.fill"
-                              : (skipped.contains(position) ? "forward.end.circle" : (position == index ? "play.circle.fill" : "circle")))
-                            .foregroundStyle(done >= item.dose.sets ? AppTheme.green : AppTheme.ink)
-                        Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
-                            .font(.subheadline.weight(position == index ? .bold : .regular))
-                            .foregroundStyle(AppTheme.ink)
-                            .lineLimit(1)
-                        Spacer()
-                        Text(skipped.contains(position) && done < item.dose.sets ? "Skipped" : "\(done) of \(countedNoun(item.dose.sets, "set"))")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
-                    .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(24)
         }
-        .cardStyle(padding: 16)
+        .scrollIndicators(.hidden)
+        .background(AppTheme.background.ignoresSafeArea())
     }
 
     private func bottomBar(_ current: GeneratedPlannedItem) -> some View {
@@ -507,52 +667,37 @@ public struct LiveSessionView: View {
                 .disabled(index == 0)
                 .opacity(index == 0 ? 0.4 : 1)
             if allDone {
-                Button("Finish workout") { showingRPE = true }
+                Button { showingRPE = true } label: { HeroCTALabel("Finish workout") }
                     .buttonStyle(.primary)
+            } else if restRemaining > 0 {
+                Button("Skip rest") { endRest(silently: true) }
+                    .buttonStyle(.secondary)
             } else {
-                if restRemaining > 0 {
-                    Button("Skip rest") { endRest(silently: true) }
-                        .buttonStyle(.secondary)
-                } else {
-                    Button { logSet(current) } label: { HeroCTALabel("Complete set") }
-                        .buttonStyle(.primary)
-                }
+                Button { logSet(current) } label: { HeroCTALabel("Complete set") }
+                    .buttonStyle(.primary)
             }
             CircleIconButton(systemImage: "chevron.right", accessibilityLabel: "Next exercise") { jump(to: index + 1) }
                 .disabled(index >= queue.count - 1)
                 .opacity(index >= queue.count - 1 ? 0.4 : 1)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(AppTheme.background.opacity(0.85))
-        .background(.ultraThinMaterial)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 18) {
+        VStack(alignment: .leading, spacing: 22) {
             Spacer()
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 40))
-                .foregroundStyle(AppTheme.ink)
-                .frame(width: 90, height: 90)
-                .background(AppTheme.card, in: Circle())
-            Text("Log a workout")
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.ink)
-            Text("Add exercises as you go. Every set is saved the moment you log it — even offline.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+            Headline([.strong("Log a workout. "), .soft("Add exercises as you go — every set is saved the moment you log it, even offline.")], size: 34)
             Button {
                 showingPicker = true
             } label: {
-                Label("Add first exercise", systemImage: "plus")
+                HeroCTALabel("Add first exercise")
             }
             .buttonStyle(.primary)
-            .padding(.horizontal, 40)
             Spacer()
         }
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Actions
@@ -880,6 +1025,58 @@ struct BigStepper: View {
     }
 }
 
+/// V8 live-set stepper: small label, then minus · value · plus in one dark
+/// capsule — two fit side by side so the whole set stays on one screen.
+struct DoseStepper: View {
+    let label: String
+    let value: String
+    let onMinus: () -> Void
+    let onPlus: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .padding(.leading, 6)
+            HStack(spacing: 0) {
+                Button(action: onMinus) {
+                    Image(systemName: "minus")
+                        .font(.headline)
+                        .frame(width: 52, height: 52)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Decrease \(label.lowercased())")
+                Text(value)
+                    .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                    .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel(label)
+                    .accessibilityValue(value)
+                Button(action: onPlus) {
+                    Image(systemName: "plus")
+                        .font(.headline)
+                        .foregroundStyle(Color.black)
+                        .frame(width: 44, height: 44)
+                        .background(Color.white, in: Circle())
+                        .frame(width: 52, height: 52)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Increase \(label.lowercased())")
+            }
+            .foregroundStyle(AppTheme.ink)
+            .background(Color.white.opacity(0.08), in: Capsule())
+            .animation(.snappy(duration: 0.2), value: value)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+    }
+}
+
 /// Search the downloaded library and add an exercise to the session.
 struct ExercisePickerSheet: View {
     let catalogue: Catalogue
@@ -968,16 +1165,19 @@ struct RPEPromptView: View {
                         .foregroundStyle(AppTheme.red)
                         .frame(maxWidth: .infinity)
                 }
-                Text("\(rpe)")
-                    .font(.system(size: 80, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .contentTransition(.numericText())
+                // V8: the one number on an ember card, its meaning under it.
+                AuraCard(.training, focus: UnitPoint(x: 0.5, y: 0.4), radius: 170) {
+                    VStack(spacing: 6) {
+                        BigFigure("\(rpe)", unit: "of 10", size: 88)
+                            .contentTransition(.numericText())
+                        Text(description(rpe))
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     .frame(maxWidth: .infinity)
-                Text(description(rpe))
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+                }
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
                     ForEach(1...10, id: \.self) { value in
                         Button {
@@ -985,9 +1185,9 @@ struct RPEPromptView: View {
                         } label: {
                             Text("\(value)")
                                 .font(.headline)
-                                .foregroundStyle(rpe == value ? AppTheme.onAccent : AppTheme.ink)
+                                .foregroundStyle(rpe == value ? Color.black : AppTheme.ink)
                                 .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(rpe == value ? AppTheme.accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(rpe == value ? Color.white : Color.white.opacity(0.08), in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Effort \(value) of 10: \(description(value))")

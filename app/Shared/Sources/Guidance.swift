@@ -179,27 +179,28 @@ struct AppTourView: View {
     private func pageView(_ page: Page) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                ZStack {
-                    Circle().fill(page.color.opacity(0.12)).frame(width: 150, height: 150)
-                    Circle().fill(AppTheme.card).frame(width: 104, height: 104)
-                        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
-                    Image(systemName: page.icon)
-                        .font(.system(size: 42, weight: .semibold))
-                        .foregroundStyle(page.color)
+                // V8: one coloured card per place — its tone says what it is
+                // about (Home body blue, Academy mind magenta, Workout ember).
+                AuraCard(tone(for: page), focus: UnitPoint(x: 0.8, y: 0.2), radius: 220) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text(page.place)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink.opacity(0.75))
+                            Spacer()
+                            Image(systemName: page.icon)
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundStyle(AppTheme.ink)
+                        }
+                        Headline([.strong(page.title)], size: 32)
+                        Text(page.body)
+                            .font(.body)
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 20)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Tag(page.place, color: page.color == AppTheme.ink ? AppTheme.secondaryText : page.color)
-                    Text(page.title)
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text(page.body)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                .padding(.top, 12)
 
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(Array(page.steps.enumerated()), id: \.offset) { index, step in
@@ -217,11 +218,20 @@ struct AppTourView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .cardStyle()
+                .padding(.horizontal, 4)
             }
             .padding(.horizontal, 20)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func tone(for page: Page) -> AuraTone {
+        switch page.tab {
+        case "Home": .body
+        case "Academy": .mind
+        case "Workout": .training
+        default: .calm
+        }
     }
 }
 
@@ -315,8 +325,8 @@ struct HelpCenterView: View {
          "Workout → Build and explore → Skill plans → choose a skill → set the date → Build my plan. Its drills then show on Home and Workout."),
         ("How do I make workouts more personal?",
          "Me → My Development Goals: choose up to three, like acceleration, strength or conditioning. Your training leans towards them."),
-        ("What do the violet muscles mean?",
-         "Solid violet is what an exercise mainly works, lighter violet is what helps. The same colours glow on the athlete in the pictures."),
+        ("What do the orange muscles mean?",
+         "Solid orange is what an exercise mainly works, lighter orange is what helps. The same colours glow on the athlete in the pictures."),
         ("Does it work without internet?",
          "Yes. Every exercise, drill and plan is on your phone. Internet is only used to back up your history."),
         ("How do I change my sport or equipment?",

@@ -287,78 +287,96 @@ struct AcademyHomeView: View {
         }
     }
 
+    /// V8: each insight is its own card, lit faintly in its topic's colour:
+    /// the topic, the sentence big, the athlete's own chart in that colour,
+    /// the numbers on a tap, and the briefing the coach assigned for it.
     private func insightRow(_ insight: TwinInsight, last: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        let tint = insight.kind.topic?.color ?? AuraTone.mind.mark
+        let open = expanded.contains(insight.id)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
                 Text(insight.kind.topic?.title ?? "Insight")
-                    .foregroundStyle(insight.kind.topic?.color ?? AuraTone.mind.mark)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(tint)
                 Spacer()
-                Text("\(insight.strength == .strong ? "Strong pattern" : "Emerging") · \(insight.basis)")
-                    .foregroundStyle(AppTheme.mutedText)
+                Text(insight.strength == .strong ? "Strong pattern" : "Emerging")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(AppTheme.ink.opacity(0.55))
             }
-            .font(.footnote.weight(.medium))
             Text(insight.headline)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 24, weight: .bold))
+                .tracking(-0.5)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             if let trend = insight.trend, trend != .steady {
                 Text(trend.label)
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(trendColor(trend))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(trendColor(trend).opacity(0.12), in: Capsule())
-            }
-            if expanded.contains(insight.id) {
-                Text(insight.detail)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.opacity)
-            } else {
-                Button { withAnimation(.easeInOut(duration: 0.25)) { _ = expanded.insert(insight.id) } } label: {
-                    Text("The numbers")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.75))
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.pressable)
             }
             if let evidence = insight.evidence {
-                TwinEvidenceChart(evidence: evidence).frame(height: 84)
+                TwinEvidenceChart(evidence: evidence, tint: tint).frame(height: 110)
+            }
+            Button { withAnimation(.easeInOut(duration: 0.25)) { if open { _ = expanded.remove(insight.id) } else { _ = expanded.insert(insight.id) } } } label: {
+                HStack(spacing: 6) {
+                    Text(open ? "Hide the numbers" : "The numbers")
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
+                .frame(minHeight: 36)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.pressable)
+            if open {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(insight.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("From \(insight.basis)")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.ink.opacity(0.5))
+                }
+                .transition(.opacity)
             }
             if let briefing = insight.briefing {
+                let read = state.read[briefing.id] != nil
                 Button {
                     AcademyEvent.log(.insightOpened)
                     reading = ReadingTarget(briefing: briefing, insight: insight)
                 } label: {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("AthleteOS Coach assigned: \(briefing.title)")
-                                .font(.subheadline.weight(.semibold))
+                            Text(read ? "Read again: \(briefing.title)" : "Read \u{201C}\(briefing.title)\u{201D}")
+                                .font(.headline)
                                 .foregroundStyle(AppTheme.ink)
                                 .multilineTextAlignment(.leading)
-                            Text(state.read[briefing.id] == nil ? "Briefing · \(briefing.minutes) min read" : "Read · open again")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.secondaryText)
+                            Text(read ? "You read it · the coach's pick" : "The coach's pick · \(briefing.minutes) min")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.ink.opacity(0.65))
                         }
                         Spacer(minLength: 8)
-                        Image(systemName: state.read[briefing.id] == nil ? "arrow.right" : "checkmark")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AuraTone.mind.mark)
+                        Image(systemName: read ? "checkmark" : "arrow.right")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink)
                     }
-                    .padding(14)
-                    .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
+                    .padding(16)
+                    .background(tint.opacity(0.22), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 }
                 .buttonStyle(.pressable)
             }
         }
-        .padding(.vertical, 20)
-        .overlay(alignment: .bottom) {
-            if !last { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                LinearGradient(colors: AuraTone.calm.base, startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [tint.opacity(0.26), tint.opacity(0.06), .clear], center: UnitPoint(x: 0.05, y: 0), startRadius: 0, endRadius: 260)
+            }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
+        .padding(.top, 12)
     }
 
     private func trendColor(_ trend: TwinTrend) -> Color {
@@ -415,8 +433,8 @@ struct AcademyHomeView: View {
             ForEach(trainingLines(report), id: \.0) { line in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(line.0)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
+                        .font(.headline)
+                        .foregroundStyle(AuraTone.training.mark)
                     Text(line.1)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
@@ -536,7 +554,6 @@ struct AcademyHomeView: View {
                     }
                     .padding(.vertical, 12)
                     .contentShape(Rectangle())
-                    .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
                 }
                 .buttonStyle(.pressable)
                 .accessibilityHint("Change this answer")
@@ -651,20 +668,23 @@ struct AcademyHomeView: View {
 /// matter highlighted; or two lines to compare.
 struct TwinEvidenceChart: View {
     let evidence: TwinEvidence
+    /// The insight's topic colour: the days that matter in full, the rest faint.
+    var tint: Color = AuraTone.mind.mark
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Chart {
                 if evidence.style == .bars {
                     ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
-                        BarMark(x: .value("Day", point.date, unit: .day), y: .value("Value", point.value))
-                            .foregroundStyle(point.marked ? AuraTone.mind.mark : Color.white.opacity(0.16))
-                            .cornerRadius(2)
+                        BarMark(x: .value("Day", point.date, unit: .day), y: .value("Value", point.value), width: .ratio(0.7))
+                            .foregroundStyle(point.marked ? tint : tint.opacity(0.32))
+                            .cornerRadius(4)
                     }
                 } else {
                     ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
                         LineMark(x: .value("Day", point.date), y: .value("Change", point.value), series: .value("Series", "main"))
-                            .foregroundStyle(AuraTone.mind.mark)
+                            .foregroundStyle(tint)
+                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                             .interpolationMethod(.monotone)
                     }
                     ForEach(Array((evidence.comparison ?? []).enumerated()), id: \.offset) { _, point in
@@ -676,8 +696,8 @@ struct TwinEvidenceChart: View {
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             Text(evidence.caption)
-                .font(.caption2)
-                .foregroundStyle(AppTheme.mutedText)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.ink.opacity(0.5))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(evidence.caption)

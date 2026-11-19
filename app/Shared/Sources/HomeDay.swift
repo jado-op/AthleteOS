@@ -50,14 +50,14 @@ public enum DayPhase: String, Sendable, CaseIterable {
         }
     }
 
-    /// AthleteOS violet, with the character of the hour: lighter in the
-    /// morning, pure in the day, deeper in the evening.
+    /// The training ember (V8), with the character of the hour: lighter in
+    /// the morning, pure in the day, deeper in the evening.
     public var red: Color {
         switch self {
-        case .morning: Color(hex: "#A06BF5")
+        case .morning: Color(rgb: 0xFDBA8C)
         case .day: AppTheme.red
-        case .evening: Color(hex: "#7C4DDB")
-        case .night: Color(hex: "#6A3FBF")
+        case .evening: Color(rgb: 0xF97316)
+        case .night: Color(rgb: 0xD9480F)
         }
     }
 }
@@ -203,7 +203,6 @@ struct ReadinessScale: View {
                 Capsule()
                     .fill(lit ? AppTheme.color(for: step.band) : Color.white.opacity(0.10))
                     .frame(height: lit ? 4 : 2)
-                    .shadow(color: lit ? AppTheme.color(for: step.band).opacity(0.7) : .clear, radius: 6)
             }
         }
         .frame(height: 8)
@@ -298,32 +297,29 @@ struct WeekPlanBar: View {
     let plan: WeekPlanProgress
 
     var body: some View {
+        // V8: no box — a big light number, then one segment per planned
+        // session in its activity colour (gym ember, practice blue), dim until done.
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(String(plan.doneTotal))
-                    .font(.telemetry(40, weight: .medium))
-                    .foregroundStyle(AppTheme.ink)
-                    .contentTransition(.numericText())
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                BigFigure(String(plan.doneTotal), size: 56)
                 Text("of \(plan.plannedTotal) planned")
-                    .font(.subheadline)
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                 Spacer(minLength: 8)
                 Text(plan.statusLine)
-                    .font(.caption.weight(.medium))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(plan.isComplete ? AppTheme.ink : AppTheme.secondaryText)
             }
             HStack(spacing: 6) {
                 ForEach(Array(plan.segments.enumerated()), id: \.offset) { _, segment in
-                    let color = segment.kind == .workout ? AppTheme.red : AppTheme.orange
+                    let color = segment.kind == .workout ? AuraTone.training.mark : AuraTone.body.mark
                     Capsule()
-                        .fill(segment.done ? color : AppTheme.fill)
-                        .frame(height: 6)
-                        .shadow(color: segment.done ? color.opacity(0.6) : .clear, radius: 6)
+                        .fill(segment.done ? color : color.opacity(0.22))
+                        .frame(height: 8)
                 }
             }
         }
-        .padding(18)
-        .glassSurface()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .animation(.easeInOut(duration: 0.4), value: plan.doneTotal)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("This week: \(plan.doneTotal) of \(plan.plannedTotal) planned sessions done. \(plan.statusLine)")
@@ -337,16 +333,16 @@ struct HomeWeekBlock: View {
     var plan: WeekPlanProgress?
 
     var body: some View {
-        VStack(spacing: 14) {
-            HomeEyebrow("This week")
-            if let plan, plan.isVisible { WeekPlanBar(plan: plan).frame(maxWidth: 400) }
-            // One telemetry line, not a grid of the same numbers again.
+        VStack(alignment: .leading, spacing: 16) {
+            SectionLabel("This week")
+            if let plan, plan.isVisible { WeekPlanBar(plan: plan) }
+            // One line, not a grid of the same numbers again.
             Text(summaryLine)
-                .font(.telemetry(13))
+                .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
@@ -392,8 +388,7 @@ struct HomeDetailRow<Trailing: View>: View {
         HStack(spacing: 14) {
             Circle()
                 .fill(color)
-                .frame(width: 7, height: 7)
-                .shadow(color: color.opacity(0.6), radius: 4)
+                .frame(width: 8, height: 8)
                 .frame(width: 14)
                 .accessibilityHidden(true)
             Text(title)
@@ -421,15 +416,11 @@ struct NextStepEyebrow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(accent)
-                .frame(width: 7, height: 7)
-                .accessibilityHidden(true)
-            Text(text)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-        }
+        // V8: a plain small label, like "Today's training" on the Workout card.
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.ink.opacity(0.8))
+            .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
@@ -488,7 +479,6 @@ struct PlanStepRow: View {
                 .frame(width: 28, height: 28)
                 .background(accent.opacity(0.35), in: Circle())
                 .overlay(Circle().stroke(accent, lineWidth: 1))
-                .shadow(color: accent.opacity(0.6), radius: 8)
         case .open:
             Text(number)
                 .font(.footnote.weight(.semibold).monospacedDigit())

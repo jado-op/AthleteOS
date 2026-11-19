@@ -18,8 +18,9 @@ public enum AppTheme {
     public static let ink = Color.white
     /// Light surfaces and marks on dark: "starlight" (V7), the same plate as the
     /// primary button and every selected chip (kept opaque: it's also used as a tint).
-    public static let accent = Color(rgb: 0xEEEAFE)
-    public static let starlight = Color(rgb: 0xEEEAFE)
+    // V8: plain white — the primary button, selected marks, the one thing to press.
+    public static let accent = Color(rgb: 0xFFFFFF)
+    public static let starlight = Color(rgb: 0xFFFFFF)
     /// Text and glyphs drawn on `accent`.
     public static let onAccent = Color(rgb: 0x050608)
     public static let secondaryText = Color.white.opacity(0.58)
@@ -364,15 +365,15 @@ public extension View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return background {
             ZStack {
-                // V8: a quiet solid plate on black (colour is for AuraCards).
-                shape.fill(Color(rgb: 0x121215))
+                // V8: the calm AuraCard plate on black (colour is for AuraCards).
+                shape.fill(LinearGradient(colors: AuraTone.calm.base, startPoint: .topLeading, endPoint: .bottomTrailing))
                 if let tint {
                     shape.fill(LinearGradient(colors: [tint.opacity(0.13), tint.opacity(0)], startPoint: .top, endPoint: .center))
                 }
             }
         }
         .overlay {
-            shape.strokeBorder(LinearGradient(colors: [(tint ?? .white).opacity(tint == nil ? 0.11 : 0.35), .white.opacity(0.05)],
+            shape.strokeBorder(LinearGradient(colors: [(tint ?? .white).opacity(tint == nil ? 0.07 : 0.35), .white.opacity(0.04)],
                                               startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }
     }
@@ -393,11 +394,21 @@ public extension View {
     /// scroll view ends with room to spare above the tab bar.
     func appScreen(_ atmosphere: Atmosphere = .subtle, sportSlug: String? = nil) -> some View {
         background(AppBackground(atmosphere, sportSlug: sportSlug))
+            // The status bar's own backdrop: a zero-height strip at the top
+            // whose fill reaches up into the safe area (the fill ignores the
+            // safe area *inside* the frame, so it covers exactly the clock's
+            // band), then a short fade so scrolled content slips under it.
             .overlay(alignment: .top) {
-                AppTheme.background.opacity(0.96)
-                    .frame(height: 0)
-                    .ignoresSafeArea(edges: .top)
-                    .allowsHitTesting(false)
+                VStack(spacing: 0) {
+                    AppTheme.background.opacity(0.97)
+                        .ignoresSafeArea(edges: .top)
+                        .frame(height: 0)
+                    LinearGradient(colors: [AppTheme.background.opacity(0.97), AppTheme.background.opacity(0)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(height: 8)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
             .contentMargins(.bottom, 24, for: .scrollContent)
             .modifier(ReadableWidth())
@@ -733,9 +744,11 @@ public extension View {
     /// A choice's surface: selected is lit red from within (a red glass tint
     /// and a red edge), unselected is a whisper of glass with a hairline.
     func selectableSurface<S: InsettableShape>(_ selected: Bool, shape: S) -> some View {
-        background(selected ? AppTheme.brand.opacity(0.22) : Color.white.opacity(0.05), in: shape)
-            .overlay { shape.strokeBorder(selected ? AppTheme.brightRed.opacity(0.75) : AppTheme.hairline, lineWidth: 1) }
-            .shadow(color: AppTheme.brand.opacity(selected ? 0.25 : 0), radius: 12, x: 0, y: 4)
+        // V8: selected is a bright white edge on a lifted plate — no coloured
+        // glow; unselected is the calm dark plate.
+        background(selected ? Color.white.opacity(0.16) : Color.white.opacity(0.05), in: shape)
+            .overlay { shape.strokeBorder(selected ? Color.white.opacity(0.9) : Color.white.opacity(0.08), lineWidth: selected ? 1.5 : 1) }
+            .animation(.easeOut(duration: 0.18), value: selected)
     }
 }
 
@@ -759,7 +772,7 @@ public struct OptionRow: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 20, weight: .semibold))
                     .frame(width: 44, height: 44)
-                    .background(isSelected ? AppTheme.brand.opacity(0.2) : AppTheme.fill, in: Circle())
+                    .background(isSelected ? Color.white.opacity(0.18) : AppTheme.fill, in: Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -801,15 +814,16 @@ public struct ListRow<Trailing: View>: View {
     }
 
     public var body: some View {
+        // V8: the glyph stands on its own in its colour — no tinted tile —
+        // and the title carries the row.
         HStack(spacing: 14) {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: 40, height: 40)
-                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppTheme.ink)
                     .multilineTextAlignment(.leading)
                 if let detail {

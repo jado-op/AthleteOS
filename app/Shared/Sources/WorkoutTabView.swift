@@ -511,40 +511,64 @@ struct WorkoutTabView: View {
 
     // MARK: - Week, more
 
+    /// V8: the week as a strip of tiles — today's in ember, the rest calm —
+    /// each with its day, the workout and its length. Swipe sideways.
     @ViewBuilder
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 SectionHeader("This week", subtitle: isDeloadWeek(week)
                               ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
-                VStack(spacing: 0) {
-                    ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, planned in
-                        let session = rowSession(planned)
-                        Button { preview = PreviewBox(session: session, kind: .gym, slot: planned.slot.map { PlanSlot.gym($0) }) } label: {
-                            HStack(spacing: 12) {
-                                Text(planned.date.formatted(.dateTime.weekday(.abbreviated)))
-                                    .font(.headline)
-                                    .foregroundStyle(calendar.isDateInToday(planned.date) ? AppTheme.onAccent : AppTheme.ink)
-                                    .frame(width: 52, height: 40)
-                                    .background(calendar.isDateInToday(planned.date) ? AppTheme.accent : AppTheme.fill, in: Capsule())
-                                VStack(alignment: .leading, spacing: 2) {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(week.sessions.enumerated()), id: \.offset) { _, planned in
+                            let session = rowSession(planned)
+                            let isToday = calendar.isDateInToday(planned.date)
+                            let isPast = !isToday && planned.date < .now
+                            Button { preview = PreviewBox(session: session, kind: .gym, slot: planned.slot.map { PlanSlot.gym($0) }) } label: {
+                                VStack(alignment: .leading, spacing: 8) {
                                     HStack(spacing: 6) {
-                                        Text(session.title).font(.headline).foregroundStyle(AppTheme.ink)
-                                        if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil { Tag("Yours", color: AppTheme.brand) }
+                                        Text(isToday ? "Today" : planned.date.formatted(.dateTime.weekday(.wide)))
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AppTheme.ink.opacity(isToday ? 0.92 : 0.6))
+                                        if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil {
+                                            Text("· yours").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink.opacity(0.6))
+                                        }
                                     }
-                                    Text("About \(session.estimatedMinutes) min · \(session.items.count) exercises")
-                                        .font(.caption).foregroundStyle(AppTheme.secondaryText)
+                                    Spacer(minLength: 0)
+                                    Text(session.title)
+                                        .font(.system(size: 20, weight: .bold))
+                                        .tracking(-0.3)
+                                        .foregroundStyle(AppTheme.ink)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                        Text("\(session.estimatedMinutes)")
+                                            .font(.system(size: 30, weight: .light).monospacedDigit())
+                                        Text("min · \(session.items.count) exercises")
+                                            .font(.footnote.weight(.semibold))
+                                            .foregroundStyle(AppTheme.ink.opacity(0.65))
+                                    }
+                                    .foregroundStyle(AppTheme.ink)
                                 }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
+                                .frame(width: 172, height: 150, alignment: .leading)
+                                .padding(16)
+                                .background(AuraBackground(isToday ? .training : .calm, focus: UnitPoint(x: 0.2, y: 0.85), radius: 150))
+                                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(isToday ? 0.14 : 0.06), lineWidth: 1)
+                                }
+                                .opacity(isPast ? 0.55 : 1)
                             }
-                            .padding(.vertical, 8)
+                            .buttonStyle(.pressable)
+                            .accessibilityLabel("\(isToday ? "Today" : planned.date.formatted(.dateTime.weekday(.wide))): \(session.title), about \(session.estimatedMinutes) minutes")
                         }
-                        .buttonStyle(.pressable)
-                        if index < week.sessions.count - 1 { Divider().overlay(AppTheme.hairline) }
                     }
+                    .padding(.horizontal, 20)
                 }
-                .cardStyle(padding: 14)
+                .scrollIndicators(.hidden)
+                .padding(.horizontal, -20)
             }
         }
     }
@@ -593,54 +617,98 @@ struct WorkoutTabView: View {
         let recommended = recommendation.mode
         let all: [WorkoutMode] = [.afterPractice, .gymDay, .mobility, .travel]
         let others: [WorkoutMode] = all.filter { mode in mode != recommended }
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 14) {
             SectionHeader("Other workouts")
-            VStack(spacing: 0) {
+            // V8: one small tile per workout, lit in its activity colour.
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(others, id: \.self) { mode in
                     let modeSession = session(for: mode)
                     Button {
                         if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
                     } label: {
-                        ListRow(systemImage: icon(mode), color: color(mode), title: mode.title, detail: detail(mode, modeSession))
+                        workoutTile(mode, modeSession)
                     }
                     .buttonStyle(.pressable)
                     .disabled(modeSession == nil)
-                    if mode != others.last { Divider().padding(.leading, 54) }
                 }
             }
-            .padding(12)
-            .glassSurface()
             SectionHeader("Build and explore")
-            VStack(spacing: 0) {
+                .padding(.top, 12)
+            VStack(spacing: 4) {
                 Button { showingImprove = true } label: {
-                    ListRow(systemImage: "target", color: AppTheme.orange, title: "Skill plans",
+                    ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans",
                             detail: skillPlanDays.isEmpty ? "Get better at one skill of your sport before a game" : "Your drills show up here and on Home")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { showingMuscles = true } label: {
                     ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts",
                             detail: "Pick the muscles, get a workout")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { showingLibrary = true } label: {
                     ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
                             detail: "Every exercise and drill, with how it looks")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { showingMuscleExercises = true } label: {
                     ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle",
                             detail: "Tap a muscle: what trains it, and how")
                 }
                 .buttonStyle(.pressable)
             }
-            .cardStyle(padding: 12)
         }
         .sheet(isPresented: $showingLibrary) {
             LibraryView(athlete: athlete)
         }
+    }
+
+    /// A workout tile: its colour glowing from the corner, the glyph, the
+    /// name, and the length as a big light number.
+    private func workoutTile(_ mode: WorkoutMode, _ session: GeneratedSession?) -> some View {
+        let tint = color(mode)
+        return VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon(mode))
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(tint)
+            Spacer(minLength: 0)
+            Text(mode.title)
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            if let session {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(session.estimatedMinutes)")
+                        .font(.system(size: 30, weight: .light).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                    Text("min")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+            } else {
+                Text(detail(mode, session))
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
+        .padding(16)
+        .background {
+            ZStack {
+                LinearGradient(colors: AuraTone.calm.base, startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [tint.opacity(0.42), tint.opacity(0.12), .clear], center: UnitPoint(x: 0.1, y: 0.05),
+                               startRadius: 0, endRadius: 170)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+        }
+        .opacity(session == nil ? 0.5 : 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(mode.title), \(detail(mode, session))")
     }
 
     // MARK: - Making it yours

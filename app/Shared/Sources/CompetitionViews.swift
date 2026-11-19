@@ -614,7 +614,7 @@ struct AddGameForm: View {
                 .padding(.horizontal, 12)
                 .frame(minHeight: 36)
                 .frame(maxWidth: .infinity)
-                .background(Capsule().fill(on ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.04)))
+                .background(Capsule().fill(on ? AppTheme.accent : Color.white.opacity(0.04)))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(on ? 0 : 0.12), lineWidth: 1) }
         }
         .buttonStyle(.pressable)
@@ -663,7 +663,7 @@ struct CompetitionResultForm: View {
                                         .font(.telemetry(16, weight: .medium))
                                         .foregroundStyle(n == rating ? Color(rgb: 0x0B0B14) : AppTheme.ink)
                                         .frame(width: 44, height: 44)
-                                        .background(Circle().fill(n == rating ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.05)))
+                                        .background(Circle().fill(n == rating ? AppTheme.accent : Color.white.opacity(0.05)))
                                         .overlay { Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1) }
                                 }
                                 .buttonStyle(.pressable)
@@ -738,7 +738,7 @@ struct CompetitionResultForm: View {
                 .padding(.horizontal, 12)
                 .frame(minHeight: 36)
                 .frame(maxWidth: .infinity)
-                .background(Capsule().fill(on ? Color(rgb: 0xEEEAFE) : Color.white.opacity(0.04)))
+                .background(Capsule().fill(on ? AppTheme.accent : Color.white.opacity(0.04)))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(on ? 0 : 0.12), lineWidth: 1) }
         }
         .buttonStyle(.pressable)
