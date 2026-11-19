@@ -347,16 +347,6 @@ public struct QuestionStep<Content: View>: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
         }
-        .background(alignment: .top) {
-            if let tone {
-                RadialGradient(colors: [tone.mark.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.1),
-                               startRadius: 0, endRadius: 360)
-                    .frame(height: 520)
-                    .ignoresSafeArea(edges: .top)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-        }
         .appScreen()
     }
 }

@@ -49,15 +49,6 @@ struct IntakeInterviewView: View {
             #endif
             footer
         }
-        // V8: the mind (magenta) glow behind the question, as on every QuestionPage(tone: .mind).
-        .background(alignment: .top) {
-            RadialGradient(colors: [AuraTone.mind.mark.opacity(0.26), .clear], center: UnitPoint(x: 0.2, y: 0.1),
-                           startRadius: 0, endRadius: 360)
-                .frame(height: 520)
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
         .background(AppTheme.background.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.25), value: index)
         .onAppear(perform: load)
