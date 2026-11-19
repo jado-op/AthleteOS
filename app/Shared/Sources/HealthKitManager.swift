@@ -158,7 +158,8 @@ public final class HealthKitManager: @unchecked Sendable {
                         ExternalWorkout(
                             start: workout.startDate, end: workout.endDate,
                             activity: ExternalWorkout.name(for: workout.workoutActivityType.rawValue),
-                            averageHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: bpm)
+                            averageHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: bpm),
+                            source: workout.sourceRevision.source.name
                         )
                     }
                 continuation.resume(returning: workouts)
@@ -267,13 +268,28 @@ public struct ExternalWorkout: Codable, Sendable, Equatable {
     public var end: Date
     public var activity: String
     public var averageHeartRate: Double?
+    /// The app or device that recorded it ("Suunto", "Garmin Connect", "Apple Watch"…).
+    public var source: String?
 
-    public init(start: Date, end: Date, activity: String, averageHeartRate: Double?) {
+    public init(start: Date, end: Date, activity: String, averageHeartRate: Double?, source: String? = nil) {
         self.start = start
         self.end = end
         self.activity = activity
         self.averageHeartRate = averageHeartRate
+        self.source = source
     }
+
+    /// The brand to name in a sentence ("Your Suunto saw…"); "watch" when unknown.
+    public var device: String {
+        let name = (source ?? "").lowercased()
+        for brand in ["Suunto", "Garmin", "Polar", "Coros", "WHOOP", "Oura", "Fitbit", "Wahoo"] where name.contains(brand.lowercased()) {
+            return brand
+        }
+        return "watch"
+    }
+
+    /// Recorded by a Suunto watch (through the Suunto app or Suunto's cloud).
+    public var isSuunto: Bool { device == "Suunto" }
 
     public var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
 

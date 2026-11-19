@@ -36,7 +36,7 @@ public enum WearableLoad {
         }
         guard let latest = hard.max(by: { $0.start < $1.start }) else { return nil }
         let when = latest.start >= today ? "earlier today" : "last night"
-        return "Your watch saw a hard \(latest.activity.lowercased()) \(when), so the gym work is lighter."
+        return "Your \(latest.device) saw a hard \(latest.activity.lowercased()) \(when), so the gym work is lighter."
     }
 
     /// Whether a workout falls in the practice window (30 minutes either side).
@@ -55,7 +55,7 @@ public enum WearableLoad {
         let effort = effort(averageHeartRate: workout.averageHeartRate, minutes: workout.minutes, age: age)
         let hard = min(5, max(1, (effort + 1) / 2))
         return PracticeLog(day: DayKey.of(day, calendar: calendar), sportSlug: sportSlug, types: [], hard: hard, went: 3, mood: 3,
-                           minutes: workout.minutes, note: "From your watch")
+                           minutes: workout.minutes, note: "From your \(workout.device)")
     }
 }
 
@@ -75,7 +75,14 @@ public enum ExternalWorkoutStore {
     public static func refresh(sportSlug: String?, birthDate: Date, now: Date = .now, calendar: Calendar = .current) async {
         guard HealthKitManager.shared.isAvailable,
               let since = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: now)) else { return }
-        let workouts = await HealthKitManager.shared.externalWorkouts(since: since)
+        var workouts = await HealthKitManager.shared.externalWorkouts(since: since)
+        // A connected Suunto account adds what didn't reach Health (same
+        // workout within three minutes = already there).
+        for cloud in await SuuntoCloud.workouts(days: 3)
+        where !workouts.contains(where: { abs($0.start.timeIntervalSince(cloud.start)) < 180 }) {
+            workouts.append(cloud)
+        }
+        workouts.sort { $0.start > $1.start }
         recent = workouts
         guard let sportSlug else { return }
         let age = PlanGenerator.ageInYears(birthDate: birthDate, now: now)

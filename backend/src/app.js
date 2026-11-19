@@ -23,6 +23,7 @@ import { createAppleRevoker } from './lib/appleRevoke.js';
 import { createApns } from './lib/apns.js';
 import { createNotifier } from './lib/notifier.js';
 import { pushRouter } from './routes/push.js';
+import { suuntoRouter } from './routes/suunto.js';
 
 // §19: this must run before any route is registered. Installing it here, at
 // module scope and above every import that registers routes, is deliberate.
@@ -39,6 +40,7 @@ export function createApp({
   webDir = process.env.WEB_DIR ?? new URL('../web', import.meta.url).pathname,
   apns = createApns(),
   notifier = prisma ? createNotifier({ prisma, apns }) : null,
+  suunto = {},
 } = {}) {
   const app = express();
 
@@ -97,6 +99,7 @@ export function createApp({
     app.use(parentRouter({ prisma, sessionSecret }));
     app.use(knowledgeRouter({ prisma }));
     app.use('/partner', partnerRouter({ prisma, sessionSecret }));
+    app.use('/suunto', suuntoRouter({ prisma, sessionSecret, ...suunto }));
     app.use(webLoginRouter({ prisma, sessionSecret }));
   }
 

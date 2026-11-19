@@ -54,7 +54,7 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency
+        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency, suunto
         var id: String { rawValue }
     }
 
@@ -109,6 +109,9 @@ struct MeView: View {
                         menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
                                 detail: !HealthKitManager.shared.isAvailable ? "Unavailable"
                                     : (UserDefaults.standard.bool(forKey: "healthPermissionAsked") ? "Set up" : "Connect")) { activeSheet = .health }
+                        menuDivider
+                        menuRow("Suunto", icon: "applewatch", tint: AuraTone.training.mark,
+                                detail: SuuntoCloud.isConnected ? "Connected" : "Through Apple Health") { activeSheet = .suunto }
                         menuDivider
                         menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.danger, detail: "Pain, head injury, illness") { activeSheet = .safety }
                         menuDivider
@@ -250,6 +253,7 @@ struct MeView: View {
                 case .decisions: DecisionsView()
                 case .emergency: EmergencyCardView()
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+                case .suunto: SuuntoView(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
                 }
             }
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {

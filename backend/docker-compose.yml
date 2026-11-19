@@ -54,6 +54,12 @@ services:
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
       APNS_PRIVATE_KEY_PATH: ${APNS_PRIVATE_KEY_PATH:-}
+      # Suunto Cloud API (Suunto partner program, apizone.suunto.com); optional —
+      # without all three the app simply doesn't offer "Connect Suunto".
+      SUUNTO_CLIENT_ID: ${SUUNTO_CLIENT_ID:-}
+      SUUNTO_CLIENT_SECRET: ${SUUNTO_CLIENT_SECRET:-}
+      SUUNTO_SUBSCRIPTION_KEY: ${SUUNTO_SUBSCRIPTION_KEY:-}
+      SUUNTO_REDIRECT_URI: ${SUUNTO_REDIRECT_URI:-}
     volumes:
       # The .p8 key lives in backend/secrets/ (git-ignored), read-only in the container.
       - ./secrets:/run/secrets/siwa:ro

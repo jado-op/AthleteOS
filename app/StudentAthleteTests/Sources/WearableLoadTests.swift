@@ -40,6 +40,22 @@ final class WearableLoadTests: XCTestCase {
                                               sportSlug: "soccer", age: 16, calendar: calendar), "a morning run isn't practice")
     }
 
+    // Suunto through Apple Health (owner, 2026-11-19): the brand is named, old saved workouts still decode.
+    func testASuuntoWorkoutIsNamedAndOldSavedWorkoutsStillDecode() throws {
+        var run = at(7, minutes: 45, heartRate: 165)
+        run.source = "Suunto"
+        XCTAssertTrue(run.isSuunto)
+        let reason = WearableLoad.reason([run], now: day.addingTimeInterval(16 * 3600), age: 16, practiceToday: nil, calendar: calendar)
+        XCTAssertEqual(reason, "Your Suunto saw a hard run earlier today, so the gym work is lighter.")
+        XCTAssertEqual(ExternalWorkout(start: day, end: day, activity: "Run", averageHeartRate: nil, source: "Dominik's Apple Watch").device, "watch")
+        let old = #"[{"start":0,"end":3600,"activity":"Run"}]"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode([ExternalWorkout].self, from: old)
+        XCTAssertNil(decoded.first?.source)
+        XCTAssertEqual(SuuntoCloud.result(from: URL(string: "athleteos://suunto?connected=1")!), .connected)
+        XCTAssertEqual(SuuntoCloud.result(from: URL(string: "athleteos://suunto?error=denied")!), .cancelled)
+        XCTAssertEqual(SuuntoCloud.result(from: URL(string: "athleteos://suunto?error=failed")!), .failed)
+    }
+
     func testHeartRateSummary() {
         XCTAssertNil(HeartRateSummary([]))
         XCTAssertEqual(HeartRateSummary([120, 140, 160]), HeartRateSummary(average: 140, max: 160))
