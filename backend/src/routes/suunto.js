@@ -18,7 +18,7 @@ const CACHE_MS = 30 * 60_000;
  *   POST   /suunto/connect      → { url }  the Suunto sign-in page to open
  *   GET    /suunto/callback     Suunto sends the browser here; redirects to athleteos://suunto?connected=1 (or ?error=…)
  *   GET    /suunto/workouts?days=3 → { workouts: [{ start, end, activity, averageHeartRate }] }
- *   GET    /suunto/sleep?days=7    → { nights: [{ start, end, hours }] }
+ *   GET    /suunto/sleep?days=7    → { nights: [{ start, end, hours, variability, lowestHeartRate }] }
  *   DELETE /suunto/connection   forget the Suunto account
  */
 export function suuntoRouter({ prisma, sessionSecret, config = suuntoConfig(), fetchImpl = fetch }) {

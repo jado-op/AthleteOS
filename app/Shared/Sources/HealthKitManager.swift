@@ -85,7 +85,55 @@ public final class HealthKitManager: @unchecked Sendable {
         #endif
     }
 
+    /// One value per day (the day's average) over the last `days` days,
+    /// oldest first: the twin's resting heart rate and variability lines.
+    public func dailyRestingHeartRate(days: Int = 28) async -> [TwinPoint] {
+        #if canImport(HealthKit)
+        await dailyAverages(HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()), days: days)
+        #else
+        return []
+        #endif
+    }
+
+    public func dailyVariability(days: Int = 28) async -> [TwinPoint] {
+        #if canImport(HealthKit)
+        await dailyAverages(HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli), days: days)
+        #else
+        return []
+        #endif
+    }
+
+    /// Hours asleep for each of the last `days` nights that has data, dated by
+    /// the morning; oldest first.
+    public func sleepNights(days: Int = 14, now: Date = .now, calendar: Calendar = .current) async -> [TwinPoint] {
+        var nights: [TwinPoint] = []
+        let today = calendar.startOfDay(for: now)
+        for back in (0..<days).reversed() {
+            guard let morning = calendar.date(byAdding: .day, value: -back, to: today) else { continue }
+            if let hours = await sleepHours(forNightEnding: morning, calendar: calendar) {
+                nights.append(TwinPoint(date: morning, value: hours))
+            }
+        }
+        return nights
+    }
+
     #if canImport(HealthKit)
+    private func dailyAverages(_ type: HKQuantityType, unit: HKUnit, days: Int, calendar: Calendar = .current) async -> [TwinPoint] {
+        guard isAvailable else { return [] }
+        let today = calendar.startOfDay(for: .now)
+        guard let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
+        let samples: [(Date, Double)] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKQuantitySample] ?? []).map { ($0.startDate, $0.quantity.doubleValue(for: unit)) })
+            }
+            store.execute(query)
+        }
+        var perDay: [Date: [Double]] = [:]
+        for (date, value) in samples { perDay[calendar.startOfDay(for: date), default: []].append(value) }
+        return perDay.sorted { $0.key < $1.key }.map { TwinPoint(date: $0.key, value: $0.value.reduce(0, +) / Double($0.value.count)) }
+    }
+
     /// Today's latest value and the median of the daily values over the 4
     /// weeks before (from 7 days of data).
     private func todayAndUsual(_ type: HKQuantityType, unit: HKUnit, on day: Date, calendar: Calendar) async -> (today: Double, usual: Double?)? {

@@ -30,6 +30,13 @@ Proposed 2026-09-26. Status 2026-10-01: everything is built except what's marked
 14. Check-in and evening reflection on the watch in two taps.
 15. Live Activities / Dynamic Island for a running workout and rest timer.
 
+Future (owner, 2026-11-19: "not now"), the same as the Suunto connection (`routes/suunto.js`, Me → Suunto):
+- **Garmin:** Garmin Connect Developer Program (Health API for sleep, HRV, resting heart rate; Activity API for
+  workouts), OAuth through our server, data passed through and never stored; plus whatever Garmin Connect
+  already writes to Apple Health.
+- **Google:** Health Connect on Android (sleep, heart rate, workouts) once there is an Android app; Fitbit Web API
+  for Fitbit / Pixel Watch users on iPhone.
+
 ## 3. Training quality
 16. Progressive overload: suggest next week's weight or reps from what was logged.
 17. Deload weeks, planned automatically every 4–6 weeks.

@@ -130,6 +130,13 @@ jobs:
             sleep 7
             xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-interview.png"
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
+            # The twin's "What your watch sees" (demo Suunto data), two scroll positions.
+            for sheet in watch watch2; do
+              xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab academy -sheet "$sheet" >/dev/null
+              sleep 8
+              xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-${sheet}.png"
+              xcrun simctl terminate "$UDID" "$BUNDLE" || true
+            done
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
               for sheet in gym live; do

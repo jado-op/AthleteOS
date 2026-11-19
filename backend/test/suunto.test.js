@@ -114,6 +114,7 @@ test('suunto: connect, read workouts, disconnect', async () => {
 
     const { nights } = await (await call('a1', 'GET', '/suunto/sleep?days=7')).json();
     assert.deepEqual(nights.map((n) => n.hours), [7.81], 'naps left out');
+    assert.equal(nights[0].variability, 47);
     const sleep = suunto.calls.find((c) => c.url.includes('/247samples/sleep'));
     assert.ok(Number(new URL(sleep.url).searchParams.get('to')) - Number(new URL(sleep.url).searchParams.get('from')) <= 7 * 86_400_000 + 1000);
 

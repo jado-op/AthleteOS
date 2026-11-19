@@ -82,9 +82,18 @@ public enum SuuntoCloud {
     public struct Night: Sendable, Equatable {
         public var end: Date
         public var hours: Double
+        /// Overnight heart-rate variability, ms.
+        public var variability: Double? = nil
+        /// Lowest heart rate asleep, bpm.
+        public var lowestHeartRate: Double? = nil
     }
 
-    private struct WireNight: Decodable { let end: String; let hours: Double }
+    private struct WireNight: Decodable {
+        let end: String
+        let hours: Double
+        let variability: Double?
+        let lowestHeartRate: Double?
+    }
     private struct WireNights: Decodable { let nights: [WireNight] }
 
     /// The last `days` nights of Suunto sleep, oldest first (empty when not connected).
@@ -95,7 +104,9 @@ public enum SuuntoCloud {
         if status == 404 { isConnected = false }
         guard status == 200, let wire = try? JSONDecoder().decode(WireNights.self, from: data) else { return [] }
         return wire.nights.compactMap { night in
-            APIClient.parseTimestamp(night.end).map { Night(end: $0, hours: night.hours) }
+            APIClient.parseTimestamp(night.end).map {
+                Night(end: $0, hours: night.hours, variability: night.variability, lowestHeartRate: night.lowestHeartRate)
+            }
         }.sorted { $0.end < $1.end }
     }
 

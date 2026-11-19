@@ -226,5 +226,8 @@ export function mapNight(raw) {
     start: Number.isFinite(start) ? new Date(start).toISOString() : null,
     end: new Date(end).toISOString(),
     hours: Math.round((seconds / 3600) * 100) / 100,
+    // Overnight variability (ms) and the lowest heart rate asleep (bpm), when the watch measured them.
+    variability: num(e.AvgHRV) ?? null,
+    lowestHeartRate: num(e.HRMin) ?? null,
   };
 }

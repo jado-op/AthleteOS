@@ -75,7 +75,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   data — how are you performing (lift strength trend, performances, tests), how are you changing
   (body map trained/fresh, training minutes per week, sleep and readiness words), how is your
   mind evolving (calm and how training felt, week by week) — each with its insights and the
-  coach's briefing (`TwinWidgets.swift`). Never a score.
+  coach's briefing (`TwinWidgets.swift`). Never a score. With a watch (owner, 2026-11-19) the twin opens with
+  "What your <device> sees" (`WatchSignalsView.swift`, logic `WearableSignals.swift`): recovery as a word from
+  resting/lowest heart rate and HRV against the athlete's own usual (check-in thresholds), last night's sleep +
+  14 nights, 4-week heart tiles, the week's watch workouts with an effort word. Sources: Apple Health, plus a
+  connected Suunto account (lowest HR asleep, overnight HRV). It replaces the sleep/readiness widget.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus · Progress** switch at the top (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
