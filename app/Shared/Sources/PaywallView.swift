@@ -107,19 +107,9 @@ public struct PaywallView: View {
     // MARK: - Sections
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(AppTheme.onAccent)
-                .frame(width: 52, height: 52)
-                .background(AppTheme.accent, in: Circle())
-            Text("Train smarter with Pro")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-            Text("Everything free, plus a plan that's fully yours and unlimited learning.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
+        // V8: one big sentence carries the offer; prices right under it.
+        Headline([.strong("Train smarter with Pro."),
+                  .soft(" Everything free, plus a plan that's fully yours and unlimited learning.")], size: 34)
     }
 
     private var featureList: some View {
@@ -144,7 +134,7 @@ public struct PaywallView: View {
     private var freeForeverNote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "heart.fill")
-                .foregroundStyle(AppTheme.brand)
+                .foregroundStyle(AppTheme.secondaryText)
             Text("Always free: check-in, your plan, every workout, logging, Watch, short lessons daily, the Academy in the beta, teams.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -283,7 +273,7 @@ public struct PaywallView: View {
                     .strokeBorder(isSelected ? AppTheme.accent : AppTheme.hairline, lineWidth: isSelected ? 2 : 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel(offer(for: product).map { "\(isYearly ? "Yearly" : "Monthly"), \(offerTerms($0, regular: product))" }
                             ?? (isYearly ? "Yearly, \(product.displayPrice) per year" : "Monthly, \(product.displayPrice) per month"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])

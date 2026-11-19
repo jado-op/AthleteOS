@@ -41,63 +41,72 @@ struct BriefingReaderView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .frame(width: 40, height: 40)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(width: 36, height: 36)
+                    .glassCapsule()
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("Close")
             Spacer()
-            Text("\(briefing.minutes) min read · \(briefing.chapters.count) chapters")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(AppTheme.mutedText)
-            Spacer()
-            Color.clear.frame(width: 40, height: 40)
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
     }
 
+    /// V8: the title on the mind (magenta) card — the one place the eye lands
+    /// before the reading starts; the dek and the "why" stay in the reading serif.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Briefing · \(briefing.topic.title)")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(briefing.topic.color)
-            Text(words(briefing.title))
-                .font(.system(size: 36, weight: .semibold))
-                .tracking(-1)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: 18) {
+            heroCard
             Text(words(briefing.dek))
                 .font(.reading(20))
                 .lineSpacing(5)
-                .foregroundStyle(AppTheme.ink.opacity(0.7))
+                .foregroundStyle(AppTheme.ink.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
-            if let insight {
-                HStack(alignment: .top, spacing: 0) {
-                    Rectangle().fill(AppTheme.brand).frame(width: 2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Why your coach gave you this")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                        Text(insight.why)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.ink.opacity(0.75))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(14)
-                    Spacer(minLength: 0)
-                }
-                .background(AppTheme.brand.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.top, 6)
-            }
+            if let insight { whyBlock(insight) }
             Text("AthleteOS Coach\(briefing.sources.isEmpty ? "" : " · with sources")")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.mutedText)
         }
-        .padding(.top, 26)
+        .padding(.top, 14)
+    }
+
+    private var heroCard: some View {
+        AuraCard(.mind, focus: UnitPoint(x: 0.85, y: 0.18), radius: 240) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Briefing · \(briefing.topic.title)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                Text(words(briefing.title))
+                    .font(.system(size: 34, weight: .bold))
+                    .tracking(-0.9)
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text("\(briefing.minutes) min read · \(countedNoun(briefing.chapters.count, "chapter"))")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func whyBlock(_ insight: TwinInsight) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Why your coach gave you this")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+            Text(insight.why)
+                .font(.reading(17))
+                .lineSpacing(4)
+                .foregroundStyle(AppTheme.ink.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.leading, 14)
+        .overlay(alignment: .leading) { Rectangle().fill(AuraTone.mind.mark).frame(width: 2) }
     }
 
     private func chapterView(_ index: Int, _ chapter: BriefingChapter) -> some View {
@@ -169,7 +178,7 @@ struct BriefingReaderView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Your data")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.brightRed)
+                        .foregroundStyle(AuraTone.mind.mark)
                     TwinEvidenceChart(evidence: evidence).frame(height: 110)
                 }
                 .padding(16)
@@ -271,10 +280,10 @@ extension BriefingReaderView {
                             AcademyNavigation.shared.showingLessons = true
                         }
                     } label: {
-                        ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: lesson.title,
+                        ListRow(systemImage: "book.closed", color: AuraTone.mind.mark, title: lesson.title,
                                 detail: "\(lesson.minutes) min lesson")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
         }

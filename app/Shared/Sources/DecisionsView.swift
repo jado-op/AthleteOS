@@ -38,7 +38,7 @@ struct DecisionsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    ScreenTitle("How AthleteOS decides", subtitle: "Written rules, safety first. You can always stop or say no.")
+                    Headline([.strong("How AthleteOS decides."), .soft(" Written rules, safety first. You can always stop or say no.")], size: 30)
                     Text("AthleteOS gives general training guidance, not medical advice. Its rules and exercises haven't been reviewed by sports-medicine, coaching or psychology experts yet, so every one is marked draft below. Missing information is shown as unknown, never as rest or as \"cleared\".")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
@@ -62,7 +62,7 @@ struct DecisionsView: View {
 
     private var decisionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Recent decisions")
+            SectionLabel("Recent decisions")
             if traces.isEmpty {
                 Text("Nothing recorded yet. Open Home and it starts.")
                     .font(.subheadline)
@@ -76,7 +76,7 @@ struct DecisionsView: View {
 
     private var rulesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("The rules, in the order they win")
+            SectionLabel("The rules, in the order they win")
             ForEach(PlanningRules.all.sorted { $0.priority > $1.priority }) { rule in
                 RuleCard(rule: rule, switchedOff: release.disabledRules.contains(rule.id) && !rule.isSafety)
             }
@@ -85,7 +85,7 @@ struct DecisionsView: View {
 
     private var sourcesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader("Sources")
+            SectionLabel("Sources")
             Text("What each source supports — and what it doesn't. A source never makes a plan certain to work.")
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)

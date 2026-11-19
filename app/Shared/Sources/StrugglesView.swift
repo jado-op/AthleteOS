@@ -31,7 +31,7 @@ struct StrugglesSheet: View {
                         OptionRow(title: struggle.title, subtitle: isOn ? struggle.whatChanges : nil,
                                   systemImage: struggle.systemImage, isSelected: isOn)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .opacity(!isOn && selected.count >= Struggles.maximum ? 0.45 : 1)
                 }
             }

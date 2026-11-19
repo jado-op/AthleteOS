@@ -41,9 +41,9 @@ public struct AgeGateView: View {
     }
 
     public var body: some View {
-        StepScaffold(
-            progress: 0.12, title: "When's your birthday?",
-            subtitle: "AthleteOS is built for athletes 13 and up. We only use this to keep training age-appropriate.",
+        QuestionStep(
+            progress: 0.12, question: "When's your birthday?",
+            hint: "AthleteOS is built for athletes 13 and up. We only use this to keep training age-appropriate.",
             buttonEnabled: result == .eligible, onContinue: { onEligible(birthDate) }
         ) {
             HStack(spacing: 14) {
@@ -73,7 +73,7 @@ public struct AgeGateView: View {
             if result == .underMinimum {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "hand.raised.fill")
-                        .foregroundStyle(AppTheme.brand)
+                        .foregroundStyle(AppTheme.ink)
                     Text("AthleteOS is for athletes 13 and up. Come back once you turn 13.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.ink)

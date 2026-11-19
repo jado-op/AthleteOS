@@ -92,7 +92,7 @@ struct ImproveView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Improve", subtitle: "Extra training for the one thing you want to get better at.")
+                    Headline([.strong("Improve."), .soft(" Extra training for the one thing you want to get better at.")], size: 32)
                     HStack(spacing: 8) {
                         Text("Training for")
                             .font(.subheadline)
@@ -155,18 +155,23 @@ struct ImproveView: View {
                             .font(.headline)
                         Text(value == .skill ? "Like shooting or first-step speed. You get a day-by-day plan up to your next game." : "Pick body areas. You get one workout to do right now.")
                             .font(.caption)
-                            .foregroundStyle(selected ? AppTheme.onAccent.opacity(0.8) : AppTheme.secondaryText)
+                            .foregroundStyle(selected ? AppTheme.ink.opacity(0.85) : AppTheme.secondaryText)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
-                    .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
+                    .foregroundStyle(AppTheme.ink)
                     .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
                     .padding(16)
-                    .background(selected ? AppTheme.accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .shadow(color: .black.opacity(selected ? 0.15 : 0.05), radius: 8, x: 0, y: 3)
+                    // V8: the chosen one is the training (ember) card; the other a quiet plate.
+                    .background(AuraBackground(selected ? .training : .calm, focus: UnitPoint(x: 0.2, y: 0.25), radius: 150))
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .strokeBorder(Color.white.opacity(selected ? 0.14 : 0.07), lineWidth: 1)
+                    }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel(value == .skill ? "Improve a skill" : "Train muscles")
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
@@ -234,7 +239,7 @@ struct ImproveView: View {
                     NavigationLink(value: ImproveRoute.setup(skillSlug: skill.slug)) {
                         skillCard(skill)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
         }
@@ -289,7 +294,7 @@ struct ImproveView: View {
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     Button {
                         blockPendingDelete = saved
                     } label: {
@@ -442,7 +447,7 @@ struct SkillSetupView: View {
                                     .foregroundStyle(AppTheme.secondaryText)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 .cardStyle()
@@ -557,35 +562,28 @@ struct SkillBlockView: View {
         }
     }
 
+    /// V8: the skill and the game in one sentence; the days to it big on the training card.
     private func hero(_ block: GeneratedSkillBlock) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(skill.name)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                Text("Game \(gameDate.formatted(.dateTime.weekday(.wide).month().day()))")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                HStack(spacing: 6) {
-                    ForEach(skill.rankedQualities.prefix(2)) { entry in
-                        Tag(entry.quality.shortName, color: entry.quality.group.color)
+        VStack(alignment: .leading, spacing: 16) {
+            Headline([.strong(skill.name), .soft(" for your game on "),
+                      .strong(gameDate.formatted(.dateTime.weekday(.wide).month().day())), .soft(".")], size: 32)
+            AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 200) {
+                VStack(alignment: .leading, spacing: 10) {
+                    BigFigure("\(block.days.count)", unit: block.days.count == 1 ? "day" : "days", size: 72)
+                    HStack(spacing: 6) {
+                        ForEach(skill.rankedQualities.prefix(2)) { entry in
+                            Text(entry.quality.shortName)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.white.opacity(0.16), in: Capsule())
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
-            RingView(progress: 1, color: AppTheme.ink, lineWidth: 9) {
-                VStack(spacing: 0) {
-                    Text("\(block.days.count)")
-                        .font(.title2.bold())
-                        .foregroundStyle(AppTheme.ink)
-                    Text("days")
-                        .font(.caption2)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-            .frame(width: 92, height: 92)
         }
-        .cardStyle(padding: 22)
     }
 
     private func expectationCard(_ block: GeneratedSkillBlock) -> some View {
@@ -654,7 +652,7 @@ struct SkillBlockView: View {
                                 .multilineTextAlignment(.leading)
                             Text(DoseFormatter.text(item.dose))
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.orange)
+                                .foregroundStyle(AuraTone.training.mark)
                             Text(item.rationale)
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.secondaryText)
@@ -663,7 +661,7 @@ struct SkillBlockView: View {
                         Spacer(minLength: 0)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .disabled(catalogueItem == nil)
             }
             if !day.items.isEmpty {

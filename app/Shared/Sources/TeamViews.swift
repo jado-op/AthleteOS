@@ -120,16 +120,16 @@ struct MyTeamView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("My team", subtitle: "Join with your coach's code. They see your readiness and training, never what you write.")
+                    Headline([.strong("My team."), .soft(" Join with your coach's code. They see your readiness and training, never what you write.")], size: 30)
                     if let message {
                         Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.red)
                     }
                     ForEach(teams?.member ?? []) { team in
                         HStack(spacing: 14) {
                             Image(systemName: "person.3.fill")
-                                .foregroundStyle(AppTheme.brand)
+                                .foregroundStyle(AuraTone.game.mark)
                                 .frame(width: 48, height: 48)
-                                .background(AppTheme.brand.opacity(0.12), in: Circle())
+                                .background(AuraTone.game.mark.opacity(0.14), in: Circle())
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(team.name).font(.headline).foregroundStyle(AppTheme.ink)
                                 Text("You're \(team.nickname)").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
@@ -187,7 +187,7 @@ struct MyTeamView: View {
                             ListRow(systemImage: "cross.case.fill", color: AppTheme.red, title: team.name, detail: "You're the athletic trainer")
                                 .cardStyle(padding: 12)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Athletic trainer").font(.title3.bold()).foregroundStyle(AppTheme.ink)
@@ -313,7 +313,7 @@ struct CoachView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Coach mode", subtitle: "Create a team and share the code. See check-ins and training, and send workouts.")
+                    Headline([.strong("Coach mode."), .soft(" Create a team and share the code. See check-ins and training, and send workouts.")], size: 30)
                     if let message {
                         Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.red)
                     }
@@ -321,9 +321,9 @@ struct CoachView: View {
                         Button { openTeam = team } label: {
                             HStack(spacing: 14) {
                                 Image(systemName: "sportscourt.fill")
-                                    .foregroundStyle(AppTheme.brand)
+                                    .foregroundStyle(AuraTone.game.mark)
                                     .frame(width: 48, height: 48)
-                                    .background(AppTheme.brand.opacity(0.12), in: Circle())
+                                    .background(AuraTone.game.mark.opacity(0.14), in: Circle())
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(team.name).font(.headline).foregroundStyle(AppTheme.ink)
                                     Text("\(team.memberCount) athletes · code \(team.code)").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
@@ -333,7 +333,7 @@ struct CoachView: View {
                             }
                             .cardStyle(padding: 14)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                     if !(teams?.coaching ?? []).isEmpty || !(teams?.trainer ?? []).isEmpty {
                         CoachDashboardCard()
@@ -432,7 +432,7 @@ struct TeamBoardView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle(team.name, subtitle: "Code \(team.code) — give it to your athletes to join.")
+                    Headline([.strong(team.name), .soft(". Code "), .strong(team.code), .soft(" — give it to your athletes to join.")], size: 30)
                     Button { inviting = true } label: {
                         Label("Invite athletes: code, link or QR code", systemImage: "qrcode")
                     }
@@ -572,7 +572,7 @@ struct TeamBoardView: View {
                     } label: {
                         Image(systemName: "trash").foregroundStyle(AppTheme.secondaryText).frame(width: 44, height: 44)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .accessibilityLabel("Delete \(assignment.title)")
                 }
                 .cardStyle(padding: 12)
@@ -634,7 +634,7 @@ struct TeamBoardView: View {
                     } label: {
                         Image(systemName: "trash").foregroundStyle(AppTheme.secondaryText).frame(width: 44, height: 44)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .accessibilityLabel("Delete the announcement")
                 }
                 .cardStyle(padding: 12)
@@ -736,7 +736,7 @@ struct AssignWorkoutSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    ScreenTitle("Send a workout", subtitle: "It appears on your athletes' Home screen on that day.")
+                    Headline([.strong("Send a workout."), .soft(" It appears on your athletes' Home screen on that day.")], size: 30)
                     DatePicker("Day", selection: $date, in: Date.now..., displayedComponents: .date)
                         .font(.headline)
                     field("Title, e.g. Recovery day", text: $title)
@@ -753,7 +753,7 @@ struct AssignWorkoutSheet: View {
                             Button { chosen.remove(at: index) } label: {
                                 Image(systemName: "minus.circle.fill").font(.title3).foregroundStyle(AppTheme.red)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                             .accessibilityLabel("Remove")
                         }
                         .cardStyle(padding: 12)
@@ -771,7 +771,7 @@ struct AssignWorkoutSheet: View {
                                 .foregroundStyle(AppTheme.ink)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         .padding(.vertical, 4)
                     }
                     if failed {
@@ -837,7 +837,7 @@ struct ParentSummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Parent summary", subtitle: "A private page for a parent: training, sleep, upcoming games and lessons learned. Never what you write.")
+                    Headline([.strong("Parent summary."), .soft(" A private page for a parent: training, sleep, upcoming games and lessons learned. Never what you write.")], size: 30)
                     if loading {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if signedOut {
@@ -1046,7 +1046,7 @@ struct TrainerHealthView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle(teamName, subtitle: "Pain reports and training pauses from athletes who share them. Never a diagnosis.")
+                    Headline([.strong(teamName), .soft(". Pain reports and training pauses from athletes who share them. Never a diagnosis.")], size: 30)
                     if failed {
                         Text("Couldn't load — check your connection.").foregroundStyle(AppTheme.red)
                     }
@@ -1173,7 +1173,7 @@ struct ShoutoutSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                ScreenTitle("A note for \(nickname)", subtitle: "Private, just for them. Make it specific.")
+                Headline([.strong("A note for \(nickname)."), .soft(" Private, just for them. Make it specific.")], size: 30)
                 TextField("e.g. Great call on the switch in the second half", text: $text, axis: .vertical)
                     .lineLimit(2...5)
                     .padding(14)
@@ -1237,12 +1237,12 @@ struct RtpRecordSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    ScreenTitle(target.nickname, subtitle: "Which return-to-play step are they on? You decide — the app only records it.")
+                    Headline([.strong(target.nickname), .soft(". Which return-to-play step are they on? You decide — the app only records it.")], size: 30)
                     ForEach(ConcussionGuide.steps, id: \.number) { item in
                         Button { step = item.number } label: {
                             OptionRow(title: "\(item.number). \(item.title)", subtitle: nil, systemImage: nil, isSelected: step == item.number)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                     TextField("Note (optional), e.g. 15 min bike, no symptoms", text: $note, axis: .vertical)
                         .lineLimit(1...3)

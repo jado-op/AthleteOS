@@ -11,22 +11,23 @@ struct HealthPermissionView: View {
     @State private var isRequesting = false
 
     var body: some View {
-        StepScaffold(
-            title: "Connect Apple Health",
-            subtitle: "Optional. Everything in AthleteOS works without it.",
+        QuestionStep(
+            question: "Connect Apple Health?",
+            hint: "Optional. Everything in AthleteOS works without it.",
             buttonTitle: isRequesting ? "Connecting…" : "Continue",
             buttonEnabled: !isRequesting,
             onClose: { finish() },
+            tone: .body,
             onContinue: request
         ) {
             VStack(alignment: .leading, spacing: 18) {
-                reason("moon.zzz.fill", AppTheme.purple, "Sleep",
+                reason("moon.zzz.fill", AuraTone.body.mark, "Sleep",
                        "Reads how long you actually slept, so your morning check-in fills itself in instead of you guessing.")
-                reason("heart.fill", AppTheme.red, "Resting heart rate",
+                reason("heart.fill", AuraTone.body.mark, "Resting heart rate",
                        "A resting heart rate above your normal can mean you're tired or getting sick — it fills in your energy, so the check-in is two taps.")
-                reason("figure.run", AppTheme.orange, "Workouts",
+                reason("figure.run", AuraTone.training.mark, "Workouts",
                        "Saves each session you finish to Health, once, so it sits alongside your other activity.")
-                reason("lock.fill", AppTheme.green, "Stays private",
+                reason("hand.raised.fill", AppTheme.secondaryText, "Stays private",
                        "Health data is only used inside the app for your training. Never for ads, never shared, never sold.")
             }
             .cardStyle()

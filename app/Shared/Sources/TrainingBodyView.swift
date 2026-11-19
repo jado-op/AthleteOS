@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The athlete's body, front and back, with every muscle lit in AthleteOS
-/// violet by how much it has been trained (`MuscleTraining.Report.brightness`):
+/// The athlete's body, front and back, with every muscle lit in the V8
+/// training ember by how much it has been trained (`MuscleTraining.Report.brightness`):
 /// the most trained muscle is solid, less trained ones fainter, untrained
 /// ones only a hairline outline. The anatomy is the muscle map's (every muscle
 /// its own shape); the look is the old twin hologram, quietened for the
@@ -29,7 +29,7 @@ struct TrainingBodyView: View {
                 .aspectRatio(muscleMapCanonicalWidth / muscleMapCanonicalHeight, contentMode: .fit)
             if showsLabels {
                 Text(label)
-                    .font(.telemetry(10))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(AppTheme.mutedText)
             }
         }
@@ -55,17 +55,19 @@ private struct BodyFigureCanvas: View {
         let details = BodyAnatomy.details(facing)
         let outline = BodyAnatomy.outline
         let head = BodyAnatomy.head
+        // V8: trained muscles glow in the training (ember) colour.
+        let ember = AuraTone.training.mark
         Canvas { context, size in
             let scale = min(size.width / muscleMapCanonicalWidth, size.height / muscleMapCanonicalHeight)
             let x0 = (size.width - muscleMapCanonicalWidth * scale) / 2
             let y0 = (size.height - muscleMapCanonicalHeight * scale) / 2
             let t = CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: x0, ty: y0)
-            let lavender = Color(hex: "#C4B5FD")
+            let lavender = Color(hex: "#FFD9C2")
             var whole = outline.applying(t)
             whole.addPath(head.applying(t))
 
             // A faint body of light.
-            context.fill(whole, with: .color(AppTheme.brand.opacity(0.05)))
+            context.fill(whole, with: .color(ember.opacity(0.05)))
 
             // Every muscle: a hairline; trained ones filled by how much.
             for muscle in muscles {
@@ -75,7 +77,7 @@ private struct BodyFigureCanvas: View {
                 if level > 0 {
                     // 0.18 … 0.95: the least trained muscle still reads as trained.
                     let alpha = (0.18 + 0.77 * level) * (inFocus ? 1 : 0.22)
-                    context.fill(path, with: .color(AppTheme.brand.opacity(alpha)))
+                    context.fill(path, with: .color(ember.opacity(alpha)))
                     context.stroke(path, with: .color(lavender.opacity(inFocus ? 0.35 + 0.5 * level : 0.12)), lineWidth: 0.25 * scale)
                 } else {
                     // Untrained: an outline, a little brighter when it is the group in focus.

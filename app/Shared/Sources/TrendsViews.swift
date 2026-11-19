@@ -39,14 +39,13 @@ struct TrendsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 34) {
-                    ScreenTitle("Trends", subtitle: "The last 30 days, sleep and training load.")
                     thirtyDaysSection
                     VStack(alignment: .leading, spacing: 14) {
-                        SpaceSection(2, "Sleep") { Text("14 days") }
+                        SectionLabel("Sleep") { Text("14 days") }
                         SleepTrendCard(checkIns: athlete.checkIns)
                     }
                     VStack(alignment: .leading, spacing: 14) {
-                        SpaceSection(3, "How hard you've trained") { Text("28 days") }
+                        SectionLabel("How hard you've trained") { Text("28 days") }
                         LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
                             LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
                         }))
@@ -71,18 +70,26 @@ struct TrendsSheet: View {
         }
     }
 
+    private func headline(_ summary: ThirtyDays) -> [Headline.Part] {
+        var parts: [Headline.Part] = [
+            .strong(countedNoun(summary.trainingDays, "training day")), .soft(" in the last 30, "),
+            .strong("\(summary.minutes / 60)h \(summary.minutes % 60)m"), .soft(" in workouts"),
+        ]
+        if let sleep = summary.averageSleep {
+            parts.append(.soft(", "))
+            parts.append(.strong(String(format: "%.1f h", sleep)))
+            parts.append(.soft(" of sleep a night."))
+        } else {
+            parts.append(.soft("."))
+        }
+        return parts
+    }
+
     private var thirtyDaysSection: some View {
         let summary = thirtyDays
         return VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(1, "Last 30 days")
-            HStack(alignment: .top, spacing: 6) {
-                TelemetryStat("\(summary.trainingDays)", "training days")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TelemetryStat("\(summary.minutes / 60)h \(summary.minutes % 60)m", "in workouts")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TelemetryStat(summary.averageSleep.map { String(format: "%.1f h", $0) } ?? "–", "avg sleep")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            // V8: the 30 days in one sentence — the numbers in white, the words between them dimmed.
+            Headline(headline(summary), size: 32)
             if let onOpenTwin {
                 Button {
                     dismiss()
@@ -92,10 +99,12 @@ struct TrendsSheet: View {
                         Text("What your twin sees in them")
                         Image(systemName: "arrow.right")
                     }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AuraTone.mind.mark)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -118,14 +127,7 @@ struct SleepTrendCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let average {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(average.formatted(.number.precision(.fractionLength(1))))
-                        .font(.telemetry(28, weight: .medium))
-                        .foregroundStyle(AppTheme.ink)
-                    Text("/ 5 average quality")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
+                FigureStat(average.formatted(.number.precision(.fractionLength(1))), unit: "/ 5", label: "average sleep quality", size: 44)
             }
             if recent.isEmpty {
                 Text("Check in each morning and your sleep trend appears here. Teen athletes need roughly 8–10 hours — it's the highest-leverage habit there is.")
@@ -138,7 +140,7 @@ struct SleepTrendCard: View {
                         x: .value("Day", checkIn.date, unit: .day),
                         y: .value("Sleep", checkIn.sleepQuality)
                     )
-                    .foregroundStyle(AppTheme.purple.gradient)
+                    .foregroundStyle(AuraTone.body.mark.gradient)
                     .cornerRadius(5)
                 }
                 .chartYScale(domain: 0...5)
@@ -170,14 +172,7 @@ struct LoadTrendCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(summary.acute)")
-                    .font(.telemetry(28, weight: .medium))
-                    .foregroundStyle(AppTheme.ink)
-                Text("this week")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
+            FigureStat("\(summary.acute)", label: "load this week", size: 44)
             Text("Each bar is a day: how hard it felt × how long. Dashed line = your usual day.")
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -186,7 +181,7 @@ struct LoadTrendCard: View {
                 Chart {
                     ForEach(Array(summary.daily.enumerated()), id: \.offset) { _, day in
                         BarMark(x: .value("Day", day.date, unit: .day), y: .value("Load", day.load))
-                            .foregroundStyle(AppTheme.orange.gradient)
+                            .foregroundStyle(AuraTone.training.mark.gradient)
                             .cornerRadius(3)
                     }
                     RuleMark(y: .value("Weekly average per day", summary.chronicWeekly / 7))

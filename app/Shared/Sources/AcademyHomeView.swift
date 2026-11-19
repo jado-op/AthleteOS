@@ -167,21 +167,6 @@ struct AcademyHomeView: View {
         reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.briefing?.id == id })
     }
 
-    /// Sections in the order they show; numbered by what is actually on screen.
-    private enum Section: CaseIterable { case insights, training, working, performances, whoYouAre, briefings }
-
-    private func number(_ section: Section) -> Int {
-        let shown: [Section] = Section.allCases.filter {
-            switch $0 {
-            case .insights, .training: report != nil
-            case .working: !(report?.strengths.isEmpty ?? true)
-            case .whoYouAre: state.intakeDoneAt != nil
-            case .performances, .briefings: true
-            }
-        }
-        return (shown.firstIndex(of: section) ?? 0) + 1
-    }
-
     private func reload() {
         state = AcademyStore.load()
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
@@ -195,15 +180,20 @@ struct AcademyHomeView: View {
         AcademyPageSwitcher(name: athlete.displayName)
     }
 
+    private var identityLine: [Headline.Part] {
+        let name = athlete.displayName ?? ""
+        let opener: Headline.Part = name.isEmpty ? .strong("Your twin.") : .strong(name + ".")
+        guard let counts = report?.counts else {
+            if name.isEmpty { return [opener] }
+            return [opener, .soft(" Your twin.")]
+        }
+        return [opener, .soft(" Read from "), .strong(countedNoun(counts.weeks, "week")), .soft(" of your own data.")]
+    }
+
     private var identity: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Your twin")
-                .font(.system(size: 40, weight: .semibold))
-                .tracking(-1.2)
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.6)
-                .accessibilityAddTraits(.isHeader)
+            // V8: one sentence says whose twin this is and how much it has seen.
+            Headline(identityLine, size: 36)
             Text(meta)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -218,14 +208,6 @@ struct AcademyHomeView: View {
                 .padding(.top, 10)
             }
         }
-    }
-
-    private func count(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(value).font(.telemetry(20, weight: .medium)).foregroundStyle(AppTheme.ink)
-            Text(label).font(.caption).foregroundStyle(AppTheme.mutedText)
-        }
-        .accessibilityElement(children: .combine)
     }
 
     private var interviewCard: some View {
@@ -243,7 +225,7 @@ struct AcademyHomeView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if answered > 0 {
                 ProgressView(value: Double(answered), total: Double(max(questionIDs.count, 1)))
-                    .tint(AppTheme.brightRed)
+                    .tint(.white)
                     .padding(.top, 4)
             }
             Button { openInterview() } label: { HeroCTALabel(answered > 0 ? "Continue the interview" : "Create my twin") }
@@ -280,7 +262,7 @@ struct AcademyHomeView: View {
 
     private func insights(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            SpaceSection(number(.insights), "Insights") { Text("\(report.insights.count) found") }
+            SectionLabel("Insights") { Text("\(report.insights.count) found") }
             if report.insights.isEmpty {
                 Text(report.counts.checkIns + report.counts.sessions < 5
                      ? "Nothing yet — a couple of weeks of check-ins, sessions and \(family.events) and your twin starts to see patterns."
@@ -299,7 +281,7 @@ struct AcademyHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(insight.kind.topic?.title ?? "Insight")
-                    .foregroundStyle(insight.kind.topic?.color ?? AppTheme.brightRed)
+                    .foregroundStyle(insight.kind.topic?.color ?? AuraTone.mind.mark)
                 Spacer()
                 Text("\(insight.strength == .strong ? "Strong pattern" : "Emerging") · \(insight.basis)")
                     .foregroundStyle(AppTheme.mutedText)
@@ -354,7 +336,7 @@ struct AcademyHomeView: View {
                         Spacer(minLength: 8)
                         Image(systemName: state.read[briefing.id] == nil ? "arrow.right" : "checkmark")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.brightRed)
+                            .foregroundStyle(AuraTone.mind.mark)
                     }
                     .padding(14)
                     .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -373,7 +355,7 @@ struct AcademyHomeView: View {
         switch trend {
         case .improving: AppTheme.green
         case .worsening: AppTheme.orange
-        case .new, .steady: AppTheme.brightRed
+        case .new, .steady: AuraTone.mind.mark
         }
     }
 
@@ -415,7 +397,7 @@ struct AcademyHomeView: View {
 
     private func training(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(number(.training), "Your training") { EmptyView() }
+            SectionLabel("Your training") { EmptyView() }
             Text("What your twin changes in your workouts. Tell AthleteOS when something changes.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -436,7 +418,7 @@ struct AcademyHomeView: View {
 
     private func working(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SpaceSection(number(.working), "What's working") { EmptyView() }
+            SectionLabel("What's working") { EmptyView() }
             ForEach(report.strengths) { strength in
                 HStack(alignment: .top, spacing: 12) {
                     Circle().fill(AppTheme.green).frame(width: 7, height: 7).padding(.top, 7)
@@ -460,10 +442,10 @@ struct AcademyHomeView: View {
     private var performances: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                SpaceSection(number(.performances), "Performances") {
+                SectionLabel("Performances") {
                     Button("Add") { addingPerformance = true }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.brightRed)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
                 }
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
@@ -496,7 +478,7 @@ struct AcademyHomeView: View {
             // Where the numbers come from: the tests, and every logged exercise.
             VStack(spacing: 0) {
                 Button { showingTests = true } label: {
-                    ListRow(systemImage: "stopwatch", color: AppTheme.brightRed, title: "Tests", detail: "Sprint, jump and more · every 6–8 weeks")
+                    ListRow(systemImage: "stopwatch", color: AuraTone.training.mark, title: "Tests", detail: "Sprint, jump and more · every 6–8 weeks")
                 }
                 .buttonStyle(.pressable)
                 Button {
@@ -507,7 +489,7 @@ struct AcademyHomeView: View {
                         showingExerciseProgressPaywall = true
                     }
                 } label: {
-                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AppTheme.brightRed, title: "Exercise progress", detail: "Each lift over time")
+                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AuraTone.training.mark, title: "Exercise progress", detail: "Each lift over time")
                 }
                 .buttonStyle(.pressable)
             }
@@ -519,10 +501,10 @@ struct AcademyHomeView: View {
 
     private var whoYouAre: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SpaceSection(number(.whoYouAre), "Who you are") {
+            SectionLabel("Who you are") {
                 Button("Edit") { openInterview() }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
             }
             ForEach(AcademyContent.intake(forSport: sportSlug)) { question in
                 // Every question, answered or not: tap one to change just that answer.
@@ -534,7 +516,7 @@ struct AcademyHomeView: View {
                         Spacer(minLength: 12)
                         Text(summary(question) ?? "Add")
                             .font(.subheadline)
-                            .foregroundStyle(summary(question) == nil ? AppTheme.brightRed : AppTheme.secondaryText)
+                            .foregroundStyle(summary(question) == nil ? AuraTone.mind.mark : AppTheme.secondaryText)
                             .multilineTextAlignment(.trailing)
                             .lineLimit(3)
                         Image(systemName: "chevron.right")
@@ -567,7 +549,7 @@ struct AcademyHomeView: View {
 
     private var library: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SpaceSection(number(.briefings), "Briefings") { Text("\(AcademyContent.briefings.count) long reads") }
+            SectionLabel("Briefings") { Text("\(AcademyContent.briefings.count) long reads") }
             let assigned = Set(report?.assigned.map(\.id) ?? [])
             let ordered = AcademyContent.briefings.sorted { (assigned.contains($0.id) ? 0 : 1) < (assigned.contains($1.id) ? 0 : 1) }
             ForEach(ordered) { briefing in
@@ -601,7 +583,7 @@ struct AcademyHomeView: View {
     /// Campus's short lessons (no longer a tab): one quiet row.
     private var lessonsRow: some View {
         Button { AcademyNavigation.shared.showingLessons = true } label: {
-            ListRow(systemImage: "book.closed", color: AppTheme.brightRed, title: "Short lessons",
+            ListRow(systemImage: "book.closed", color: AuraTone.mind.mark, title: "Short lessons",
                     detail: "100 quick lessons on training, sleep and mind")
         }
         .buttonStyle(.pressable)
@@ -611,7 +593,7 @@ struct AcademyHomeView: View {
     /// Reflection lives on Home; breathing and visualization in game prep.
     private var mentalSkillsRow: some View {
         Button { showingMentalSkills = true } label: {
-            ListRow(systemImage: "brain.head.profile", color: AppTheme.purple, title: "Mental skills",
+            ListRow(systemImage: "brain.head.profile", color: AuraTone.mind.mark, title: "Mental skills",
                     detail: "Confidence, focus, talking it through")
         }
         .buttonStyle(.pressable)
@@ -666,13 +648,13 @@ struct TwinEvidenceChart: View {
                 if evidence.style == .bars {
                     ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
                         BarMark(x: .value("Day", point.date, unit: .day), y: .value("Value", point.value))
-                            .foregroundStyle(point.marked ? AppTheme.brightRed : Color.white.opacity(0.16))
+                            .foregroundStyle(point.marked ? AuraTone.mind.mark : Color.white.opacity(0.16))
                             .cornerRadius(2)
                     }
                 } else {
                     ForEach(Array(evidence.points.enumerated()), id: \.offset) { _, point in
                         LineMark(x: .value("Day", point.date), y: .value("Change", point.value), series: .value("Series", "main"))
-                            .foregroundStyle(AppTheme.brightRed)
+                            .foregroundStyle(AuraTone.mind.mark)
                             .interpolationMethod(.monotone)
                     }
                     ForEach(Array((evidence.comparison ?? []).enumerated()), id: \.offset) { _, point in

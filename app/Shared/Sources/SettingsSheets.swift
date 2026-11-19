@@ -17,11 +17,11 @@ struct RemindersSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Reminders", subtitle: "A nudge at the right moment — never spam.")
+                    Headline([.strong("Reminders."), .soft(" A nudge at the right moment — never spam.")], size: 32)
 
                     VStack(spacing: 0) {
                         Toggle(isOn: $settings.checkInEnabled) {
-                            row("Morning check-in", "Four taps to start the day", "sun.max.fill", AppTheme.amber)
+                            row("Morning check-in", "Four taps to start the day", "sun.max.fill", AuraTone.body.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
@@ -34,7 +34,7 @@ struct RemindersSheet: View {
                         }
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.reflectionEnabled) {
-                            row("Evening reflection", "45 seconds: how today felt", "moon.stars.fill", AppTheme.purple)
+                            row("Evening reflection", "45 seconds: how today felt", "moon.stars.fill", AuraTone.mind.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
@@ -47,13 +47,13 @@ struct RemindersSheet: View {
                         }
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.gameRemindersEnabled) {
-                            row("Game eve", "The evening before each game", "sportscourt.fill", AppTheme.brand)
+                            row("Game eve", "The evening before each game", "sportscourt.fill", AuraTone.game.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.bedtimeEnabled) {
-                            row("Bedtime", "Silent, 30 min before a 9-hour night", "bed.double.fill", AppTheme.purple)
+                            row("Bedtime", "Silent, 30 min before a 9-hour night", "bed.double.fill", AuraTone.body.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
@@ -69,7 +69,7 @@ struct RemindersSheet: View {
                     if PushSettings.hasTeam {
                         VStack(spacing: 0) {
                             Toggle(isOn: $teamUpdates) {
-                                row("Team updates", "A new workout, a note or a return-to-play step", "person.3.fill", AppTheme.brand)
+                                row("Team updates", "A new workout, a note or a return-to-play step", "person.3.fill", AuraTone.game.mark)
                             }
                             .tint(AppTheme.green)
                             .padding(.vertical, 8)

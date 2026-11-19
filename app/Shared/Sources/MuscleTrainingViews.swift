@@ -54,7 +54,7 @@ struct MuscleTrainingSection: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Your training by muscle group. \(report?.summary ?? "")")
         .accessibilityHint(report?.hasHistory == true ? "Opens each muscle group in turn" : "")
@@ -99,7 +99,7 @@ struct MuscleTrainingDetailView: View {
             .scrollIndicators(.hidden)
             footer
         }
-        .background(AppBackground(.hero).ignoresSafeArea())
+        .background(AppTheme.background.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.25), value: page)
     }
 
@@ -114,12 +114,12 @@ struct MuscleTrainingDetailView: View {
                     .frame(width: 40, height: 40)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("Close")
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08))
-                    Capsule().fill(AppTheme.brightRed)
+                    Capsule().fill(AppTheme.ink)
                         .frame(width: proxy.size.width * CGFloat(page + 1) / CGFloat(pages))
                 }
             }
@@ -141,7 +141,7 @@ struct MuscleTrainingDetailView: View {
                         .frame(width: 52, height: 52)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .foregroundStyle(AppTheme.secondaryText)
                 .glassCapsule()
                 .accessibilityLabel("Previous")
@@ -164,24 +164,17 @@ struct MuscleTrainingDetailView: View {
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Text("Last four weeks")
-                .font(.telemetry(11))
-                .foregroundStyle(AppTheme.brightRed)
-            Text("Your training")
-                .font(.system(size: 34, weight: .semibold))
-                .tracking(-1)
-                .foregroundStyle(AppTheme.ink)
-                .accessibilityAddTraits(.isHeader)
+            Headline([.strong("Your training"), .soft(" over the last four weeks.")], size: 34)
             TrainingBodyView(brightness: report.brightness)
                 .frame(height: 300)
             Text(report.summary)
                 .font(.body)
                 .foregroundStyle(AppTheme.ink.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .top, spacing: 20) {
-                TelemetryStat("\(report.workouts)", "workouts")
-                TelemetryStat("\(report.totalSets)", "sets")
-                TelemetryStat(String(format: "%.1f", report.weeks), "weeks")
+            HStack(alignment: .top, spacing: 12) {
+                FigureStat("\(report.workouts)", label: "workouts")
+                FigureStat("\(report.totalSets)", label: "sets")
+                FigureStat(String(format: "%.1f", report.weeks), label: "weeks")
             }
             ranking
             howItsCounted
@@ -191,7 +184,7 @@ struct MuscleTrainingDetailView: View {
     /// Every group as a bar, most trained first.
     private var ranking: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SpaceSection(1, "By muscle group") { Text("share") }
+            SectionLabel("By muscle group") { Text("share") }
             ForEach(report.groups) { stats in
                 HStack(spacing: 12) {
                     Text(stats.group.title)
@@ -201,13 +194,13 @@ struct MuscleTrainingDetailView: View {
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.06))
-                            Capsule().fill(AppTheme.brand.opacity(0.35 + 0.6 * relative(stats)))
+                            Capsule().fill(AuraTone.training.mark.opacity(0.35 + 0.6 * relative(stats)))
                                 .frame(width: max(stats.sets > 0 ? 4 : 0, proxy.size.width * relative(stats)))
                         }
                     }
                     .frame(height: 6)
                     Text(percent(stats.share))
-                        .font(.telemetry(11.5))
+                        .font(.footnote.weight(.semibold).monospacedDigit())
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(width: 40, alignment: .trailing)
                 }
@@ -233,28 +226,24 @@ struct MuscleTrainingDetailView: View {
     private func groupPage(_ stats: MuscleTraining.GroupStats) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             Text("\(stats.rank) of \(report.groups.count) · \(rankWord(stats))")
-                .font(.telemetry(11))
-                .foregroundStyle(AppTheme.mutedText)
-            Text(stats.group.title)
-                .font(.system(size: 34, weight: .semibold))
-                .tracking(-1)
-                .foregroundStyle(AppTheme.ink)
-                .accessibilityAddTraits(.isHeader)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+            Headline([.strong(stats.group.title)], size: 36)
             TrainingBodyView(brightness: report.brightness, focus: stats.group)
                 .frame(height: 300)
             Text(line(stats))
                 .font(.body)
                 .foregroundStyle(AppTheme.ink.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .top, spacing: 18) {
-                TelemetryStat(setsPerWeek(stats), "sets a week")
-                TelemetryStat(stats.daysTrained == 0 ? "0" : String(format: "%.1f×", stats.timesPerWeek), "a week")
-                TelemetryStat(stats.daysSince.map { $0 == 0 ? "Today" : "\($0) d" } ?? "—", "since last")
-                TelemetryStat(percent(stats.share), "of training")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 16) {
+                FigureStat(setsPerWeek(stats), label: "sets a week")
+                FigureStat(stats.daysTrained == 0 ? "0" : String(format: "%.1f×", stats.timesPerWeek), label: "a week")
+                FigureStat(stats.daysSince.map { $0 == 0 ? "Today" : "\($0) d" } ?? "—", label: "since last")
+                FigureStat(percent(stats.share), label: "of training")
             }
             if !stats.topExercises.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    SpaceSection(1, "Trained by") { Text("sets") }
+                    SectionLabel("Trained by") { Text("sets") }
                     ForEach(stats.topExercises, id: \.name) { exercise in
                         HStack {
                             Text(exercise.name)
@@ -262,7 +251,7 @@ struct MuscleTrainingDetailView: View {
                                 .foregroundStyle(AppTheme.ink)
                             Spacer(minLength: 12)
                             Text(String(format: "%.1f", exercise.sets))
-                                .font(.telemetry(12))
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
                         .accessibilityElement(children: .combine)

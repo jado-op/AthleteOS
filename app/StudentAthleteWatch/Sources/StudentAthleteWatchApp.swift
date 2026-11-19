@@ -141,7 +141,7 @@ struct WatchRootView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(AppTheme.brand)
+                    .tint(AuraTone.body.mark)
                     .foregroundStyle(.white)
                 }
 
@@ -164,29 +164,29 @@ struct WatchRootView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(payload.sessionMinutes ?? 0)")
-                                .font(.system(size: 38, weight: .bold, design: .rounded))
+                                .font(.system(size: 40, weight: .light).monospacedDigit())
                             Text("min")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.75))
                         }
                         Text(title)
                             .font(.footnote.weight(.semibold))
                         Text("\(payload.items.count) exercises")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.75))
                         Button {
                             showingSession = true
                         } label: {
                             Text("Start").font(.headline).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.brand)
-                        .foregroundStyle(.white)
+                        .tint(.white)
+                        .foregroundStyle(.black)
                     }
                     .padding(10)
-                    .background(LinearGradient(colors: [AppTheme.brand.opacity(0.32), .white.opacity(0.08)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                                in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    // V8: today's workout on the training (ember) card.
+                    .background(AuraBackground(.training, focus: UnitPoint(x: 0.25, y: 0.3), radius: 110))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else {
                     card(big: today ? "Rest" : "—", label: today ? "Recovery day" : "Open the iPhone app to refresh today's plan", icon: "moon.zzz.fill")
                 }
@@ -195,7 +195,7 @@ struct WatchRootView: View {
                     let days = AthleteStats.daysUntil(next)
                     Label(days == 0 ? "Game today" : "Next game in \(days)d", systemImage: "sportscourt.fill")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.brightRed)
+                        .foregroundStyle(AuraTone.game.mark)
                 }
 
                 if let card = payload.emergency {

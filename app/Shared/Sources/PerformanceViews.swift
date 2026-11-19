@@ -36,12 +36,7 @@ struct PerformanceTile: View {
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
                 .lineLimit(1)
-            Text(record.best.map { record.formatted($0.value) } ?? "–")
-                .font(.system(size: 24, weight: .semibold).monospacedDigit())
-                .tracking(-0.6)
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            BigFigure(record.best.map { record.formatted($0.value) } ?? "–", size: 30)
             Text(change ?? "Personal best")
                 .font(.caption)
                 .foregroundStyle(change == nil ? AppTheme.mutedText : (change?.hasPrefix("+") == true ? AppTheme.green : AppTheme.secondaryText))
@@ -49,7 +44,7 @@ struct PerformanceTile: View {
             if record.history.count >= 2 {
                 Chart(Array(record.history.enumerated()), id: \.offset) { _, point in
                     LineMark(x: .value("Day", point.date), y: .value("Value", point.value))
-                        .foregroundStyle(AppTheme.brightRed)
+                        .foregroundStyle(AuraTone.training.mark)
                         .interpolationMethod(.monotone)
                 }
                 .chartXAxis(.hidden)
@@ -60,8 +55,9 @@ struct PerformanceTile: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1) }
+        .background(AuraBackground(.calm, focus: UnitPoint(x: 0.2, y: 0.4), radius: 120))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(record.name): best \(record.best.map { record.formatted($0.value) } ?? "none")")
     }
@@ -74,30 +70,37 @@ struct PerformanceDetailSheet: View {
     @State private var addingResult = false
     @State private var confirmDelete = false
 
+    /// V8: the best, big on the training (ember) card — the number the eye lands on.
+    private var bestCard: some View {
+        AuraCard(.training, focus: UnitPoint(x: 0.25, y: 0.55), radius: 200) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your best")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                BigFigure(record.best.map { record.formatted($0.value) } ?? "–", size: 64)
+                if let best = record.best {
+                    Text(best.date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.75))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Best")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.mutedText)
-                        Text(record.best.map { record.formatted($0.value) } ?? "–")
-                            .font(.system(size: 44, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(AppTheme.ink)
-                        if let best = record.best {
-                            Text(best.date.formatted(date: .abbreviated, time: .omitted))
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
-                    }
+                    bestCard
                     if record.history.count >= 2 {
                         Chart(Array(record.history.enumerated()), id: \.offset) { _, point in
                             LineMark(x: .value("Day", point.date), y: .value("Value", point.value))
-                                .foregroundStyle(AppTheme.brightRed)
+                                .foregroundStyle(AuraTone.training.mark)
                                 .interpolationMethod(.monotone)
                             PointMark(x: .value("Day", point.date), y: .value("Value", point.value))
-                                .foregroundStyle(AppTheme.brightRed)
+                                .foregroundStyle(AuraTone.training.mark)
                                 .symbolSize(24)
                         }
                         .chartYScale(domain: .automatic(includesZero: false))
@@ -201,7 +204,7 @@ struct AddPerformanceSheet: View {
                                             .font(.subheadline.weight(.semibold))
                                             .foregroundStyle(AppTheme.ink)
                                             .frame(maxWidth: .infinity, minHeight: 38)
-                                            .background(Capsule().fill(unit == option.id ? AppTheme.brand.opacity(0.4) : Color.white.opacity(0.05)))
+                                            .background(Capsule().fill(unit == option.id ? AuraTone.training.mark.opacity(0.35) : Color.white.opacity(0.05)))
                                             .overlay { Capsule().strokeBorder(Color.white.opacity(unit == option.id ? 0.3 : 0.1), lineWidth: 1) }
                                     }
                                     .buttonStyle(.plain)
@@ -218,7 +221,7 @@ struct AddPerformanceSheet: View {
                                             .font(.subheadline.weight(.semibold))
                                             .foregroundStyle(AppTheme.ink)
                                             .frame(maxWidth: .infinity, minHeight: 38)
-                                            .background(Capsule().fill(higherIsBetter == higher ? AppTheme.brand.opacity(0.4) : Color.white.opacity(0.05)))
+                                            .background(Capsule().fill(higherIsBetter == higher ? AuraTone.training.mark.opacity(0.35) : Color.white.opacity(0.05)))
                                             .overlay { Capsule().strokeBorder(Color.white.opacity(higherIsBetter == higher ? 0.3 : 0.1), lineWidth: 1) }
                                     }
                                     .buttonStyle(.plain)

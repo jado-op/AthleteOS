@@ -149,7 +149,7 @@ struct SportsManagerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScreenTitle("Your sports", subtitle: "The app follows the active sport. Switch any time from the top of Home.")
+                    Headline([.strong("Your sports."), .soft(" The app follows the active one. Switch any time from the top of Home.")], size: 32)
                     ForEach(athlete.sortedSports) { sport in
                         sportCard(sport)
                     }
@@ -218,12 +218,12 @@ struct SportsManagerSheet: View {
                             .font(.headline)
                             .foregroundStyle(AppTheme.ink)
                         if isActive {
-                            Tag("Active", color: AppTheme.green)
+                            Tag("Active", color: AppTheme.ink)
                         }
                     }
                     Text(position ?? "No specific position")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .foregroundStyle(AppTheme.ink.opacity(0.7))
                     Text("Season \(sport.seasonStart.formatted(.dateTime.month(.abbreviated).day())) – \(sport.seasonEnd.formatted(.dateTime.month(.abbreviated).day()))")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
@@ -253,12 +253,19 @@ struct SportsManagerSheet: View {
                             .frame(width: 52, height: 52)
                             .background(AppTheme.fill, in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .accessibilityLabel("Remove sport")
                 }
             }
         }
-        .cardStyle(padding: 16)
+        .padding(16)
+        // V8: the active sport on the games (green) card; the others quiet plates.
+        .background(AuraBackground(isActive ? .game : .calm, focus: UnitPoint(x: 0.15, y: 0.3), radius: 180))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                .strokeBorder(Color.white.opacity(isActive ? 0.12 : 0.07), lineWidth: 1)
+        }
     }
 
     private func remove() {

@@ -8,29 +8,37 @@ struct PlanHero: View {
     let session: GeneratedSession
     let explanation: PlanExplanation
 
+    /// V8: the training (ember) card — the title, the minutes big, the one-sentence why.
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(meta)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
-            Text(session.title)
-                .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(explanation.summary)
-                .font(.body)
-                .foregroundStyle(AppTheme.ink.opacity(0.86))
-                .fixedSize(horizontal: false, vertical: true)
+        AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 210) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(session.title)
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-0.6)
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                BigFigure("\(session.estimatedMinutes)", unit: "min", size: 64)
+                if let type = typeTitle {
+                    Text(type)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.8))
+                }
+                Text(explanation.summary)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.ink.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, 12)
     }
 
-    private var meta: String {
-        var parts = ["\(session.estimatedMinutes) min"]
-        if let type = session.decision?.sessionType, type.title != session.title { parts.append(type.title) }
-        return parts.joined(separator: " · ")
+    private var typeTitle: String? {
+        guard let type = session.decision?.sessionType, type.title != session.title else { return nil }
+        return type.title
     }
+
 }
 
 /// Exercises grouped by block, as flat rows.
@@ -99,7 +107,7 @@ struct BlockedSessionList: View {
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .disabled(catalogueItem == nil)
     }
 
@@ -131,9 +139,10 @@ struct WhyThisPlanPanel: View {
                         .foregroundStyle(AppTheme.secondaryText)
                         .rotationEffect(.degrees(open ? 180 : 0))
                 }
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             if open {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(explanation.parts, id: \.question) { part in

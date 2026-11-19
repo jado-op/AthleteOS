@@ -76,16 +76,16 @@ public struct OnboardingView: View {
                         .frame(width: 72, height: 72)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .accessibilityHidden(true)
-                    ScreenTitle("Train smarter for your sport.", subtitle: "A plan built around your season, your position and your next game.")
+                    Headline([.strong("Train smarter for your sport."), .soft(" A plan built around your season, your position and your next game.")], size: 36)
                     Button { showingDemo = true } label: {
                         Label("See your first day · 1 min", systemImage: "play.circle.fill")
                     }
                     .buttonStyle(.secondary)
                     VStack(alignment: .leading, spacing: 18) {
-                        feature("calendar", AppTheme.blue, "A weekly plan that knows your season", "Build in the off-season, stay sharp in-season, peak for game day.")
-                        feature("figure.run", AppTheme.orange, "1 tap to start, every set logged", "Step-by-step pictures with the muscles each exercise trains.")
-                        feature("sparkles", AppTheme.purple, "A coach that notices", "Readiness, muscle balance and what to train next — every week.")
-                        feature("lock.fill", AppTheme.green, "Private by design", "Sign in with Apple only. No email, no ads, no tracking.")
+                        feature("calendar", AuraTone.game.mark, "A weekly plan that knows your season", "Build in the off-season, stay sharp in-season, peak for game day.")
+                        feature("figure.run", AuraTone.training.mark, "1 tap to start, every set logged", "Step-by-step pictures with the muscles each exercise trains.")
+                        feature("sparkles", AuraTone.mind.mark, "A coach that notices", "Readiness, muscle balance and what to train next — every week.")
+                        feature("hand.raised.fill", AuraTone.body.mark, "Private by design", "Sign in with Apple only. No email, no ads, no tracking.")
                     }
                 }
                 .padding(24)
@@ -95,7 +95,7 @@ public struct OnboardingView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.footnote)
-                        .foregroundStyle(AppTheme.brand)
+                        .foregroundStyle(AppTheme.ink)
                         .multilineTextAlignment(.center)
                 }
                 AppleSignInButton(
@@ -147,37 +147,28 @@ public struct OnboardingView: View {
     }
 
     private var downloadingStep: some View {
-        VStack(spacing: 20) {
+        // V8: one big sentence while the library downloads.
+        VStack(alignment: .leading, spacing: 20) {
             Spacer()
-            RingView(progress: 0.7, color: AppTheme.ink, lineWidth: 10) {
-                Image(systemName: "arrow.down")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-            }
-            .frame(width: 120, height: 120)
-            Text("Getting your library ready")
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.ink)
-            Text("Exercises, drills and their pictures — downloaded once, then everything works offline.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            Headline([.strong("Getting your library ready."),
+                      .soft(" Exercises, drills and their pictures — downloaded once, then everything works offline.")], size: 34)
+                .padding(.horizontal, 28)
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 28)
                 Button("Continue offline") { onComplete() }
                     .buttonStyle(.primary)
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, 28)
             } else {
                 ProgressView()
+                    .tint(AppTheme.ink)
+                    .padding(.horizontal, 28)
             }
             Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .appScreen()
     }
 

@@ -49,7 +49,16 @@ struct IntakeInterviewView: View {
             #endif
             footer
         }
-        .background(AppBackground(.hero).ignoresSafeArea())
+        // V8: the mind (magenta) glow behind the question, as on every QuestionPage(tone: .mind).
+        .background(alignment: .top) {
+            RadialGradient(colors: [AuraTone.mind.mark.opacity(0.26), .clear], center: UnitPoint(x: 0.2, y: 0.1),
+                           startRadius: 0, endRadius: 360)
+                .frame(height: 520)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .background(AppTheme.background.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.25), value: index)
         .onAppear(perform: load)
         .confirmationDialog("Save your changes?", isPresented: $confirmingClose, titleVisibility: .visible) {
@@ -129,7 +138,7 @@ struct IntakeInterviewView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08))
-                    Capsule().fill(AppTheme.brightRed)
+                    Capsule().fill(AppTheme.ink)
                         .frame(width: proxy.size.width * progress)
                 }
             }
@@ -140,7 +149,7 @@ struct IntakeInterviewView: View {
             if editing {
                 Button("Save", action: finish)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(hasChanges ? AppTheme.brightRed : AppTheme.mutedText)
+                    .foregroundStyle(hasChanges ? AppTheme.ink : AppTheme.mutedText)
                     .disabled(!hasChanges)
                     .frame(minWidth: 44, minHeight: 40)
             }
@@ -159,14 +168,9 @@ struct IntakeInterviewView: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Interview")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.brightRed)
-            Text("Let your twin get to know you")
-                .font(.system(size: 34, weight: .semibold))
-                .tracking(-1)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AuraTone.mind.mark)
+            Headline([.strong("Let your twin get to know you."), .soft(" How you think — not what you lift.")], size: 36)
             Text("Your data shows what you do. These questions are about how you think: what drives you, what pressure does to you, how you deal with mistakes. There are no right answers — the honest one is the useful one.")
                 .font(.reading(18))
                 .lineSpacing(6)
@@ -190,8 +194,8 @@ struct IntakeInterviewView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.mutedText)
             Text(family.fill(question.prompt))
-                .font(.system(size: 28, weight: .semibold))
-                .tracking(-0.6)
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.7)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
@@ -245,7 +249,7 @@ struct IntakeInterviewView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 8)
                         Image(systemName: picked ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(picked ? AppTheme.brightRed : AppTheme.mutedText)
+                            .foregroundStyle(picked ? AuraTone.mind.mark : AppTheme.mutedText)
                             .accessibilityHidden(true)
                     }
                     .padding(16)
@@ -253,11 +257,11 @@ struct IntakeInterviewView: View {
                     .glassSurface(cornerRadius: 16)
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(picked ? AppTheme.brightRed.opacity(0.8) : Color.white.opacity(0.08), lineWidth: 1)
+                            .strokeBorder(picked ? AuraTone.mind.mark.opacity(0.85) : Color.white.opacity(0.08), lineWidth: 1)
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityAddTraits(picked ? .isSelected : [])
                 .accessibilityHint(picked ? "Tap again to clear" : "")
             }

@@ -11,7 +11,7 @@ struct ConcussionGuideContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ScreenTitle("Head injury", subtitle: "What to do, and how athletes come back safely.")
+                SafetyTitle("Head injury", subtitle: "What to do, and how athletes come back safely.")
                 if let recorded {
                     Label("Your athletic trainer recorded step \(recorded.step)\(recorded.note.map { ": \($0)" } ?? "")", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.semibold))
@@ -70,7 +70,7 @@ struct ConcussionGuideContent: View {
                             }
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
 
                 list("The rules", ConcussionGuide.rules, icon: "checkmark.shield.fill", color: AppTheme.green)
@@ -109,6 +109,34 @@ struct ConcussionGuideContent: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 18)
+    }
+}
+
+/// V8, kept calm: the title big and plain, the line under it its own quiet text (no colour, no card).
+private struct SafetyTitle: View {
+    let title: String
+    let subtitle: String
+
+    init(_ title: String, subtitle: String) {
+        self.title = title
+        self.subtitle = subtitle
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 34, weight: .bold))
+                .tracking(-0.7)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .font(.title3)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 4)
     }
 }
 
@@ -265,7 +293,7 @@ struct SafetyCenterView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Safety Center", subtitle: "When something doesn't feel right.")
+                    SafetyTitle("Safety Center", subtitle: "When something doesn't feel right.")
                     if status == .concussion {
                         TrainingPauseControl(status: $status)
                     }
@@ -300,7 +328,7 @@ struct SafetyCenterView: View {
                                 ListRow(systemImage: topic.systemImage, color: topic == .headInjury || topic == .whenToStop ? AppTheme.danger : AppTheme.ink,
                                         title: topic.title, detail: topic.summary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                             if topic != SafetyTopic.allCases.last {
                                 Divider().padding(.leading, 54)
                             }
@@ -333,7 +361,7 @@ struct SafetyTopicView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ScreenTitle(topic.title, subtitle: topic.summary)
+                SafetyTitle(topic.title, subtitle: topic.summary)
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(topic.points, id: \.self) { point in
                         HStack(alignment: .top, spacing: 12) {

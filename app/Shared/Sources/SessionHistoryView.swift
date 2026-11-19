@@ -26,7 +26,10 @@ public struct SessionHistoryView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    ScreenTitle("History", subtitle: "\(sessions.count) sessions · \(sessions.reduce(0) { $0 + $1.minutes }) minutes")
+                    // V8: the whole history in one sentence.
+                    Headline([.strong(countedNoun(sessions.count, "session")), .soft(", "),
+                              .strong("\(sessions.reduce(0) { $0 + $1.minutes }) minutes"), .soft(" of training.")], size: 32)
+                        .padding(.bottom, 4)
                     if sessions.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "figure.strengthtraining.traditional")
@@ -54,7 +57,7 @@ public struct SessionHistoryView: View {
                             } label: {
                                 SessionRow(session: session)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                         }
                     }
                     if visibleSessions.count < sessions.count {
@@ -124,18 +127,40 @@ struct SessionDetailView: View {
         return parts.isEmpty ? "Logged" : parts.joined(separator: " · ")
     }
 
+    /// V8: the minutes big on the training (ember) card, sets and effort beside them.
+    private var summaryCard: some View {
+        AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 200) {
+            HStack(alignment: .lastTextBaseline, spacing: 16) {
+                BigFigure("\(session.minutes)", unit: "min", size: 72)
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 6) {
+                    summaryLine("\(session.sets.count)", session.sets.count == 1 ? "set" : "sets")
+                    summaryLine(session.sessionRPE.map { "\($0)/10" } ?? "—", "effort")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Minutes: \(session.minutes). Sets: \(session.sets.count). Effort: \(session.sessionRPE.map { "\($0) of 10" } ?? "not rated")")
+    }
+
+    private func summaryLine(_ value: String, _ label: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(value)
+                .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                .foregroundStyle(AppTheme.ink)
+            Text(label)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.75))
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                ScreenTitle(
-                    session.startedAt.formatted(.dateTime.weekday(.wide).month().day()),
-                    subtitle: session.startedAt.formatted(date: .omitted, time: .shortened)
-                )
-                HStack(spacing: 12) {
-                    RingStatCard(value: "\(session.minutes)", label: "Minutes", progress: min(1, Double(session.minutes) / 60), color: AppTheme.blue, systemImage: "clock.fill")
-                    RingStatCard(value: "\(session.sets.count)", label: "Sets", progress: min(1, Double(session.sets.count) / 20), color: AppTheme.orange, systemImage: "list.bullet")
-                    RingStatCard(value: session.sessionRPE.map { "\($0)/10" } ?? "—", label: "Effort", progress: Double(session.sessionRPE ?? 0) / 10, color: AppTheme.brand, systemImage: "flame.fill")
-                }
+                Headline([.strong(session.startedAt.formatted(.dateTime.weekday(.wide).month().day())),
+                          .soft(" · " + session.startedAt.formatted(date: .omitted, time: .shortened))], size: 32)
+                summaryCard
                 HStack(spacing: 8) {
                     Image(systemName: session.syncedAt != nil ? "checkmark.icloud.fill" : "icloud.slash")
                     Text(session.syncedAt != nil ? "Backed up" : "Saved on this phone — backs up next time you're online")

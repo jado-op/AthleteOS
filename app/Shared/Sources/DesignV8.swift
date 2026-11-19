@@ -220,6 +220,147 @@ public struct MetricTile: View {
     }
 }
 
+/// A section label (V8): one short bold title, a quiet detail on the right — no number, no hairline.
+public struct SectionLabel<Trailing: View>: View {
+    let title: String
+    let trailing: Trailing
+
+    public init(_ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+        self.title = title
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title)
+                .font(.system(size: 24, weight: .bold))
+                .tracking(-0.4)
+                .foregroundStyle(AppTheme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            trailing
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+    }
+}
+
+/// A number without a box (V8): light and big, its label under it — replaces the telemetry plates.
+public struct FigureStat: View {
+    let value: String
+    let unit: String
+    let label: String
+    let size: CGFloat
+
+    public init(_ value: String, unit: String = "", label: String, size: CGFloat = 34) {
+        self.value = value
+        self.unit = unit
+        self.label = label
+        self.size = size
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            BigFigure(value, unit: unit, size: size)
+            Text(label)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One question per page for first-run steps (V8): StepScaffold's back and progress, the question big, one white button.
+public struct QuestionStep<Content: View>: View {
+    let progress: Double?
+    let question: String
+    let hint: String?
+    let buttonTitle: String
+    let buttonEnabled: Bool
+    let onBack: (() -> Void)?
+    let onClose: (() -> Void)?
+    let onContinue: () -> Void
+    let tone: AuraTone?
+    let content: Content
+
+    public init(progress: Double? = nil, question: String, hint: String? = nil, buttonTitle: String = "Continue",
+                buttonEnabled: Bool = true, onBack: (() -> Void)? = nil, onClose: (() -> Void)? = nil, tone: AuraTone? = nil,
+                onContinue: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.progress = progress
+        self.question = question
+        self.hint = hint
+        self.buttonTitle = buttonTitle
+        self.buttonEnabled = buttonEnabled
+        self.onBack = onBack
+        self.onClose = onClose
+        self.onContinue = onContinue
+        self.tone = tone
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                if let onBack {
+                    CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
+                } else if let onClose {
+                    CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close", action: onClose)
+                }
+                if let progress {
+                    StepProgressBar(progress: progress)
+                } else {
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(minHeight: 44)
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(question)
+                            .font(.system(size: 34, weight: .bold))
+                            .tracking(-0.7)
+                            .foregroundStyle(AppTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                        if let hint {
+                            Text(hint)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    content
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.top, 28)
+                .padding(.bottom, 24)
+            }
+            Button(buttonTitle, action: onContinue)
+                .buttonStyle(.primary)
+                .disabled(!buttonEnabled)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
+        }
+        .background(alignment: .top) {
+            if let tone {
+                RadialGradient(colors: [tone.mark.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.1),
+                               startRadius: 0, endRadius: 360)
+                    .frame(height: 520)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .appScreen()
+    }
+}
+
 /// A big ring around one figure (V8): the focal point of a live set or a rest —
 /// sits on an AuraCard, white ring on the card's colour, the figure light and big.
 public struct RingTimer: View {

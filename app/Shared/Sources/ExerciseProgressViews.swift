@@ -38,11 +38,19 @@ struct ExerciseProgressListView: View {
         .sorted { $0.totalSets > $1.totalSets }
     }
 
+    private var headline: [Headline.Part] {
+        let count = summaries.count
+        if count == 0 { return [.strong("Exercise progress."), .soft(" Your best sets, and how they've moved.")] }
+        return [.strong(countedNoun(count, "exercise")), .soft(" logged. Your best set of each, and how it moved.")]
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    ScreenTitle("Exercise progress", subtitle: "Your best sets, and how they've moved.")
+                    // V8: one sentence carries it; each row opens the exercise's chart.
+                    Headline(headline, size: 32)
+                        .padding(.bottom, 8)
                     if summaries.isEmpty {
                         Text("Log a session and every exercise you do shows up here with its own progress chart.")
                             .font(.subheadline)
@@ -78,7 +86,7 @@ struct ExerciseProgressListView: View {
                             }
                             .cardStyle(padding: 12)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 .padding(20)
@@ -151,32 +159,46 @@ struct ExerciseProgressDetailView: View {
         return last / first - 1
     }
 
+    /// V8: the latest best, big on the training card, with how far it moved.
+    private var latestCard: some View {
+        AuraCard(.training, focus: UnitPoint(x: 0.25, y: 0.55), radius: 200) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Last session")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                BigFigure((points.last?.value ?? 0).formatted(.number.precision(.fractionLength(0...1))), unit: unit, size: 64)
+                Text(changeLine)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var changeLine: String {
+        let best = ExerciseProgress.bestLabel(sets).map { "Best \($0)" } ?? "Nothing measured yet"
+        guard let change else { return best }
+        return "\(change >= 0 ? "+" : "")\(Int((change * 100).rounded()))% since your first · " + best.lowercased()
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ScreenTitle(name, subtitle: "\(countedNoun(points.count, "session"))\(ExerciseProgress.bestLabel(sets).map { " · best \($0)" } ?? "")")
-
+                Headline([.strong(name), .soft(" · \(countedNoun(points.count, "session"))")], size: 32)
+                latestCard
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text((points.last?.value ?? 0).formatted(.number.precision(.fractionLength(0...1))))
-                            .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(AppTheme.ink)
-                        Text(unit)
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                        Spacer()
-                        if let change {
-                            Tag("\(change >= 0 ? "+" : "")\(Int((change * 100).rounded()))% since first", color: change >= 0 ? AppTheme.green : AppTheme.secondaryText)
-                        }
-                    }
+                    Text("Best set each session")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
                     Chart(points) { point in
                         LineMark(x: .value("Date", point.date), y: .value("Best", point.value))
                             .foregroundStyle(AppTheme.ink)
                             .interpolationMethod(.catmullRom)
                         PointMark(x: .value("Date", point.date), y: .value("Best", point.value))
-                            .foregroundStyle(AppTheme.brand)
+                            .foregroundStyle(AuraTone.training.mark)
                         AreaMark(x: .value("Date", point.date), y: .value("Best", point.value))
-                            .foregroundStyle(AppTheme.brand.opacity(0.08).gradient)
+                            .foregroundStyle(AuraTone.training.mark.opacity(0.1).gradient)
                             .interpolationMethod(.catmullRom)
                     }
                     .frame(height: 200)
@@ -197,10 +219,10 @@ struct ExerciseProgressDetailView: View {
                         }
                         .cardStyle(padding: 16)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
 
-                SectionTitle("History")
+                SectionLabel("History")
                 ForEach(points.reversed()) { point in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {

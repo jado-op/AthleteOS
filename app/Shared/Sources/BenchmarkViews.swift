@@ -22,7 +22,7 @@ struct BenchmarksView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Tests", subtitle: "The same tests every 6–8 weeks show how far you've come.")
+                    Headline([.strong("Tests."), .soft(" The same few every 6–8 weeks show how far you've come.")], size: 32)
                     statusCard
                     seasonChart
                     SectionHeader("Body", subtitle: "Power, speed, strength.")
@@ -54,7 +54,7 @@ struct BenchmarksView: View {
     }
 
     private var statusCard: some View {
-        let (title, text, color): (String, String, Color) = {
+        let (title, text, _): (String, String, Color) = {
             switch status {
             case .firstTime: return ("Your first tests", "These results are your starting point. In 6 weeks you test again and see what changed.", AppTheme.accent)
             case .notYet(let days): return ("Next tests in \(days) days", "Keep training — you'll see the difference.", AppTheme.green)
@@ -62,22 +62,32 @@ struct BenchmarksView: View {
             case .overdue: return ("Tests are overdue", "It's been over 8 weeks. Test this week to keep your progress honest.", AppTheme.red)
             }
         }()
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.title2.bold())
-                .foregroundStyle(color)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            if let headline = BenchmarkMath.headline(results, tests: tests) {
-                Label(headline, systemImage: "arrow.up.right.circle.fill")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.green)
+        // V8: the training (ember) card, the days until the next tests big when there's a count.
+        return AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.45), radius: 200) {
+            VStack(alignment: .leading, spacing: 8) {
+                if case .notYet(let days) = status {
+                    BigFigure("\(days)", unit: days == 1 ? "day to your next tests" : "days to your next tests", size: 72)
+                        .accessibilityLabel(title)
+                } else {
+                    Text(title)
+                        .font(.system(size: 32, weight: .bold))
+                        .tracking(-0.7)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(text)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                if let headline = BenchmarkMath.headline(results, tests: tests) {
+                    Label(headline, systemImage: "arrow.up.right")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
+        .accessibilityElement(children: .combine)
     }
 
     /// Jump, sprint and strength over the season on one chart: each test's
@@ -114,17 +124,15 @@ struct BenchmarksView: View {
                 HStack(spacing: 14) {
                     Image(systemName: test.systemImage)
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.brand)
+                        .foregroundStyle(AuraTone.training.mark)
                         .frame(width: 48, height: 48)
-                        .background(AppTheme.brand.opacity(0.12), in: Circle())
+                        .background(AuraTone.training.mark.opacity(0.14), in: Circle())
                     VStack(alignment: .leading, spacing: 3) {
                         Text(test.name)
                             .font(.headline)
                             .foregroundStyle(AppTheme.ink)
                         if let change {
-                            Text(test.unit.format(change.latest.value))
-                                .font(.title3.bold())
-                                .foregroundStyle(AppTheme.ink)
+                            BigFigure(test.unit.format(change.latest.value), size: 30)
                             if let delta = change.delta, let improved = change.improved {
                                 Text(test.unit.formatChange(delta, higherIsBetter: test.higherIsBetter) + " than last time")
                                     .font(.caption.weight(.semibold))
@@ -144,8 +152,9 @@ struct BenchmarksView: View {
                     }
                     Spacer(minLength: 0)
                 }
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             Button { running = test } label: {
                 Text("Test")
                     .font(.headline)
@@ -154,7 +163,7 @@ struct BenchmarksView: View {
                     .frame(minHeight: 44)
                     .background(AppTheme.accent, in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
         .cardStyle(padding: 14)
     }
@@ -239,22 +248,33 @@ struct BenchmarkHistoryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle(test.name, subtitle: test.higherIsBetter ? "Higher is better." : "Lower is better.")
+                    Headline([.strong(test.name), .soft(test.higherIsBetter ? ". Higher is better." : ". Lower is better.")], size: 32)
+                    if let best = BenchmarkMath.best(results, test: test) {
+                        // V8: the best, big on the training card.
+                        AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 190) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Your best")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                                BigFigure(test.unit.format(best.value), size: 64)
+                                Text(best.date.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
                     if results.count >= 2 {
                         Chart(results) { result in
                             LineMark(x: .value("Date", result.date), y: .value(test.name, chartValue(result.value)))
-                                .foregroundStyle(AppTheme.accent)
+                                .foregroundStyle(AuraTone.training.mark)
                             PointMark(x: .value("Date", result.date), y: .value(test.name, chartValue(result.value)))
-                                .foregroundStyle(AppTheme.accent)
+                                .foregroundStyle(AuraTone.training.mark)
                         }
                         .chartYScale(domain: .automatic(includesZero: false))
                         .frame(height: 200)
                         .cardStyle()
-                    }
-                    if let best = BenchmarkMath.best(results, test: test) {
-                        Label("Best: \(test.unit.format(best.value)) on \(best.date.formatted(date: .abbreviated, time: .omitted))", systemImage: "trophy.fill")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.amber)
                     }
                     goalCard
                     VStack(spacing: 0) {
@@ -353,7 +373,7 @@ struct BenchmarkRunView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle(test.name, subtitle: test.higherIsBetter ? "Do your best — higher is better." : "Do your best — faster is better.")
+                    Headline([.strong(test.name), .soft(test.higherIsBetter ? ". Do your best — higher is better." : ". Do your best — faster is better.")], size: 32)
                     if let saved {
                         savedCard(saved, test: savedTest ?? test)
                     } else {
@@ -469,49 +489,49 @@ struct BenchmarkRunView: View {
         let change = BenchmarkMath.change(BenchmarkStore.results, test: test)
         let goal = BenchmarkGoals.goal(for: test.id)
         let goalReached = goal.map { $0.progress(best: value, higherIsBetter: test.higherIsBetter).reached } ?? false
-        return VStack(spacing: 14) {
-            Image(systemName: newBest ? "trophy.fill" : "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(newBest ? AppTheme.amber : AppTheme.green)
-                .sensoryFeedback(.success, trigger: newBest)
-            if newBest {
-                Text(goalReached ? "New personal best. Goal reached!" : "New personal best!")
-                    .font(.title3.bold())
+        // V8: the result, big on the training card.
+        return AuraCard(.training, focus: UnitPoint(x: 0.5, y: 0.4), radius: 220) {
+            VStack(spacing: 14) {
+                Image(systemName: newBest ? "trophy.fill" : "checkmark.circle.fill")
+                    .font(.system(size: 40, weight: .semibold))
                     .foregroundStyle(AppTheme.ink)
-            }
-            Text(test.name)
-                .font(.headline)
-                .foregroundStyle(AppTheme.secondaryText)
-            Text(test.unit.format(value))
-                .font(.system(size: 48, weight: .heavy))
-                .foregroundStyle(AppTheme.ink)
-            if let delta = change?.delta, let improved = change?.improved {
-                Text(test.unit.formatChange(delta, higherIsBetter: test.higherIsBetter) + " than last time")
-                    .font(.title3.bold())
-                    .foregroundStyle(improved ? AppTheme.green : AppTheme.secondaryText)
-                if !improved {
-                    Text("Look at the trend over months, not one day.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .multilineTextAlignment(.center)
+                    .sensoryFeedback(.success, trigger: newBest)
+                if newBest {
+                    Text(goalReached ? "New personal best. Goal reached!" : "New personal best!")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
                 }
-            } else {
-                Text("Saved. This is your starting point.")
-                    .font(.title3.bold())
-                    .foregroundStyle(AppTheme.ink)
-            }
-            ConfirmCircleButton {
-                #if os(iOS)
-                // A good moment (a new best) is the only time we ask for a rating.
-                if newBest, RatingMoment.consume(firstUse: RatingMoment.firstUse) {
-                    requestReview()
+                Text(test.name)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                BigFigure(test.unit.format(value), size: 72)
+                if let delta = change?.delta, let improved = change?.improved {
+                    Text(test.unit.formatChange(delta, higherIsBetter: test.higherIsBetter) + " than last time")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink.opacity(improved ? 1 : 0.8))
+                    if !improved {
+                        Text("Look at the trend over months, not one day.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                    }
+                } else {
+                    Text("Saved. This is your starting point.")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
                 }
-                #endif
-                dismiss()
+                ConfirmCircleButton {
+                    #if os(iOS)
+                    // A good moment (a new best) is the only time we ask for a rating.
+                    if newBest, RatingMoment.consume(firstUse: RatingMoment.firstUse) {
+                        requestReview()
+                    }
+                    #endif
+                    dismiss()
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
-        .cardStyle()
     }
 }
 
@@ -530,7 +550,7 @@ struct SprintStopwatch: View {
             TimelineView(.animation(minimumInterval: 0.02, paused: startedAt == nil || finished != nil)) { context in
                 let elapsed = finished ?? startedAt.map { context.date.timeIntervalSince($0) } ?? 0
                 Text(String(format: "%.2f s", elapsed))
-                    .font(.system(size: 60, weight: .heavy).monospacedDigit())
+                    .font(.system(size: 64, weight: .light).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
                     .frame(maxWidth: .infinity)
             }
@@ -575,7 +595,7 @@ struct TestStopwatch: View {
             TimelineView(.animation(minimumInterval: 0.05, paused: startedAt == nil || finished != nil)) { context in
                 let elapsed = finished ?? startedAt.map { context.date.timeIntervalSince($0) } ?? 0
                 Text(elapsed >= 100 ? BenchmarkUnit.seconds.format(elapsed) : String(format: "%.1f s", elapsed))
-                    .font(.system(size: 60, weight: .heavy).monospacedDigit())
+                    .font(.system(size: 64, weight: .light).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
                     .frame(maxWidth: .infinity)
             }

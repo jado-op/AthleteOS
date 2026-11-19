@@ -61,7 +61,7 @@ struct WorkoutEditorView: View {
                             }
                             .foregroundStyle(AppTheme.ink)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                     .listRowBackground(AppTheme.card)
                 }
@@ -207,7 +207,7 @@ struct WorkoutEditorView: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             Button { picking = Picking(replacing: item.id) } label: {
                 Image(systemName: "arrow.left.arrow.right")
                     .font(.headline)
@@ -215,7 +215,7 @@ struct WorkoutEditorView: View {
                     .frame(width: 40, height: 40)
                     .background(AppTheme.fill, in: Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("Swap \(name(item.itemSlug))")
         }
     }
@@ -380,7 +380,7 @@ struct PlanSettingsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    ScreenTitle("Your week", subtitle: "Pick your gym days and how long each one is — or leave it to the app, which works around your practices, games and season.")
+                    Headline([.strong("Your week."), .soft(" Pick your gym days and how long each one is — or leave it to the app, which works around your practices, games and season.")], size: 30)
 
                     VStack(alignment: .leading, spacing: 12) {
                         SectionHeader("Gym days")
@@ -404,7 +404,7 @@ struct PlanSettingsSheet: View {
                                             .frame(maxWidth: .infinity, minHeight: 48)
                                             .background(on ? AppTheme.accent : AppTheme.fill, in: Circle())
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(.pressable)
                                 }
                             }
                             Text(settings.weekdays.isEmpty ? "Tap the days you want to train in the gym." : "\(settings.weekdays.count) gym day\(settings.weekdays.count == 1 ? "" : "s") a week, always on these days.")
@@ -466,7 +466,7 @@ struct PlanSettingsSheet: View {
                 .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
                 .background(selected ? AppTheme.accent : AppTheme.fill, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 
@@ -492,7 +492,7 @@ struct ShareWorkoutSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    ScreenTitle("Share “\(workout.title)”", subtitle: "Anyone with the code, link or QR code gets a copy of this workout — \(workout.items.count) exercises, about \(workout.estimatedMinutes) min.")
+                    Headline([.strong("Share “\(workout.title)”."), .soft(" Anyone with the code, link or QR code gets a copy — \(workout.items.count) exercises, about \(workout.estimatedMinutes) min.")], size: 30)
                     if let code {
                         CodeShareView(link: .workout(code), message: "Try my workout “\(workout.title)” in AthleteOS")
                     } else if !ProAccess.isPro {
@@ -580,7 +580,7 @@ struct SharedWorkoutSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Add a workout", subtitle: "Got a code from a teammate or coach? Enter it, paste the link or scan the QR code.")
+                    Headline([.strong("Add a workout."), .soft(" Got a code from a teammate or coach? Enter it, paste the link or scan the QR code.")], size: 30)
                     CodeField(placeholder: "ABC234", text: $code)
                     if let message {
                         Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.red)
@@ -622,10 +622,21 @@ struct SharedWorkoutSheet: View {
     private func preview(_ shared: APIClient.SharedWorkout) -> some View {
         let workout = shared.workout
         return VStack(alignment: .leading, spacing: 14) {
-            Text(shared.title).font(.title2.bold()).foregroundStyle(AppTheme.ink)
-            Text("\(workout.items.count) exercises · about \(workout.estimatedMinutes) min")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+            // V8: the workout on the training (ember) card, its minutes big.
+            AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 190) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(shared.title)
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    BigFigure("\(workout.estimatedMinutes)", unit: "min", size: 56)
+                    Text("\(workout.items.count) exercises")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.8))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(workout.items.enumerated()), id: \.offset) { index, item in
                     HStack(spacing: 12) {

@@ -40,33 +40,33 @@ public struct SetupFlowView: View {
         Group {
             switch step {
             case .sport:
-                StepScaffold(
-                    progress: progress, title: "What's your sport?", subtitle: "Your plan is built around it. Add more sports later in Me.",
-                    buttonEnabled: sportSlug != nil, onContinue: chooseSport
+                QuestionStep(
+                    progress: progress, question: "What's your sport?", hint: "Your plan is built around it. Add more sports later in Me.",
+                    buttonEnabled: sportSlug != nil, tone: .game, onContinue: chooseSport
                 ) {
                     SportChooser(selection: $sportSlug)
                 }
             case .position:
-                StepScaffold(
-                    progress: progress, title: sport?.positions.isEmpty == false ? "What position do you play?" : "How do you play?",
-                    subtitle: sport?.positions.isEmpty == false ? "Each position needs different things — a goalkeeper trains differently from a midfielder." : "Your plan uses the drills for the way you play.",
-                    onBack: { go(.sport) }, onContinue: { go(.season) }
+                QuestionStep(
+                    progress: progress, question: sport?.positions.isEmpty == false ? "What position do you play?" : "How do you play?",
+                    hint: sport?.positions.isEmpty == false ? "Each position needs different things — a goalkeeper trains differently from a midfielder." : "Your plan uses the drills for the way you play.",
+                    onBack: { go(.sport) }, tone: .game, onContinue: { go(.season) }
                 ) {
                     if let sport {
                         PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                     }
                 }
             case .season:
-                StepScaffold(
-                    progress: progress, title: "When's your season?", subtitle: "We filled in the usual dates for \(sport?.name ?? "your sport"). Adjust them to your team's.",
-                    onBack: { go(sport?.hasRoleChoice == true ? .position : .sport) }, onContinue: { go(.equipment) }
+                QuestionStep(
+                    progress: progress, question: "When's your season?", hint: "We filled in the usual dates for \(sport?.name ?? "your sport"). Adjust them to your team's.",
+                    onBack: { go(sport?.hasRoleChoice == true ? .position : .sport) }, tone: .game, onContinue: { go(.equipment) }
                 ) {
                     SeasonEditor(start: $seasonStart, end: $seasonEnd)
                 }
             case .equipment:
-                StepScaffold(
-                    progress: progress, title: "What can you train with?", subtitle: "Only pick what you actually have access to. Nothing is fine too.",
-                    buttonTitle: "Finish setup", onBack: { go(.season) }, onContinue: finish
+                QuestionStep(
+                    progress: progress, question: "What can you train with?", hint: "Only pick what you actually have access to. Nothing is fine too.",
+                    buttonTitle: "Finish setup", onBack: { go(.season) }, tone: .training, onContinue: finish
                 ) {
                     EquipmentChooser(selection: $equipment)
                 }
@@ -77,27 +77,22 @@ public struct SetupFlowView: View {
         .animation(.easeInOut(duration: 0.25), value: step)
     }
 
+    /// V8: one big sentence while the plan builds — nothing else to look at.
     private var finishingView: some View {
-        VStack(spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             Spacer()
-            RingView(progress: 0.75, color: AppTheme.ink, lineWidth: 10) {
-                Image(systemName: sportSlug.map(SportIcon.name(for:)) ?? "sportscourt.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(AppTheme.ink)
-            }
-            .frame(width: 130, height: 130)
-            Text(finishingMessage)
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.ink)
-            Text("Downloading your \(sport?.name ?? "sport") library and generating this week.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            Image(systemName: sportSlug.map(SportIcon.name(for:)) ?? "sportscourt.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(AuraTone.training.mark)
+                .accessibilityHidden(true)
+            Headline([.strong(finishingMessage),
+                      .soft(" Downloading your \(sport?.name ?? "sport") library and generating this week.")], size: 34)
             ProgressView()
+                .tint(AppTheme.ink)
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .appScreen()
     }
 

@@ -65,7 +65,7 @@ struct MuscleBuilderView: View {
                             } label: {
                                 Chip(preset.title, isSelected: regions == preset.regions)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                         }
                     }
                 }
@@ -94,7 +94,7 @@ struct MuscleBuilderView: View {
                         } label: {
                             Chip(region.coachName.capitalized, isSelected: regions.contains(region))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -111,7 +111,7 @@ struct MuscleBuilderView: View {
                         } label: {
                             Chip("\(value) min", isSelected: minutes == value)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -139,28 +139,33 @@ struct MuscleBuilderView: View {
 
     private func workoutCard(_ workout: GeneratedSession) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(workout.title)
-                        .font(.title3.bold())
-                        .foregroundStyle(AppTheme.ink)
-                    Text("\(workout.estimatedMinutes) min · \(workout.items.count) exercises")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+            // V8: the built workout on the training (ember) card, its minutes big.
+            AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.55), radius: 190, padding: 20) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(workout.title)
+                            .font(.title3.bold())
+                            .foregroundStyle(AppTheme.ink)
+                        BigFigure("\(workout.estimatedMinutes)", unit: "min", size: 56)
+                        Text(countedNoun(workout.items.count, "exercise"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    }
+                    .accessibilityElement(children: .combine)
+                    Spacer()
+                    Button {
+                        variation += 1
+                        rebuild()
+                    } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.18), in: Circle())
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel("Give me a different workout")
                 }
-                Spacer()
-                Button {
-                    variation += 1
-                    rebuild()
-                } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppTheme.ink)
-                        .frame(width: 38, height: 38)
-                        .background(AppTheme.fill, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Give me a different workout")
             }
             if workout.items.isEmpty {
                 Text("Nothing in your downloaded library trains that with your equipment yet. Try another area, or add equipment in Me → Equipment.")
@@ -181,7 +186,7 @@ struct MuscleBuilderView: View {
                                 .multilineTextAlignment(.leading)
                             Text(DoseFormatter.text(item.dose))
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.orange)
+                                .foregroundStyle(AuraTone.training.mark)
                             Text(item.rationale)
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.secondaryText)
@@ -189,8 +194,9 @@ struct MuscleBuilderView: View {
                         }
                         Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .disabled(catalogueItem == nil)
             }
             if !workout.items.isEmpty {
@@ -217,7 +223,6 @@ struct MuscleBuilderView: View {
                 }
             }
         }
-        .cardStyle()
     }
 
     private func rebuild() {

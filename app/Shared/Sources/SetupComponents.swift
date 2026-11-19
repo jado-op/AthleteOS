@@ -113,7 +113,7 @@ struct SportChooser: View {
                         systemImage: SportIcon.name(for: sport.slug), isSelected: selection == sport.slug
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -139,7 +139,7 @@ struct PositionChooser: View {
                         } label: {
                             OptionRow(title: option.name, systemImage: SportIcon.name(for: sport.slug), isSelected: isSelected)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -161,7 +161,7 @@ struct PositionChooser: View {
             } label: {
                 OptionRow(title: "No specific position", subtitle: "Train for the sport as a whole", systemImage: "person.fill", isSelected: selection == nil)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             ForEach(sport.positions, id: \.slug) { position in
                 Button {
                     selection = position.slug
@@ -173,7 +173,7 @@ struct PositionChooser: View {
                         systemImage: "person.fill.checkmark", isSelected: selection == position.slug
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -256,7 +256,7 @@ struct EquipmentChooser: View {
                             } label: {
                                 Chip(displayName(forSlug: tag), isSelected: selection.contains(tag))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                         }
                     }
                 }

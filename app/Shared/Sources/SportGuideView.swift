@@ -90,16 +90,10 @@ struct SportGuideView: View {
     private func header(_ guide: SportGuide) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Know your sport")
-                .font(.subheadline.weight(.heavy))
-                .textCase(.uppercase)
-                .foregroundStyle(AppTheme.brand)
-            Text(sportName)
-                .font(.system(size: 38, weight: .heavy))
-                .foregroundStyle(AppTheme.ink)
-            Text(guide.headline)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AuraTone.game.mark)
+            // V8: the sport and what wins it, in one big sentence.
+            Headline([.strong(sportName + "."), .soft(" " + guide.headline)], size: 32)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -128,18 +122,24 @@ struct SportGuideView: View {
 
     /// Where the athlete is in their season, and what that means right now.
     private func nowCard(_ guide: SportGuide, phase: SeasonPhase) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Right now: \(AthleteStats.phaseLabel(phase))", systemImage: "calendar")
-                .font(.headline)
-                .foregroundStyle(AppTheme.onAccent)
-            Text(guide.seasonAdvice(for: phase))
-                .font(.body)
-                .foregroundStyle(AppTheme.onAccent)
-                .fixedSize(horizontal: false, vertical: true)
+        // V8: the one coloured card — the sport (green) and where the athlete is in its year.
+        AuraCard(.game, focus: UnitPoint(x: 0.2, y: 0.3), radius: 200, padding: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Right now")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                Text(AthleteStats.phaseLabel(phase))
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-0.6)
+                    .foregroundStyle(AppTheme.ink)
+                Text(guide.seasonAdvice(for: phase))
+                    .font(.body)
+                    .foregroundStyle(AppTheme.ink.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private func demands(_ guide: SportGuide) -> some View {
@@ -149,8 +149,7 @@ struct SportGuideView: View {
                 ForEach(guide.demands, id: \.self) { d in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(d.label)
-                            .font(.caption.weight(.bold))
-                            .textCase(.uppercase)
+                            .font(.footnote.weight(.semibold))
                             .foregroundStyle(AppTheme.secondaryText)
                         Text(d.value)
                             .font(.subheadline.weight(.semibold))
@@ -171,7 +170,7 @@ struct SportGuideView: View {
             ForEach(Array(guide.succeed.enumerated()), id: \.offset) { i, tip in
                 HStack(alignment: .top, spacing: 14) {
                     Text("\(i + 1)")
-                        .font(.headline.weight(.heavy))
+                        .font(.headline.weight(.bold))
                         .foregroundStyle(AppTheme.onAccent)
                         .frame(width: 34, height: 34)
                         .background(AppTheme.accent, in: Circle())
@@ -245,7 +244,7 @@ struct SportGuideView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(title).font(.headline).foregroundStyle(AppTheme.ink)
-                if current { Tag("Now", color: AppTheme.brand) }
+                if current { Tag("Now", color: AuraTone.game.mark) }
             }
             Text(body)
                 .font(.subheadline)
@@ -306,7 +305,7 @@ struct SportGuideView: View {
                     .frame(minHeight: 38)
                     .background(AppTheme.fill, in: Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .disabled(item == nil)
             }
         }
@@ -346,9 +345,9 @@ struct SportGuideView: View {
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 52, height: 52)
-                    .background(done ? Duo.gold : AppTheme.brand, in: Circle())
+                    .background(done ? Duo.gold : AuraTone.mind.mark, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(done ? "Quiz passed" : "Test yourself").font(.title3.weight(.heavy)).foregroundStyle(AppTheme.ink)
+                    Text(done ? "Quiz passed" : "Test yourself").font(.title3.weight(.bold)).foregroundStyle(AppTheme.ink)
                     Text(done ? "Passed. Take it again any time." : "\(guide.quiz.count) questions about \(sportName).")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
@@ -419,7 +418,7 @@ struct SportGuideCard: View {
                 }
                 .cardStyle(padding: 14)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
     }
 }

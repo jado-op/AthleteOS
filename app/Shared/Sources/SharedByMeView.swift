@@ -12,7 +12,7 @@ struct SharedByMeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScreenTitle("Shared workouts", subtitle: "Anyone with the code can open these. Stop sharing and the code stops working.")
+                    Headline([.strong("Shared workouts."), .soft(" Anyone with the code can open these. Stop sharing and the code stops working.")], size: 30)
                     if let message {
                         Text(message).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     }
@@ -27,7 +27,7 @@ struct SharedByMeView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(workout.title).font(.body.weight(.semibold)).foregroundStyle(AppTheme.ink)
                                     Text("\(workout.code) · \(workout.itemCount) exercises")
-                                        .font(.telemetry(13))
+                                        .font(.subheadline.monospacedDigit())
                                         .foregroundStyle(AppTheme.secondaryText)
                                 }
                                 Spacer(minLength: 0)
