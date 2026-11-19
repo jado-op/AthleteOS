@@ -292,7 +292,9 @@ public struct LiveSessionView: View {
         }
     }
 
+    @ViewBuilder
     private func exerciseMenu(done: Int) -> some View {
+        #if os(iOS)
         Menu {
             if !isFinished(index) {
                 if done == 0 {
@@ -315,6 +317,14 @@ public struct LiveSessionView: View {
                 .background(Color.white.opacity(0.08), in: Circle())
         }
         .accessibilityLabel("Exercise options")
+        #else
+        Button { showingCues = true } label: {
+            Image(systemName: "ellipsis")
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+        }
+        .accessibilityLabel("How to do it")
+        #endif
     }
 
     /// What the exercise is mainly for, in a word or two ("Power").
