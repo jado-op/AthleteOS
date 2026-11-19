@@ -137,6 +137,13 @@ jobs:
               xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-${sheet}.png"
               xcrun simctl terminate "$UDID" "$BUNDLE" || true
             done
+            # The same with a Fitbit Air (band: sleep stages, resting heart rate).
+            for sheet in watch watch2; do
+              xcrun simctl launch "$UDID" "$BUNDLE" -demoData -demoWearable fitbit -tab academy -sheet "$sheet" >/dev/null
+              sleep 8
+              xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-fitbit-${sheet}.png"
+              xcrun simctl terminate "$UDID" "$BUNDLE" || true
+            done
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
               for sheet in gym live; do
@@ -151,7 +158,7 @@ jobs:
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
-              for sheet in sport season equipment experience name checkIns dataExport reminders health sports help team coach parent struggles; do
+              for sheet in sport season equipment experience name checkIns dataExport reminders health sports help team coach parent struggles suunto fitbit; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab me -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-me-${sheet}.png"

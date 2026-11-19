@@ -33,8 +33,8 @@ struct MuscleTrainingSection: View {
     var body: some View {
         Button { if report != nil { showingDetail = true } } label: {
             VStack(alignment: .leading, spacing: 14) {
-                SectionHeader("Your body", subtitle: "What your logged sets have trained, muscle by muscle.")
-                TrainingBodyView(brightness: report?.brightness ?? [:])
+                SectionHeader("Your body")
+                TrainingBodyView(brightness: report?.brightness ?? [:], showsLabels: false)
                     .frame(maxWidth: 340)
                     .frame(height: 250)
                     .frame(maxWidth: .infinity)

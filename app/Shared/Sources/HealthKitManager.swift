@@ -188,6 +188,69 @@ public final class HealthKitManager: @unchecked Sendable {
         #endif
     }
 
+    /// Last night's sleep by stage (deep, REM, core), from the device that
+    /// recorded the most of it. nil without staged data or permission.
+    public func sleepStages(forNightEnding morning: Date = .now, calendar: Calendar = .current) async -> SleepStages? {
+        #if canImport(HealthKit)
+        guard isAvailable else { return nil }
+        let day = calendar.startOfDay(for: morning)
+        guard
+            let start = calendar.date(byAdding: .hour, value: -6, to: day),
+            let end = calendar.date(byAdding: .hour, value: 12, to: day)
+        else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let samples: [SleepStages.Sample] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: HKCategoryType(.sleepAnalysis), predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: nil
+            ) { _, samples, _ in
+                let staged = (samples as? [HKCategorySample] ?? []).compactMap { sample -> SleepStages.Sample? in
+                    guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return nil }
+                    let stage: SleepStages.Stage
+                    switch value {
+                    case .asleepDeep: stage = .deep
+                    case .asleepREM: stage = .rem
+                    case .asleepCore: stage = .core
+                    case .awake: stage = .awake
+                    default: return nil
+                    }
+                    return SleepStages.Sample(start: sample.startDate, end: sample.endDate, stage: stage,
+                                              source: sample.sourceRevision.source.bundleIdentifier)
+                }
+                continuation.resume(returning: staged)
+            }
+            store.execute(query)
+        }
+        return SleepStages.from(samples)
+        #else
+        return nil
+        #endif
+    }
+
+    /// The brand of the band or watch that last wrote sleep or heart rate to
+    /// Health ("Fitbit", "Suunto"…); nil for an Apple Watch, the iPhone or no data.
+    public func wearableBrand(days: Int = 14) async -> String? {
+        #if canImport(HealthKit)
+        guard isAvailable else { return nil }
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
+        let types: [HKSampleType] = [HKCategoryType(.sleepAnalysis), HKQuantityType(.restingHeartRate), HKQuantityType(.heartRate)]
+        for type in types {
+            let names: [String] = await withCheckedContinuation { continuation in
+                let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+                let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: 40, sortDescriptors: [sort]) { _, samples, _ in
+                    continuation.resume(returning: (samples ?? []).map(\.sourceRevision.source.name))
+                }
+                store.execute(query)
+            }
+            if let brand = names.lazy.compactMap({ WearableBrand.name(fromSource: $0) }).first { return brand }
+        }
+        return nil
+        #else
+        return nil
+        #endif
+    }
+
     /// Workouts other apps and devices wrote (a run on the watch, a WHOOP
     /// session…), never the ones this app saved. Newest first; empty without
     /// data or permission.
@@ -329,11 +392,7 @@ public struct ExternalWorkout: Codable, Sendable, Equatable {
 
     /// The brand to name in a sentence ("Your Suunto saw…"); "watch" when unknown.
     public var device: String {
-        let name = (source ?? "").lowercased()
-        for brand in ["Suunto", "Garmin", "Polar", "Coros", "WHOOP", "Oura", "Fitbit", "Wahoo"] where name.contains(brand.lowercased()) {
-            return brand
-        }
-        return "watch"
+        WearableBrand.name(fromSource: source) ?? "watch"
     }
 
     /// Recorded by a Suunto watch (through the Suunto app or Suunto's cloud).

@@ -365,45 +365,33 @@ struct WorkoutTabView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !focusTags.isEmpty {
-                Text(focusTags.joined(separator: " · "))
-                    .font(.telemetry(12))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            // The exercises and what each one trains: one tap away.
-            if let session = recommendedSession, !session.items.isEmpty {
-                Button { withAnimation(.easeInOut(duration: 0.25)) { showingContents.toggle() } } label: {
-                    HStack(spacing: 5) {
-                        Text("What's in it · \(session.items.count) exercises")
-                        Image(systemName: showingContents ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
+            // What's in it and why: two quiet taps on one line, not two paragraphs.
+            HStack(spacing: 20) {
+                if let session = recommendedSession, !session.items.isEmpty {
+                    disclosure("\(session.items.count) exercises", open: showingContents) {
+                        showingContents.toggle()
+                        if showingContents { showingReason = false }
                     }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink.opacity(0.8))
-                    .frame(minHeight: 44)
                 }
-                .buttonStyle(.pressable)
-                if showingContents {
-                    sessionContents(session)
-                        .transition(.opacity)
+                disclosure("Why this?", open: showingReason) {
+                    showingReason.toggle()
+                    if showingReason { showingContents = false }
                 }
+                Spacer(minLength: 0)
             }
-            // The reasoning is one tap away, not a paragraph at first sight.
-            Button { withAnimation(.easeInOut(duration: 0.25)) { showingReason.toggle() } } label: {
-                HStack(spacing: 5) {
-                    Text("Why this workout?")
-                    Image(systemName: showingReason ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.ink.opacity(0.8))
-                .frame(minHeight: 44)
-            }
-            .buttonStyle(.pressable)
-            if showingReason {
-                Text(recommendedSession?.explanation?.summary ?? reason)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+            if showingContents, let session = recommendedSession {
+                sessionContents(session)
                     .transition(.opacity)
+            }
+            if showingReason {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(recommendedSession?.explanation?.summary ?? reason)
+                    if !focusTags.isEmpty { Text(focusTags.joined(separator: " · ")).font(.footnote) }
+                }
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.opacity)
             }
             if let mode = rec.mode, let session = recommendedSession {
                 ButtonRow {
@@ -435,6 +423,23 @@ struct WorkoutTabView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.top, 12)
+    }
+
+    private func disclosure(_ title: String, open: Bool, toggle: @escaping () -> Void) -> some View {
+        Button { withAnimation(.easeInOut(duration: 0.22)) { toggle() } } label: {
+            HStack(spacing: 5) {
+                Text(title)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .rotationEffect(.degrees(open ? 180 : 0))
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(AppTheme.ink.opacity(open ? 0.95 : 0.75))
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .accessibilityValue(open ? "Shown" : "Hidden")
     }
 
     /// Each exercise with what it trains ("Power · glutes, quads") and how
@@ -554,7 +559,7 @@ struct WorkoutTabView: View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 SectionHeader("This week", subtitle: isDeloadWeek(week)
-                              ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
+                              ? "Deload week: lighter on purpose, so you come back stronger." : nil)
                 ScrollView(.horizontal) {
                     HStack(spacing: 12) {
                         ForEach(Array(week.sessions.enumerated()), id: \.offset) { _, planned in
@@ -674,23 +679,19 @@ struct WorkoutTabView: View {
                 .padding(.top, 12)
             VStack(spacing: 4) {
                 Button { showingImprove = true } label: {
-                    ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans",
-                            detail: skillPlanDays.isEmpty ? "Get better at one skill of your sport before a game" : "Your drills show up here and on Home")
+                    ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans")
                 }
                 .buttonStyle(.pressable)
                 Button { showingMuscles = true } label: {
-                    ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts",
-                            detail: "Pick the muscles, get a workout")
+                    ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts")
                 }
                 .buttonStyle(.pressable)
                 Button { showingLibrary = true } label: {
-                    ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library",
-                            detail: "Every exercise and drill, with how it looks")
+                    ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library")
                 }
                 .buttonStyle(.pressable)
                 Button { showingMuscleExercises = true } label: {
-                    ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle",
-                            detail: "Tap a muscle: what trains it, and how")
+                    ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle")
                 }
                 .buttonStyle(.pressable)
             }
@@ -908,7 +909,7 @@ struct WorkoutTabView: View {
     /// Workouts the athlete built, or added with a code.
     private var myWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("My workouts", subtitle: "Your own, or one a teammate or coach shared.")
+            SectionHeader("My workouts")
             ForEach(myWorkouts) { workout in
                 myWorkoutCard(workout)
             }

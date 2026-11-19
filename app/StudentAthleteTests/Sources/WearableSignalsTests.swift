@@ -50,4 +50,54 @@ final class WearableSignalsTests: XCTestCase {
         XCTAssertTrue(WearableSignals(sleep: series([7])).hasData)
         XCTAssertFalse(WearableSignals().hasData)
     }
+
+    // MARK: Brand and band
+
+    func testFitbitThroughGoogleHealthIsNamedFitbit() {
+        XCTAssertEqual(WearableBrand.name(fromSource: "Google Health"), "Fitbit")
+        XCTAssertEqual(WearableBrand.name(fromSource: "Fitbit"), "Fitbit")
+        XCTAssertEqual(WearableBrand.name(fromSource: "Suunto"), "Suunto")
+        XCTAssertEqual(WearableBrand.name(fromSource: "Garmin Connect"), "Garmin")
+        XCTAssertNil(WearableBrand.name(fromSource: "Jacob's Apple Watch"))
+        XCTAssertNil(WearableBrand.name(fromSource: nil))
+        XCTAssertEqual(WearableSignals(device: "Fitbit").kindWord, "band")
+        XCTAssertEqual(WearableSignals(device: "Suunto").kindWord, "watch")
+    }
+
+    // MARK: Sleep stages
+
+    private func at(_ minutes: Double) -> Date { now.addingTimeInterval(-8 * 3600 + minutes * 60) }
+    private func sample(_ from: Double, _ to: Double, _ stage: SleepStages.Stage, _ source: String = "google") -> SleepStages.Sample {
+        SleepStages.Sample(start: at(from), end: at(to), stage: stage, source: source)
+    }
+
+    func testStagesAddUpPerStage() {
+        let night = [sample(0, 90, .core), sample(90, 150, .deep), sample(150, 160, .awake), sample(160, 250, .rem),
+                     sample(250, 400, .core), sample(400, 430, .deep)]
+        let stages = SleepStages.from(night)
+        XCTAssertEqual(stages?.deep ?? 0, 90, accuracy: 0.01)
+        XCTAssertEqual(stages?.rem ?? 0, 90, accuracy: 0.01)
+        XCTAssertEqual(stages?.core ?? 0, 240, accuracy: 0.01)
+        XCTAssertEqual(stages?.awake ?? 0, 10, accuracy: 0.01)
+        XCTAssertEqual(stages?.line, "Deep 1h 30m · REM 1h 30m")
+    }
+
+    func testTwoDevicesOnOneNightDontAddUp() {
+        // The band recorded the most staged sleep: only its night counts.
+        let band = [sample(0, 120, .core), sample(120, 200, .deep), sample(200, 300, .rem)]
+        let watch = [sample(10, 60, .deep, "watch"), sample(60, 100, .rem, "watch")]
+        let stages = SleepStages.from(band + watch)
+        XCTAssertEqual(stages?.deep ?? 0, 80, accuracy: 0.01)
+        XCTAssertEqual(stages?.asleep ?? 0, 300, accuracy: 0.01)
+    }
+
+    func testOverlappingSamplesCountOnce() {
+        let stages = SleepStages.from([sample(0, 120, .core), sample(60, 180, .core)])
+        XCTAssertEqual(stages?.core ?? 0, 180, accuracy: 0.01)
+    }
+
+    func testNoStagesOrTooLittleIsNil() {
+        XCTAssertNil(SleepStages.from([]))
+        XCTAssertNil(SleepStages.from([sample(0, 30, .core), sample(30, 300, .awake)]))
+    }
 }

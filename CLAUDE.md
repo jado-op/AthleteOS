@@ -293,6 +293,10 @@ Reading files, CI logs or the GitHub API needs no lock.
   gets Suunto partner keys (Workout API + 247 Data API subscription; `SUUNTO_CLIENT_ID/SECRET/SUBSCRIPTION_KEY`
   in `.env`, redirect URI `https://api.lejacob.dev/fitness/suunto/callback`) and redeploys. App: Me → Suunto
   (`SuuntoView`, `SuuntoCloud`).
+- Fitbit Air (owner, 2026-11-19: "the Fitbit Air interface first"): no Google API. Google Health (5.05+) syncs
+  workouts, sleep by stage and heart rate to Apple Health; `WearableBrand` names source "Google Health" as Fitbit
+  and calls it a band. Twin: sleep-stage bar (`SleepStagesBar`, `HealthKitManager.sleepStages`). Me → Fitbit Air
+  (`FitbitView`): status, what it does, setup steps. Screenshots: `-demoWearable fitbit`.
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their

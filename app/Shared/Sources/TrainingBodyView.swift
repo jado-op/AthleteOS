@@ -78,19 +78,22 @@ private struct BodyFigureCanvas: View {
                     // 0.18 … 0.95: the least trained muscle still reads as trained.
                     let alpha = (0.18 + 0.77 * level) * (inFocus ? 1 : 0.22)
                     context.fill(path, with: .color(ember.opacity(alpha)))
-                    context.stroke(path, with: .color(lavender.opacity(inFocus ? 0.35 + 0.5 * level : 0.12)), lineWidth: 0.25 * scale)
+                    context.stroke(path, with: .color(lavender.opacity(inFocus ? 0.2 + 0.35 * level : 0.08)), lineWidth: 0.2 * scale)
                 } else {
                     // Untrained: an outline, a little brighter when it is the group in focus.
                     let strong = focus != nil && inFocus
-                    context.stroke(path, with: .color(lavender.opacity(strong ? 0.6 : 0.16)),
+                    context.stroke(path, with: .color(lavender.opacity(strong ? 0.6 : 0.09)),
                                    style: StrokeStyle(lineWidth: (strong ? 0.35 : 0.2) * scale, dash: strong ? [1.2 * scale, 0.9 * scale] : []))
                 }
             }
-            for detail in details {
-                context.stroke(detail.applying(t), with: .color(lavender.opacity(0.10)), lineWidth: 0.16 * scale)
+            // Anatomy detail lines only where the eye is meant to look (a group in focus).
+            if focus != nil {
+                for detail in details {
+                    context.stroke(detail.applying(t), with: .color(lavender.opacity(0.08)), lineWidth: 0.16 * scale)
+                }
             }
             // The silhouette's hairline.
-            context.stroke(whole, with: .color(lavender.opacity(0.55)), lineWidth: 0.35 * scale)
+            context.stroke(whole, with: .color(lavender.opacity(0.4)), lineWidth: 0.3 * scale)
         }
     }
 }

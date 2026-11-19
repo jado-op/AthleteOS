@@ -46,16 +46,30 @@ enum WearableSignalsLoader {
         }
         workouts.sort { $0.start > $1.start }
 
+        // Name the device: Suunto's own account, else the brand behind the
+        // week's workouts, else whoever wrote last night's sleep or heart rate
+        // (a Fitbit Air syncs through Google Health and may log no workout).
         let named = workouts.map(\.device).first { $0 != "watch" }
-        let device = SuuntoCloud.isConnected ? "Suunto" : (named ?? "watch")
-        let signals = WearableSignals(sleep: sleep, heartRate: heartRate, variability: variability, heartRateKind: kind, device: device)
+        let fromHealth = health.isAvailable ? await health.wearableBrand() : nil
+        let device = SuuntoCloud.isConnected ? "Suunto" : (named ?? fromHealth ?? "watch")
+        let stages = health.isAvailable ? await health.sleepStages(forNightEnding: now, calendar: calendar) : nil
+        let signals = WearableSignals(sleep: sleep, heartRate: heartRate, variability: variability, heartRateKind: kind,
+                                      device: device, lastNightStages: stages)
         return (signals, workouts)
     }
 }
 
 extension WearableSignalsLoader {
-    /// Screenshots (`-demoData`): a Suunto athlete's last weeks.
+    /// Screenshots: `-demoWearable fitbit` shows a Fitbit Air athlete instead of a Suunto one.
+    static var demoBrand: String {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: "-demoWearable"), args.indices.contains(index + 1) else { return "Suunto" }
+        return args[index + 1].lowercased() == "fitbit" ? "Fitbit" : "Suunto"
+    }
+
+    /// Screenshots (`-demoData`): a Suunto (or Fitbit Air) athlete's last weeks.
     static func demo(now: Date, calendar: Calendar) -> (signals: WearableSignals, workouts: [ExternalWorkout]) {
+        let brand = demoBrand
         let today = calendar.startOfDay(for: now)
         func day(_ back: Int) -> Date { calendar.date(byAdding: .day, value: -back, to: today) ?? today }
         let hours: [Double] = [7.2, 8.4, 6.9, 7.8, 8.6, 9.1, 7.4, 6.6, 8.2, 8.9, 7.7, 8.3, 7.1, 8.1]
@@ -69,7 +83,15 @@ extension WearableSignalsLoader {
         func workout(_ back: Int, hour: Double, minutes: Int, _ activity: String, _ bpm: Double) -> ExternalWorkout {
             let start = day(back).addingTimeInterval(hour * 3600)
             return ExternalWorkout(start: start, end: start.addingTimeInterval(Double(minutes) * 60), activity: activity,
-                                   averageHeartRate: bpm, source: "Suunto")
+                                   averageHeartRate: bpm, source: brand == "Fitbit" ? "Google Health" : "Suunto")
+        }
+        if brand == "Fitbit" {
+            // A band: resting heart rate from Health, sleep by stage, auto-detected workouts.
+            let workouts = [workout(1, hour: 17, minutes: 88, "Soccer", 151), workout(2, hour: 7, minutes: 31, "Run", 162),
+                            workout(4, hour: 16, minutes: 55, "Strength training", 118)]
+            let stages = SleepStages(deep: 82, rem: 111, core: 293, awake: 24)
+            return (WearableSignals(sleep: sleep, heartRate: heart.map { TwinPoint(date: $0.date, value: $0.value + 5) }, variability: hrv,
+                                    heartRateKind: .resting, device: "Fitbit", lastNightStages: stages), workouts)
         }
         let workouts = [workout(1, hour: 16, minutes: 95, "Downhill ski", 148), workout(2, hour: 7, minutes: 42, "Run", 168),
                         workout(4, hour: 17, minutes: 60, "Gym", 121), workout(5, hour: 8, minutes: 35, "Run", 139)]
@@ -200,6 +222,10 @@ struct WatchSignalsSection: View {
                         BigFigure("\(minutes / 60)", unit: "h", size: 56)
                         BigFigure(String(format: "%02d", minutes % 60), unit: "min", size: 56)
                     }
+                }
+                if let stages = signals.lastNightStages, lastNight != nil {
+                    SleepStagesBar(stages: stages)
+                        .padding(.bottom, 6)
                 }
                 Chart {
                     RuleMark(y: .value("Goal", 8))
@@ -374,5 +400,61 @@ struct SignalTile: View {
         guard let low = values.min(), let high = values.max() else { return 0...1 }
         let pad = max(2, (high - low) * 0.25)
         return (low - pad)...(high + pad)
+    }
+}
+
+/// Last night split by stage: one bar, deep → core → REM, and the minutes
+/// under it. Deep is where the body rebuilds; REM where the day's skills settle.
+struct SleepStagesBar: View {
+    let stages: SleepStages
+
+    private struct Part: Identifiable {
+        let label: String
+        let minutes: Double
+        let color: Color
+        var id: String { label }
+    }
+
+    private var parts: [Part] {
+        [Part(label: "Deep", minutes: stages.deep, color: Color(rgb: 0x3D6BFF)),
+         Part(label: "Core", minutes: stages.core, color: AuraTone.body.mark.opacity(0.55)),
+         Part(label: "REM", minutes: stages.rem, color: Color(rgb: 0x9CC3FF))]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            GeometryReader { proxy in
+                let total = max(1, parts.reduce(0) { $0 + $1.minutes })
+                let gaps = CGFloat(parts.filter { $0.minutes > 0 }.count - 1) * 3
+                HStack(spacing: 3) {
+                    ForEach(parts) { part in
+                        if part.minutes > 0 {
+                            Capsule()
+                                .fill(part.color)
+                                .frame(width: max(6, (proxy.size.width - gaps) * part.minutes / total))
+                        }
+                    }
+                }
+            }
+            .frame(height: 10)
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(parts) { part in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Circle().fill(part.color).frame(width: 7, height: 7)
+                            Text(part.label)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
+                        Text(SleepMath.label(part.minutes / 60))
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(AppTheme.ink)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Last night by stage: deep \(SleepMath.label(stages.deep / 60)), core \(SleepMath.label(stages.core / 60)), REM \(SleepMath.label(stages.rem / 60))")
     }
 }

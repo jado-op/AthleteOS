@@ -15,17 +15,23 @@ public struct WearableSignals: Sendable {
     public var heartRateKind: HeartRateKind = .resting
     /// The device to name ("Suunto", "Garmin"…; "watch" when unknown).
     public var device: String = "watch"
+    /// Last night by stage, when the watch or band records stages.
+    public var lastNightStages: SleepStages?
 
     public enum HeartRateKind: Sendable { case resting, lowestAsleep }
 
     public init(sleep: [TwinPoint] = [], heartRate: [TwinPoint] = [], variability: [TwinPoint] = [],
-                heartRateKind: HeartRateKind = .resting, device: String = "watch") {
+                heartRateKind: HeartRateKind = .resting, device: String = "watch", lastNightStages: SleepStages? = nil) {
+        self.lastNightStages = lastNightStages
         self.sleep = sleep
         self.heartRate = heartRate
         self.variability = variability
         self.heartRateKind = heartRateKind
         self.device = device
     }
+
+    /// "watch", or "band" for a screenless one (Fitbit Air, WHOOP).
+    public var kindWord: String { WearableBrand.isBand(device) ? "band" : "watch" }
 
     /// A watch is connected and has measured something.
     public var hasData: Bool { !sleep.isEmpty || !heartRate.isEmpty || !variability.isEmpty }
@@ -113,5 +119,83 @@ public enum WearableRead {
         let enough = nights.filter { $0.value >= 8 }.count
         if average >= 8 { return "\(enough) of \(nights.count) nights at 8 hours or more. Right where your body builds." }
         return "Average \(SleepMath.label(average)) a night. Teens need 8–10: an earlier night is the easiest extra strength."
+    }
+}
+
+/// Which brand recorded something, from the name of the app that wrote it to
+/// Apple Health. A Fitbit (Air, Charge…) syncs through Google's app, which
+/// names itself "Google Health" (older versions "Fitbit").
+public enum WearableBrand {
+    public static let known = ["Suunto", "Garmin", "Polar", "Coros", "WHOOP", "Oura", "Fitbit", "Wahoo"]
+
+    /// "Suunto", "Fitbit"…; nil when the source isn't a known brand (an Apple Watch, the iPhone).
+    public static func name(fromSource source: String?) -> String? {
+        let name = (source ?? "").lowercased()
+        guard !name.isEmpty else { return nil }
+        if name.contains("google health") || name.contains("google fit") { return "Fitbit" }
+        return known.first { name.contains($0.lowercased()) }
+    }
+
+    /// Worn on the wrist without a screen: say "band", not "watch".
+    public static func isBand(_ brand: String) -> Bool {
+        ["Fitbit", "WHOOP"].contains(brand)
+    }
+}
+
+/// Last night's sleep by stage, in minutes. Apple Health holds the stages a
+/// watch or band wrote (Apple Watch, Fitbit through Google Health…).
+public struct SleepStages: Sendable, Equatable {
+    public var deep: Double
+    public var rem: Double
+    public var core: Double
+    public var awake: Double
+
+    public init(deep: Double = 0, rem: Double = 0, core: Double = 0, awake: Double = 0) {
+        self.deep = deep
+        self.rem = rem
+        self.core = core
+        self.awake = awake
+    }
+
+    public enum Stage: String, Sendable, CaseIterable { case awake, rem, core, deep, unspecified }
+
+    public struct Sample: Sendable {
+        public var start: Date
+        public var end: Date
+        public var stage: Stage
+        public var source: String
+
+        public init(start: Date, end: Date, stage: Stage, source: String) {
+            self.start = start
+            self.end = end
+            self.stage = stage
+            self.source = source
+        }
+    }
+
+    public var asleep: Double { deep + rem + core }
+
+    /// One device's view of the night: the source that recorded the most
+    /// staged sleep (two devices on one night would otherwise add up), each
+    /// stage's intervals merged so overlaps count once. nil without stages
+    /// (a night with only "asleep" from the iPhone has nothing to split).
+    public static func from(_ samples: [Sample]) -> SleepStages? {
+        let staged = samples.filter { $0.end > $0.start && $0.stage != .unspecified }
+        var bySource: [String: Double] = [:]
+        for sample in staged where sample.stage != .awake {
+            bySource[sample.source, default: 0] += sample.end.timeIntervalSince(sample.start)
+        }
+        guard let source = bySource.max(by: { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value })?.key else { return nil }
+        let mine = staged.filter { $0.source == source }
+        func minutes(_ stage: Stage) -> Double {
+            SleepMath.asleepHours(mine.filter { $0.stage == stage }.map { ($0.start, $0.end) }) * 60
+        }
+        let stages = SleepStages(deep: minutes(.deep), rem: minutes(.rem), core: minutes(.core), awake: minutes(.awake))
+        return stages.asleep >= 60 ? stages : nil
+    }
+
+    /// "Deep 1h 24m · REM 1h 52m": the two stages athletes ask about.
+    public var line: String {
+        "Deep \(SleepMath.label(deep / 60)) · REM \(SleepMath.label(rem / 60))"
     }
 }
