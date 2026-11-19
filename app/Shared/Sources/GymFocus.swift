@@ -282,7 +282,10 @@ public enum GymAdvisor {
     static func reason(_ focus: GymFocus, history: GymHistory, notToday: [GymFocus: String], sleepNote: String?, day: TrainingDay) -> String {
         var parts: [String] = []
         let others = GymRegion.allCases.filter { !focus.regions.contains($0) }
+        // Legs blocked by recovery already says when they were trained: say it once.
+        let legsNote = notToday[.lower].flatMap { focus != .lower && focus != .full ? $0 : nil }
         for region in others {
+            if region == .lower, legsNote != nil, (history.daysSince[.lower] ?? 99) < GymRegion.lower.recoveryDays { continue }
             if let days = history.daysSince[region], days <= 3 { parts.append("\(region.title) \(ago(days))") }
         }
         var sentence = "\(focus.title) today"
@@ -293,7 +296,7 @@ public enum GymAdvisor {
         } else if let own = focus.regions.first, history.daysSince[own] == nil {
             parts.append("\(own.title) not trained in two weeks")
         }
-        if let blocked = notToday[.lower], focus != .lower, focus != .full { parts.append(blocked.lowercased()) }
+        if let legsNote { parts.append(legsNote.prefix(1).lowercased() + legsNote.dropFirst()) }
         if let region = focus.regions.first(where: history.stalledRegions.contains) { parts.append("\(region.title) stalled — new angle on it") }
         if day.daysToNextGame == 2, notToday[.lower] == nil {
             parts.append(focus.regions.contains(.lower) ? "game in two days, so legs stay short and light" : "game in two days, legs stay fresh")

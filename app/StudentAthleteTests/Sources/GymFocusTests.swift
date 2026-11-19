@@ -115,6 +115,11 @@ final class GymFocusTests: XCTestCase {
         XCTAssertTrue(advice.reason.contains("upper body yesterday"), advice.reason)
     }
 
+    func testTheReasonSaysLegsOnce() {
+        let advice = GymAdvisor.advise(day: day(gym: nil), history: GymHistory(daysSince: [.lower: 2]))
+        XCTAssertEqual(advice.reason.components(separatedBy: "egs").count - 1, 1, advice.reason)
+    }
+
     func testAdvisorKeepsLegsFreshBeforeAGame() {
         let history = GymHistory(daysSince: [.upper: 4, .lower: 9])
         let advice = GymAdvisor.advise(day: day(phase: .inSeason, nextGame: 1, gym: nil), history: history)
