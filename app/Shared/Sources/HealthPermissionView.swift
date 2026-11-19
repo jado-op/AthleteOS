@@ -26,9 +26,11 @@ struct HealthPermissionView: View {
                 reason("heart.fill", AuraTone.body.mark, "Resting heart rate",
                        "A resting heart rate above your normal can mean you're tired or getting sick — it fills in your energy, so the check-in is two taps.")
                 reason("figure.run", AuraTone.training.mark, "Workouts",
-                       "Saves each session you finish to Health, once, so it sits alongside your other activity.")
+                       "A run or game your watch recorded lightens the gym that day. Each session you finish is saved to Health, once.")
+                reason("waveform.path.ecg", AuraTone.mind.mark, "Your health, in your twin",
+                       "Heart-rate variability, activity, VO2 max, temperature and more: only what your watch, band or phone actually records.")
                 reason("hand.raised.fill", AppTheme.secondaryText, "Stays private",
-                       "Health data is only used inside the app for your training. Never for ads, never shared, never sold.")
+                       "Health data stays on your phone and is only used inside the app. Never for ads, never shared, never sold.")
             }
             .cardStyle()
 
@@ -62,6 +64,8 @@ struct HealthPermissionView: View {
             await HealthKitManager.shared.requestAuthorization()
             isRequesting = false
             finish()
+            await HealthDataRepository.shared.reset()
+            HealthSync.startIfAllowed()
         }
     }
 

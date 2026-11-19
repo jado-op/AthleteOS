@@ -75,11 +75,9 @@ Reading files, CI logs or the GitHub API needs no lock.
   data — how are you performing (lift strength trend, performances, tests), how are you changing
   (body map trained/fresh, training minutes per week, sleep and readiness words), how is your
   mind evolving (calm and how training felt, week by week) — each with its insights and the
-  coach's briefing (`TwinWidgets.swift`). Never a score. With a watch (owner, 2026-11-19) the twin opens with
-  "What your <device> sees" (`WatchSignalsView.swift`, logic `WearableSignals.swift`): recovery as a word from
-  resting/lowest heart rate and HRV against the athlete's own usual (check-in thresholds), last night's sleep +
-  14 nights, 4-week heart tiles, the week's watch workouts with an effort word. Sources: Apple Health, plus a
-  connected Suunto account (lowest HR asleep, overnight HRV). It replaces the sleep/readiness widget.
+  coach's briefing (`TwinWidgets.swift`). Never a score. With Apple Health data (owner, 2026-11-19) the twin
+  opens with "More insights into your health" (see Apple Health below). It replaces the sleep/readiness widget
+  when Health has sleep.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus · Progress** switch at the top (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
@@ -283,20 +281,21 @@ Reading files, CI logs or the GitHub API needs no lock.
   in connection URLs: hex only. `ProxyPass` target must not end in `/` when the
   `<Location>` has none (see `backend/deploy/apache/`).
 
-- Suunto (owner, 2026-11-19): two ways in. (1) Apple Health: the Suunto app writes workouts + heart rate
-  (not sleep or HRV) to Health; `ExternalWorkout.source`/`.device` names the brand ("Your Suunto saw…").
-  (2) Suunto Cloud API via our server (`routes/suunto.js`, `lib/suunto.js`, `SuuntoLink`): OAuth tokens only,
-  sealed with a key derived from SESSION_SECRET; workouts (`/v3/workouts`, Workout API) and sleep
-  (`/247samples/sleep`, 247 Data API) pass through, never stored. Endpoints, params and field names are taken
-  from the apizone API pages (portal renders client-side: read it with Playwright, `/developer/apis/<id>/operations`).
-  Suunto sleep fills `MeasuredSleepStore` for nights Health lacks and pre-fills the check-in. Off until the owner
-  gets Suunto partner keys (Workout API + 247 Data API subscription; `SUUNTO_CLIENT_ID/SECRET/SUBSCRIPTION_KEY`
-  in `.env`, redirect URI `https://api.lejacob.dev/fitness/suunto/callback`) and redeploys. App: Me → Suunto
-  (`SuuntoView`, `SuuntoCloud`).
-- Fitbit Air (owner, 2026-11-19: "the Fitbit Air interface first"): no Google API. Google Health (5.05+) syncs
-  workouts, sleep by stage and heart rate to Apple Health; `WearableBrand` names source "Google Health" as Fitbit
-  and calls it a band. Twin: sleep-stage bar (`SleepStagesBar`, `HealthKitManager.sleepStages`). Me → Fitbit Air
-  (`FitbitView`): status, what it does, setup steps. Screenshots: `-demoWearable fitbit`.
+- Apple Health is the only wearable integration (owner, 2026-11-19: "remove the Suunto API… HealthKit becomes the
+  single source of truth"). No brand APIs (the Suunto Cloud connection, `SuuntoLink`, Me → Suunto and Me → Fitbit Air
+  were removed; migration `remove_suunto_link`). Apple Watch, Garmin, Suunto, Fitbit (Google Health), Polar, Oura,
+  WHOOP… all arrive through Health and are read the same way; `WearableBrand` only names a source in a sentence.
+  Layers: `HealthKitManager` (+ `HealthKitInsights.swift`: daily statistics per `HealthMetric` — sums merged across
+  sources by Health so steps aren't double-counted — newest sample, nights, workouts with routes, observer queries
+  + background delivery, an anchored workout query) → `HealthDataRepository` (actor; in-memory snapshot, re-reads
+  only parts HealthKit reported changed, shares overlapping refreshes) → `HealthInsightsViewModel` → views.
+  Model + rules are Foundation-only and in the harness: `HealthMetric.swift` (17 metrics, summaries against the
+  athlete's own usual, workout de-duplication across sources, nights, sleep rhythm) and `HealthWidgetRegistry.swift`
+  (every widget kind; a widget exists only when its data is recent; derived ones — recovery word, sleep rhythm,
+  wrist temperature difference — only when their inputs exist). Twin: `HealthInsightsSection` (first cards + "All
+  your health insights") → `MoreHealthInsightsView` (sections, tiles, detail sheets, route maps). Me → Apple Health:
+  `HealthConnectionView`. Never invent a value; demo data only under `-demoData` (`HealthDemo`). Screenshots:
+  `-tab academy -sheet health|health2|healthAll`. Energy (kcal) and body weight stay low-key tiles, never goals.
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their

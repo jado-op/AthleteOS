@@ -30,12 +30,9 @@ Proposed 2026-09-26. Status 2026-10-01: everything is built except what's marked
 14. Check-in and evening reflection on the watch in two taps.
 15. Live Activities / Dynamic Island for a running workout and rest timer.
 
-Future (owner, 2026-11-19: "not now"), the same as the Suunto connection (`routes/suunto.js`, Me → Suunto):
-- **Garmin:** Garmin Connect Developer Program (Health API for sleep, HRV, resting heart rate; Activity API for
-  workouts), OAuth through our server, data passed through and never stored; plus whatever Garmin Connect
-  already writes to Apple Health.
-- **Google:** Health Connect on Android (sleep, heart rate, workouts) once there is an Android app; Fitbit Web API
-  for Fitbit / Pixel Watch users on iPhone.
+Wearables come in through Apple Health only (owner, 2026-11-19): no brand APIs. Garmin Connect, Suunto, Google
+Health (Fitbit), Polar Flow and the rest write to Health, and the twin's "More insights into your health" reads it.
+Android (Health Connect) only once there is an Android app.
 
 ## 3. Training quality
 16. Progressive overload: suggest next week's weight or reps from what was logged.

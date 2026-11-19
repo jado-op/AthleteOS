@@ -91,6 +91,8 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+        # HKObserverQuery wakes the app when a watch syncs a workout or a night.
+        com.apple.developer.healthkit.background-delivery: true
         com.apple.developer.applesignin:
           - Default
         com.apple.security.application-groups:

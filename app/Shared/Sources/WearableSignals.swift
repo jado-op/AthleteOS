@@ -1,41 +1,8 @@
 import Foundation
 
-/// What a watch or band measured, for the twin's "What your watch sees"
-/// (owner, 2026-11-19): sleep, overnight heart rate, heart-rate variability
-/// and workouts. Each series is the athlete's own, compared only with their
-/// own usual. Never a score; recovery is a word with the numbers behind it.
-public struct WearableSignals: Sendable {
-    /// Hours asleep per night, dated by the morning it ended; oldest first.
-    public var sleep: [TwinPoint] = []
-    /// Resting heart rate per day (Apple Health), or the lowest heart rate asleep (Suunto); oldest first.
-    public var heartRate: [TwinPoint] = []
-    /// Heart-rate variability per day, ms; oldest first.
-    public var variability: [TwinPoint] = []
-    /// Where the heart-rate numbers come from, which names them.
-    public var heartRateKind: HeartRateKind = .resting
-    /// The device to name ("Suunto", "Garmin"…; "watch" when unknown).
-    public var device: String = "watch"
-    /// Last night by stage, when the watch or band records stages.
-    public var lastNightStages: SleepStages?
-
-    public enum HeartRateKind: Sendable { case resting, lowestAsleep }
-
-    public init(sleep: [TwinPoint] = [], heartRate: [TwinPoint] = [], variability: [TwinPoint] = [],
-                heartRateKind: HeartRateKind = .resting, device: String = "watch", lastNightStages: SleepStages? = nil) {
-        self.lastNightStages = lastNightStages
-        self.sleep = sleep
-        self.heartRate = heartRate
-        self.variability = variability
-        self.heartRateKind = heartRateKind
-        self.device = device
-    }
-
-    /// "watch", or "band" for a screenless one (Fitbit Air, WHOOP).
-    public var kindWord: String { WearableBrand.isBand(device) ? "band" : "watch" }
-
-    /// A watch is connected and has measured something.
-    public var hasData: Bool { !sleep.isEmpty || !heartRate.isEmpty || !variability.isEmpty }
-}
+/// Reading what a watch or band wrote to Apple Health (owner, 2026-11-19):
+/// each series is the athlete's own, compared only with their own usual.
+/// Never a score; recovery is a word with the numbers behind it.
 
 /// Today against the athlete's usual: the latest value from today (or last
 /// night) and the median of the days before, from a week of data.
@@ -95,8 +62,8 @@ public enum WearableRead {
     }
 
     /// "52 bpm, 3 below your usual" — the numbers behind the word.
-    public static func heartRateLine(_ reading: SignalReading, kind: WearableSignals.HeartRateKind) -> String {
-        let name = kind == .resting ? "Resting heart rate" : "Lowest heart rate asleep"
+    public static func heartRateLine(_ reading: SignalReading) -> String {
+        let name = "Resting heart rate"
         let value = Int(reading.today.rounded())
         guard let diff = reading.difference else { return "\(name) \(value)." }
         let beats = Int(abs(diff).rounded())
@@ -123,8 +90,9 @@ public enum WearableRead {
 }
 
 /// Which brand recorded something, from the name of the app that wrote it to
-/// Apple Health. A Fitbit (Air, Charge…) syncs through Google's app, which
-/// names itself "Google Health" (older versions "Fitbit").
+/// Apple Health — only to name it in a sentence ("Your Garmin saw a hard run").
+/// Nothing depends on it: every source is read the same way. A Fitbit syncs
+/// through Google's app, which names itself "Google Health" (older "Fitbit").
 public enum WearableBrand {
     public static let known = ["Suunto", "Garmin", "Polar", "Coros", "WHOOP", "Oura", "Fitbit", "Wahoo"]
 
@@ -134,11 +102,6 @@ public enum WearableBrand {
         guard !name.isEmpty else { return nil }
         if name.contains("google health") || name.contains("google fit") { return "Fitbit" }
         return known.first { name.contains($0.lowercased()) }
-    }
-
-    /// Worn on the wrist without a screen: say "band", not "watch".
-    public static func isBand(_ brand: String) -> Bool {
-        ["Fitbit", "WHOOP"].contains(brand)
     }
 }
 

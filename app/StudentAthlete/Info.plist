@@ -67,7 +67,7 @@
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>AthleteOS reads your sleep, workouts, heart rate, resting heart rate and heart-rate variability (from Apple Watch or any band that writes to Health) so your morning check-in fills itself in, a hard run makes the day's plan lighter, and your workout summary shows your effort. You can use the whole app without granting this.</string>
+	<string>AthleteOS reads what your Apple Watch, other watch, band or apps write to Health (sleep and its stages, heart rate, resting heart rate, heart-rate variability, activity, workouts and their routes, VO2 max, blood oxygen, breathing rate, temperature and body weight) so your morning check-in fills itself in, a hard run makes the day's plan lighter, and your twin shows your health insights. It stays on your phone. You can use the whole app without granting this.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>AthleteOS saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
 

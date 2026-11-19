@@ -75,16 +75,8 @@ public enum ExternalWorkoutStore {
     public static func refresh(sportSlug: String?, birthDate: Date, now: Date = .now, calendar: Calendar = .current) async {
         guard HealthKitManager.shared.isAvailable,
               let since = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: now)) else { return }
-        var workouts = await HealthKitManager.shared.externalWorkouts(since: since)
-        // A connected Suunto account adds what didn't reach Health (same
-        // workout within three minutes = already there).
-        for cloud in await SuuntoCloud.workouts(days: 3)
-        where !workouts.contains(where: { abs($0.start.timeIntervalSince(cloud.start)) < 180 }) {
-            workouts.append(cloud)
-        }
-        workouts.sort { $0.start > $1.start }
+        let workouts = await HealthKitManager.shared.externalWorkouts(since: since).sorted { $0.start > $1.start }
         recent = workouts
-        await SuuntoCloud.storeNights()
         guard let sportSlug else { return }
         let age = PlanGenerator.ageInYears(birthDate: birthDate, now: now)
         for offset in [0, -1] {

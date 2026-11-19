@@ -67,9 +67,10 @@ struct AcademyHomeView: View {
     @State private var feltWeeks: [TwinPoint] = []
     @State private var stressShift: Double?
     @State private var bodyReport: MuscleTraining.Report?
-    /// What a connected watch measured (nil until loaded; hidden without data).
-    @State private var wearable: WearableSignals?
-    @State private var watchWorkouts: [ExternalWorkout] = []
+    /// "More insights into your health": everything Apple Health holds.
+    @StateObject private var health = HealthInsightsViewModel()
+    @State private var showingAllHealth = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var openLift: LiftTrend?
     @State private var showingTests = false
     @State private var showingExerciseProgress = false
@@ -88,6 +89,7 @@ struct AcademyHomeView: View {
     }
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
+    private var athleteAge: Int { PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now) }
     private var family: SportFamily { AcademyContent.family(forSport: sportSlug) }
 
     /// "Central midfielder · Soccer · In season"
@@ -112,12 +114,12 @@ struct AcademyHomeView: View {
                     identity.padding(.top, 26)
                     if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
                     if let report { coachRead(report).padding(.top, 28) }
-                    // Owner, 2026-11-19: a connected watch opens the twin with what it measured.
-                    if let wearable, wearable.hasData || !watchWorkouts.isEmpty {
-                        WatchSignalsSection(signals: wearable, workouts: watchWorkouts, readinessDays: readinessDays,
-                                            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now))
+                    // Owner, 2026-11-19: Apple Health's data opens the twin
+                    // ("More insights into your health"; any watch, band or app).
+                    if health.phase == .ready || health.phase == .empty {
+                        HealthInsightsSection(model: health, age: athleteAge, readinessDays: readinessDays) { showingAllHealth = true }
                             .padding(.top, 44)
-                            .id("watch")
+                            .id("health")
                     }
                     // Owner, 2026-11-19: the twin as widgets — three questions,
                     // each answered from the athlete's own data.
@@ -140,11 +142,18 @@ struct AcademyHomeView: View {
             .scrollIndicators(.hidden)
             .appScreen(.hero, sportSlug: sportSlug)
             .toolbar(.hidden, for: .navigationBar)
-            // Screenshots: `-tab academy -sheet watch` scrolls to "What your watch sees".
-            .onChange(of: wearable?.hasData) {
-                guard DemoData.initialTab == .academy else { return }
-                if DemoData.initialSheet == "watch" { scroller.scrollTo("watch", anchor: .top) }
-                if DemoData.initialSheet == "watch2" { scroller.scrollTo("watch-tiles", anchor: .top) }
+            .navigationDestination(isPresented: $showingAllHealth) {
+                MoreHealthInsightsView(model: health, age: athleteAge, readinessDays: readinessDays)
+            }
+            // Screenshots: `-tab academy -sheet health|health2|healthAll`.
+            .onChange(of: health.phase) {
+                guard DemoData.initialTab == .academy, health.phase == .ready else { return }
+                switch DemoData.initialSheet {
+                case "health": scroller.scrollTo("health", anchor: .top)
+                case "health2": scroller.scrollTo("health-tiles", anchor: .top)
+                case "healthAll": showingAllHealth = true
+                default: break
+                }
             }
             }
         }
@@ -156,10 +165,9 @@ struct AcademyHomeView: View {
             openPendingBriefing()
             openPendingInterview()
         }
-        .task {
-            let loaded = await WearableSignalsLoader.load()
-            wearable = loaded.signals
-            watchWorkouts = loaded.workouts
+        .task { await health.load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await health.load() } }
         }
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
@@ -269,8 +277,8 @@ struct AcademyHomeView: View {
             TwinQuestion(question: "How are you changing?", answer: nil)
             BodyStatusWidget(report: bodyReport)
             LoadWidget(weeks: weekLoads)
-            // With a watch, sleep and the week's mornings live in "What your watch sees".
-            if !(wearable?.hasData ?? false) {
+            // With sleep from Health, sleep and the week's mornings live in the health insights.
+            if !health.widgets.contains(.sleep) {
                 SleepReadinessWidget(nights: sleepNights, days: readinessDays,
                                      fromWatch: UserDefaults.standard.bool(forKey: "sleep.fromHealth"))
             }

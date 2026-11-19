@@ -136,18 +136,12 @@ jobs:
             sleep 7
             xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-interview.png"
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
-            # The twin's "What your watch sees" (demo Suunto data), two scroll positions.
-            for sheet in watch watch2; do
+            # The twin's "More insights into your health" (demo Apple Health data):
+            # the section, its tiles, and the whole page.
+            for sheet in health health2 healthAll; do
               xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab academy -sheet "$sheet" >/dev/null
-              sleep 8
+              sleep 9
               xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-${sheet}.png"
-              xcrun simctl terminate "$UDID" "$BUNDLE" || true
-            done
-            # The same with a Fitbit Air (band: sleep stages, resting heart rate).
-            for sheet in watch watch2; do
-              xcrun simctl launch "$UDID" "$BUNDLE" -demoData -demoWearable fitbit -tab academy -sheet "$sheet" >/dev/null
-              sleep 8
-              xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-fitbit-${sheet}.png"
               xcrun simctl terminate "$UDID" "$BUNDLE" || true
             done
             # Every Home and Me sheet, for the layout check (not uploaded).
@@ -164,7 +158,7 @@ jobs:
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
-              for sheet in sport season equipment experience name checkIns dataExport reminders health sports help team coach parent struggles suunto fitbit; do
+              for sheet in sport season equipment experience name checkIns dataExport reminders health sports help team coach parent struggles; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab me -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-me-${sheet}.png"

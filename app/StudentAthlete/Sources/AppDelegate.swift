@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
         Task { @MainActor in await PushSettings.registerIfAllowed() }
+        // Background delivery needs its observer queries registered at every launch.
+        HealthSync.startIfAllowed()
         return true
     }
 

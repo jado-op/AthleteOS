@@ -54,7 +54,7 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency, suunto, fitbit
+        case sport, season, equipment, experience, name, checkIns, dataExport, shared, reminders, health, sports, help, team, coach, parent, safety, struggles, schedule, decisions, emergency
         var id: String { rawValue }
     }
 
@@ -108,13 +108,7 @@ struct MeView: View {
                     menuCard {
                         menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
                                 detail: !HealthKitManager.shared.isAvailable ? "Unavailable"
-                                    : (UserDefaults.standard.bool(forKey: "healthPermissionAsked") ? "Set up" : "Connect")) { activeSheet = .health }
-                        menuDivider
-                        menuRow("Suunto", icon: "applewatch", tint: AuraTone.training.mark,
-                                detail: SuuntoCloud.isConnected ? "Connected" : "Through Apple Health") { activeSheet = .suunto }
-                        menuDivider
-                        menuRow("Fitbit Air", icon: "waveform.path.ecg", tint: AuraTone.body.mark,
-                                detail: "Through Apple Health") { activeSheet = .fitbit }
+                                    : (UserDefaults.standard.bool(forKey: "healthPermissionAsked") ? "Watches, bands, apps" : "Connect")) { activeSheet = .health }
                         menuDivider
                         menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.danger, detail: "Pain, head injury, illness") { activeSheet = .safety }
                         menuDivider
@@ -245,7 +239,7 @@ struct MeView: View {
                 case .dataExport: DataExportView(athlete: athlete, sessions: sessions)
                 case .shared: SharedByMeView()
                 case .reminders: RemindersSheet(athlete: athlete)
-                case .health: HealthPermissionView()
+                case .health: HealthConnectionView()
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()
                 case .team: MyTeamView()
@@ -256,8 +250,6 @@ struct MeView: View {
                 case .decisions: DecisionsView()
                 case .emergency: EmergencyCardView()
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
-                case .suunto: SuuntoView(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
-                case .fitbit: FitbitView(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
                 }
             }
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {

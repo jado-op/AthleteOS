@@ -64,9 +64,7 @@ export const PRIVACY_BODY = `
 <li>Your location.</li>
 <li>Advertising identifiers, or any data for advertising or marketing.</li></ul></section>
 <section><h2>Apple Health</h2>
-<p>If you allow it, the app reads your sleep and resting heart rate from Apple Health to pre-fill your check-in, and writes your finished workouts back to Apple Health. Hours slept are stored with your check-in; heart rate is only used on your phone. Health data is used only inside the app to support your training. It is never used for advertising, never shared with third parties, and never sold.</p></section>
-<section><h2>Suunto</h2>
-<p>If you connect your Suunto account, our server keeps only the connection key Suunto gives us, encrypted. Your Suunto workouts (time, activity and average heart rate) and sleep (hours asleep, overnight heart rate and heart-rate variability) are passed straight to your phone and are not stored on our server. Disconnect any time in the app (Me, then Suunto); deleting your account removes the key too.</p></section>
+<p>If you allow it, the app reads what your watch, band and phone write to Apple Health (sleep and its stages, heart rate, resting heart rate, heart-rate variability, activity such as steps and exercise minutes, workouts and their routes, and measurements such as VO2 max, blood oxygen, respiratory rate, temperature and body weight) to pre-fill your check-in, adapt your plan and show your health insights in the app, and writes your finished workouts back to Apple Health. AthleteOS connects to no watch or band maker directly: Apple Health is the only way this data comes in. Hours slept are stored with your check-in; everything else is only used on your phone and never sent to our server. Health data is used only inside the app to support your training. It is never used for advertising, never shared with third parties, and never sold.</p></section>
 <section><h2>Using the app without an account</h2>
 <p>If you continue without an account, everything stays on your device and nothing is sent to our server. Signing in with Apple later backs it up.</p></section>
 <section><h2>Reports and messages</h2>

@@ -12,7 +12,7 @@ public final class HealthKitManager: @unchecked Sendable {
     public static let shared = HealthKitManager()
 
     #if canImport(HealthKit)
-    private let store = HKHealthStore()
+    let store = HKHealthStore()
     #endif
 
     public init() {}
@@ -46,9 +46,15 @@ public final class HealthKitManager: @unchecked Sendable {
     }
 
     #if canImport(HealthKit)
-    private static var readTypes: Set<HKObjectType> {
-        [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType(), HKQuantityType(.restingHeartRate),
-         HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.heartRate)]
+    /// Everything the app reads: sleep, workouts and their routes, and every
+    /// measurement on the health insights page (`HealthMetric`).
+    static var readTypes: Set<HKObjectType> {
+        var types: Set<HKObjectType> = [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType()]
+        #if os(iOS)
+        types.insert(HKSeriesType.workoutRoute())
+        #endif
+        for metric in HealthMetric.allCases { types.insert(metric.quantityType) }
+        return types
     }
     #endif
 
@@ -227,30 +233,6 @@ public final class HealthKitManager: @unchecked Sendable {
         #endif
     }
 
-    /// The brand of the band or watch that last wrote sleep or heart rate to
-    /// Health ("Fitbit", "Suunto"…); nil for an Apple Watch, the iPhone or no data.
-    public func wearableBrand(days: Int = 14) async -> String? {
-        #if canImport(HealthKit)
-        guard isAvailable else { return nil }
-        let start = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
-        let types: [HKSampleType] = [HKCategoryType(.sleepAnalysis), HKQuantityType(.restingHeartRate), HKQuantityType(.heartRate)]
-        for type in types {
-            let names: [String] = await withCheckedContinuation { continuation in
-                let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-                let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: 40, sortDescriptors: [sort]) { _, samples, _ in
-                    continuation.resume(returning: (samples ?? []).map(\.sourceRevision.source.name))
-                }
-                store.execute(query)
-            }
-            if let brand = names.lazy.compactMap({ WearableBrand.name(fromSource: $0) }).first { return brand }
-        }
-        return nil
-        #else
-        return nil
-        #endif
-    }
-
     /// Workouts other apps and devices wrote (a run on the watch, a WHOOP
     /// session…), never the ones this app saved. Newest first; empty without
     /// data or permission.
@@ -268,9 +250,9 @@ public final class HealthKitManager: @unchecked Sendable {
                     .map { workout in
                         ExternalWorkout(
                             start: workout.startDate, end: workout.endDate,
-                            activity: ExternalWorkout.name(for: workout.workoutActivityType.rawValue),
+                            activity: HealthKitManager.activityName(workout.workoutActivityType),
                             averageHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: bpm),
-                            source: workout.sourceRevision.source.name
+                            source: workout.sourceRevision.source.name, id: workout.uuid.uuidString
                         )
                     }
                 continuation.resume(returning: workouts)
@@ -379,41 +361,26 @@ public struct ExternalWorkout: Codable, Sendable, Equatable {
     public var end: Date
     public var activity: String
     public var averageHeartRate: Double?
-    /// The app or device that recorded it ("Suunto", "Garmin Connect", "Apple Watch"…).
+    /// The app or device that recorded it ("Garmin Connect", "Apple Watch"…).
     public var source: String?
+    /// The HealthKit sample's UUID (nil in workouts saved before 2026-11-19).
+    public var id: String?
 
-    public init(start: Date, end: Date, activity: String, averageHeartRate: Double?, source: String? = nil) {
+    public init(start: Date, end: Date, activity: String, averageHeartRate: Double?, source: String? = nil, id: String? = nil) {
         self.start = start
         self.end = end
         self.activity = activity
         self.averageHeartRate = averageHeartRate
         self.source = source
+        self.id = id
     }
 
-    /// The brand to name in a sentence ("Your Suunto saw…"); "watch" when unknown.
+    /// The brand to name in a sentence ("Your Garmin saw…"); "watch" when unknown.
     public var device: String {
         WearableBrand.name(fromSource: source) ?? "watch"
     }
 
-    /// Recorded by a Suunto watch (through the Suunto app or Suunto's cloud).
-    public var isSuunto: Bool { device == "Suunto" }
-
     public var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
-
-    /// HKWorkoutActivityType raw values for the common ones; "Workout" otherwise.
-    static func name(for rawValue: UInt) -> String {
-        switch rawValue {
-        case 37: "Run"
-        case 13: "Ride"
-        case 46: "Swim"
-        case 52: "Walk"
-        case 50, 20: "Strength workout"
-        case 63: "HIIT"
-        case 41: "Soccer"
-        case 6: "Basketball"
-        default: "Workout"
-        }
-    }
 }
 
 /// Heart rate over a stretch of time.

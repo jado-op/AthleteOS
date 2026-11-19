@@ -3,7 +3,7 @@ import XCTest
 @testable import Engine
 #endif
 
-/// The twin's "What your watch sees" (owner, 2026-11-19): today against the
+/// The twin's health insights (owner, 2026-11-19): today against the
 /// athlete's own usual, and recovery as a word, never a score.
 final class WearableSignalsTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
@@ -39,16 +39,14 @@ final class WearableSignalsTests: XCTestCase {
     }
 
     func testTheLinesSayTheNumbers() {
-        XCTAssertEqual(WearableRead.heartRateLine(SignalReading(today: 54.4, usual: 51), kind: .resting),
+        XCTAssertEqual(WearableRead.heartRateLine(SignalReading(today: 54.4, usual: 51)),
                        "Resting heart rate 54, 3 above your usual.")
-        XCTAssertEqual(WearableRead.heartRateLine(SignalReading(today: 51, usual: 51.2), kind: .lowestAsleep),
-                       "Lowest heart rate asleep 51, your usual.")
+        XCTAssertEqual(WearableRead.heartRateLine(SignalReading(today: 51, usual: 51.2)),
+                       "Resting heart rate 51, your usual.")
         XCTAssertEqual(WearableRead.variabilityLine(SignalReading(today: 70, usual: 60)), "Variability 70 ms, above your usual 60.")
         XCTAssertEqual(WearableRead.variabilityLine(SignalReading(today: 61, usual: 60)), "Variability 61 ms, your usual.")
         XCTAssertNil(WearableRead.sleepLine([]))
         XCTAssertEqual(WearableRead.sleepLine(series([8.5, 9, 7.5])), "2 of 3 nights at 8 hours or more. Right where your body builds.")
-        XCTAssertTrue(WearableSignals(sleep: series([7])).hasData)
-        XCTAssertFalse(WearableSignals().hasData)
     }
 
     // MARK: Brand and band
@@ -60,8 +58,6 @@ final class WearableSignalsTests: XCTestCase {
         XCTAssertEqual(WearableBrand.name(fromSource: "Garmin Connect"), "Garmin")
         XCTAssertNil(WearableBrand.name(fromSource: "Jacob's Apple Watch"))
         XCTAssertNil(WearableBrand.name(fromSource: nil))
-        XCTAssertEqual(WearableSignals(device: "Fitbit").kindWord, "band")
-        XCTAssertEqual(WearableSignals(device: "Suunto").kindWord, "watch")
     }
 
     // MARK: Sleep stages

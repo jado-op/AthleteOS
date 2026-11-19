@@ -56,7 +56,6 @@ struct CheckInSheet: View {
     /// Hours slept from Apple Health, when connected: pre-selects the answer.
     @State private var healthHours: Double?
     /// Where `healthHours` came from, named in the sleep question's hint.
-    @State private var sleepSource = "Apple Health"
     /// Recovery signals from a watch or band, against the athlete's normal.
     @State private var restingHeartRate: (today: Double, usual: Double?)?
     @State private var hrv: (today: Double, usual: Double?)?
@@ -134,7 +133,7 @@ struct CheckInSheet: View {
                 DayChoicePicker(answer: $dayAnswer, gameWord: gameWord)
             }
         case .sleepHours:
-            question("How long did you sleep?", hint: healthHours.map { "\(sleepSource): \(SleepMath.label($0))" },
+            question("How long did you sleep?", hint: healthHours.map { "Apple Health: \(SleepMath.label($0))" },
                      options: CheckInOptions.sleepHours, selection: $sleepHours) {
                 if canConnectHealth {
                     Button {
@@ -283,11 +282,6 @@ struct CheckInSheet: View {
 
     private func loadHealth() async {
         healthHours = await HealthKitManager.shared.sleepHours()
-        // Suunto doesn't write sleep to Health; a connected Suunto account fills it in.
-        if healthHours == nil, let suunto = await SuuntoCloud.lastNight() {
-            healthHours = suunto
-            sleepSource = "Suunto"
-        }
         if let healthHours { MeasuredSleepStore.save(healthHours) }
         restingHeartRate = await HealthKitManager.shared.restingHeartRate()
         hrv = await HealthKitManager.shared.heartRateVariability()
