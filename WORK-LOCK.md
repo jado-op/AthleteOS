@@ -5,5 +5,5 @@ together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
 - status: in-use
 - by: claude-b6226d62
-- since: 2026-11-19T18:31:51Z
-- task: Fitbit Air on the twin, quieter body map, animation fixes
+- since: 2026-11-19T19:41:19Z
+- task: HealthKit-only refactor, health insights in the twin
