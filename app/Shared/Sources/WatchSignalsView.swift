@@ -117,7 +117,8 @@ struct WatchSignalsSection: View {
         VStack(alignment: .leading, spacing: 14) {
             Headline([.soft("What your "), .strong(deviceName), .soft(" sees.")], size: 30)
                 .padding(.bottom, 4)
-            recoveryCard
+            // Workouts alone (Suunto through Health writes no sleep or resting heart rate): no morning word.
+            if signals.hasData { recoveryCard }
             if !signals.sleep.isEmpty { sleepCard }
             if !signals.heartRate.isEmpty || !signals.variability.isEmpty {
                 HStack(spacing: 12) {

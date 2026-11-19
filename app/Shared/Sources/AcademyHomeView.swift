@@ -113,7 +113,7 @@ struct AcademyHomeView: View {
                     if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
                     if let report { coachRead(report).padding(.top, 28) }
                     // Owner, 2026-11-19: a connected watch opens the twin with what it measured.
-                    if let wearable, wearable.hasData {
+                    if let wearable, wearable.hasData || !watchWorkouts.isEmpty {
                         WatchSignalsSection(signals: wearable, workouts: watchWorkouts, readinessDays: readinessDays,
                                             age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now))
                             .padding(.top, 44)
