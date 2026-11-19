@@ -185,6 +185,13 @@ enum TodayEngine {
             twin: twinSteers(athlete, date: date, calendar: calendar),
             said: said?.engineChoices ?? []
         )
+        // Taper: the next tournament or meet (not a weekly game) within ten days.
+        built.daysToKeyEvent = athlete.competitions
+            .filter { $0.kind != .game }
+            .map { calendar.startOfDay(for: $0.date) }
+            .filter { $0 > day }
+            .min()
+            .flatMap { calendar.dateComponents([.day], from: day, to: $0).day }
         // A gym day: what to train and for how long — the athlete's pick, or the advisor's.
         built.gym = GymHistoryBuilder.request(athlete, day: built, catalogue: catalogue, calendar: calendar).0
         return built

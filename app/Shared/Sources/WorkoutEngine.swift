@@ -127,6 +127,8 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case pullBalancesPush = "PULL_BALANCES_PUSH"
     /// Jump landings held to what this stage can absorb (§3).
     case landingsCapped = "LANDINGS_CAPPED"
+    /// A tournament or meet within ten days: half the sets, the same weights (Bosquet 2007; Part 2, A9).
+    case taper = "TAPER"
     /// The athlete said what today holds ("What's on today?"): their word wins over the schedule.
     case choseGym = "ATHLETE_CHOSE_GYM"
     case choseLight = "ATHLETE_CHOSE_LIGHT"
@@ -309,6 +311,11 @@ public struct TrainingDay: Sendable {
     public var said: Set<DayChoice> = []
     /// The gym session's focus and length, when it's a gym day (nil: the engine's own mix).
     public var gym: GymRequest? = nil
+    /// Days until the next tournament or meet (not a weekly league game): the
+    /// taper window (docs/GYM-ALGORITHM-RESEARCH.md Part 2, A9).
+    public var daysToKeyEvent: Int? = nil
+    /// Within ten days of a tournament or meet: half the gym sets, same weights.
+    public var tapering: Bool { (daysToKeyEvent ?? 99) >= 1 && (daysToKeyEvent ?? 99) <= 10 }
     /// Training stage, from age and training age.
     public var stage: TrainingStage { TrainingStage.of(age: age, experience: experience) }
 
@@ -426,6 +433,7 @@ public enum SessionPlanner {
                 avoid.formUnion([.highVolumeLowerBody, .hardConditioning])
             }
         }
+        if day.tapering, !day.gameToday { add(.taper); avoid.insert(.hardConditioning) }
         if day.daysSinceLastGame == 1 { add(.gameYesterday); avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting]) }
         // The twin: this athlete still feels a game two days later.
         if day.daysSinceLastGame == 2, day.twin.contains(.slowGameRecovery) {

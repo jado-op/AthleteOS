@@ -164,6 +164,16 @@ final class GymFocusTests: XCTestCase {
         XCTAssertEqual(decision.conditioning, .aerobicBase, "no hard intervals after heavy legs (A26)")
     }
 
+    func testATournamentWithinTenDaysHalvesTheSets() {
+        let normal = build(day(gym: request(.upper, .standard))).1
+        var taperDay = day(gym: request(.upper, .standard))
+        taperDay.daysToKeyEvent = 5
+        let (decision, taper) = build(taperDay)
+        XCTAssertTrue(decision.reasons.contains(.taper))
+        let sets = { (s: GeneratedSession) in s.items.filter { $0.block == .primaryStrength }.map(\.dose.sets).reduce(0, +) }
+        XCTAssertLessThan(sets(taper), sets(normal), "taper: fewer sets")
+    }
+
     func testFullBodyWhenEverythingIsFresh() {
         let advice = GymAdvisor.advise(day: day(gym: nil), history: GymHistory())
         XCTAssertEqual(advice.focus, .full)

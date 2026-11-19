@@ -762,6 +762,12 @@ private struct BuildState {
             dose.sets = min(max(dose.sets, 1), 3)
             if let reps = dose.reps { dose.reps = min(max(reps, block == .prep || block == .power ? 1 : 6), 15) }
         }
+        // Taper before a tournament or meet: half the sets, the same weights
+        // and reps (Bosquet 2007; Part 2, A9). Last, so filling time can't undo it.
+        if day.tapering, [.primaryStrength, .secondaryStrength, .accessory, .power].contains(block), dose.sets > 1 {
+            dose.sets = (dose.sets + 1) / 2
+            if dose.kind == plyometricDoseKind, let contacts = dose.contacts { dose.contacts = max(3, contacts / 2) }
+        }
         return (dose, rest, effort)
     }
 

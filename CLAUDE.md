@@ -199,7 +199,8 @@ Reading files, CI logs or the GitHub API needs no lock.
   Part 2 (athlete-population studies only, rules A1–A28) adds: legs allowed but short two days before a game;
   in season legs come back after ~8 days without a heavy exposure; the sport's Nordic/Copenhagen ride on leg days
   and shoulder work on upper days (fixed, even in a 30-min session); easy finisher after heavy legs for trained
-  athletes; one-step-up after two reps past target (APRE); watch-measured short sleep holds the weight.
+  athletes; one-step-up after two reps past target (APRE); watch-measured short sleep holds the weight; a tournament or meet within 10 days
+  halves the gym sets (taper; weekly games don't).
   Never compute or show an acute:chronic ratio or injury-risk number (A28).
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.

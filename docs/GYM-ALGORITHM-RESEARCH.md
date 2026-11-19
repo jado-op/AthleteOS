@@ -813,11 +813,12 @@ with injury in youth academy and elite players (Johnson2022, Malone2018), but no
 - **Done:** A4 (in-season legs come back after 8 days), A6 (two days out: legs allowed, 2 sets per lift), A18, A19 and A21
   (the sport's Nordic/Copenhagen on every leg or full session, shoulder work on upper or full; the first one even
   in 30 min), A24 (APRE step-up after two reps past the target on sets of 12 or fewer), A26 (performance-stage and
-  experienced development athletes ride easy after heavy legs), A27 (watch-measured short sleep holds the weight).
+  experienced development athletes ride easy after heavy legs), A27 (watch-measured short sleep holds the weight),
+  A9 (a tournament or meet within ten days halves the gym sets at the same weights; weekly games don't taper).
 - **Deviation, on purpose:** A27's evidence uses under 8 h. Most teens sleep under 8 h on school nights, so holding
   every progression at 8 h would freeze the plan for most users. The app uses a 3-night average under 7 h or a
   last night under 6 h, and says why in the set's note.
-- **Not yet:** A2–A3 (growth-spurt input), A9 (taper: needs a "key competition" flag), A10 (48 h between jump
+- **Not yet:** A2–A3 (growth-spurt input), A10 (48 h between jump
   blocks), A15–A17 (weekly max-velocity exposure), A12–A13 (contrast pairs, Olympic derivatives).
 
 ### Part 1 rules — what the athlete evidence changes
