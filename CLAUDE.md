@@ -188,6 +188,11 @@ Reading files, CI logs or the GitHub API needs no lock.
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 
+## Apple Watch (owner, 2026-11-19)
+- Watch app on hold: it stays in the project and must keep compiling (Shared/Sources builds into
+  it — wrap iPhone-only SwiftUI like `Menu` in `#if os(iOS)`), but no Watch features, design work
+  or Watch-specific fixes unless the owner asks. Never let the Watch shape or slow iPhone work.
+
 ## Working rules
 - Every milestone ships with real, reachable UI — no headless engine code, no
   placeholder or debug text.
