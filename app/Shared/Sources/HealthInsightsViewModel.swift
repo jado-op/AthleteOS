@@ -32,6 +32,9 @@ final class HealthInsightsViewModel: ObservableObject {
 
     private var changes: AnyCancellable?
     private var activation: AnyCancellable?
+    private var deactivation: AnyCancellable?
+    /// Whether the app is in front (widgets can't ask UIApplication).
+    private var isActive = true
     private var loading = false
     /// A reload asked for while one was running: done right after it.
     private var pending: Bool?
@@ -46,7 +49,7 @@ final class HealthInsightsViewModel: ObservableObject {
                     guard let self else { return }
                     // Background wakes only mark the change; no reading Health
                     // from the background for a page nobody is looking at.
-                    guard Self.isActive else {
+                    guard self.isActive else {
                         self.changedInBackground = true
                         return
                     }
@@ -57,19 +60,17 @@ final class HealthInsightsViewModel: ObservableObject {
         activation = NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self, self.changedInBackground else { return }
+                    guard let self else { return }
+                    self.isActive = true
+                    guard self.changedInBackground else { return }
                     self.changedInBackground = false
                     await self.load()
                 }
             }
-        #endif
-    }
-
-    private static var isActive: Bool {
-        #if os(iOS)
-        UIApplication.shared.applicationState == .active
-        #else
-        true
+        deactivation = NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in self?.isActive = false }
+            }
         #endif
     }
 
