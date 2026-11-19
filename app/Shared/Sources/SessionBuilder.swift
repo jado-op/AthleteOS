@@ -389,17 +389,17 @@ private struct BuildState {
             }
         }
         skillBlock(why: "A drill of your sport while you're fresh: skill and strength in one session.")
-        // Anchors: quick keeps the first two (core: all three), longer sessions all of them.
+        // Anchors: quick keeps the first two, longer sessions all of them.
         let slots = GymSlots.anchors(focus, legBudget: decision.legBudget)
-        let anchorCount = length == .quick && focus != .core ? min(2, slots.count) : slots.count
+        let anchorCount = length == .quick ? min(2, slots.count) : slots.count
         let seed = "\(gym.anchorSeed)|\(focus.rawValue)"
         for slot in slots.prefix(anchorCount) { pickAnchor(slot, seed: seed, stalled: gym.stalledAnchors) }
         // Accessories: fresh every session, from the focus's families.
         let accessoryCount: Int
         switch length {
-        case .quick: accessoryCount = focus == .core ? 1 : 0
-        case .standard: accessoryCount = 2
-        case .full: accessoryCount = 4
+        case .quick: accessoryCount = focus == .core ? 2 : 0
+        case .standard: accessoryCount = 3
+        case .full: accessoryCount = 5
         }
         let families = GymSlots.accessories(focus)
         let offset = Int(rng.next() % UInt64(max(families.count, 1)))

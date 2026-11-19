@@ -592,6 +592,9 @@ public enum SessionPlanner {
             conditioning = conditioningType(day, avoid: avoid)
             conditioningMinutes = min(max(remaining, 20), duration - 8)
             add(.conditioningGap)
+        case .gymDevelopment where gym?.length == .full && (day.stage == .foundation || day.readiness < .normal || (day.daysToNextGame ?? 9) <= 2):
+            // Research rule 13: the finisher only with a training base, on a normal day, away from games.
+            break
         case .gymDevelopment where gym?.length == .full:
             // The full session ends with a finisher on a bike or rower — easy
             // when today calls for it (research rule: strength first, then cardio).

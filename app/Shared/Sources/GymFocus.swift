@@ -88,13 +88,13 @@ public enum GymRegion: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// Hours a region wants between hard strength sessions. Legs need the most:
-    /// big muscles, and practice loads them too (research rules 1–2).
+    /// Days a region wants between hard strength sessions: heavy legs 72 h,
+    /// upper body 48 h, core any day (research rule 3, Sousa 2024).
     var recoveryDays: Int {
         switch self {
-        case .lower: 2
+        case .lower: 3
         case .upper: 2
-        case .core: 1
+        case .core: 0
         }
     }
 
@@ -186,10 +186,14 @@ public enum GymAdvisor {
         var legsBlocked: String?
         if day.gameToday { legsBlocked = "Game today" }
         else if day.daysToNextGame == 1 { legsBlocked = "Game tomorrow — legs stay fresh" }
+        else if day.daysToNextGame == 2 { legsBlocked = "Game in two days — no heavy legs" }
         else if day.daysSinceLastGame == 1 { legsBlocked = "You played yesterday" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }
-        else if let since = history.daysSince[.lower], since < GymRegion.lower.recoveryDays { legsBlocked = since == 0 ? "Legs trained today" : "Legs trained yesterday" }
+        else if let since = history.daysSince[.lower], since < GymRegion.lower.recoveryDays {
+            legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday" : "Legs trained two days ago — 72 h to recover"
+        }
+        else if let hours = history.measuredSleepHours, hours < 6 { legsBlocked = "Under 6 h of sleep — no heavy legs today" }
         else if let heavy = day.recent.daysSinceHeavyLower, heavy <= 1 { legsBlocked = "Legs trained yesterday" }
         if let legsBlocked {
             notToday[.lower] = legsBlocked
@@ -200,7 +204,6 @@ public enum GymAdvisor {
             notToday[.upper] = why
             if notToday[.full] == nil { notToday[.full] = why }
         }
-        if let since = history.daysSince[.core], since < GymRegion.core.recoveryDays { notToday[.core] = "Core trained today" }
 
         // Need: how overdue each region is, plus the sport and goals.
         func need(_ region: GymRegion) -> Double {
@@ -239,7 +242,7 @@ public enum GymAdvisor {
         var length: GymLength = day.phase == .inSeason || day.stage == .foundation ? .quick : .standard
         if day.phase == .offSeason, day.experience != .beginner, day.age >= 15 { length = .standard }
         var sleepNote: String?
-        if let hours = history.measuredSleepHours, hours < 6.5 {
+        if let hours = history.measuredSleepHours, hours < 7 {
             length = .quick
             sleepNote = "you slept \(Self.hours(hours)) — shorter today"
         } else if let average = history.measuredSleepAverage, average < 7 {
@@ -318,15 +321,18 @@ enum GymSlots {
         let antiExt = Slot(block: .accessory, groups: ["anti-extension"], why: "Anchor: a trunk that resists arching — protects the lower back.")
         let antiRot = Slot(block: .accessory, groups: ["anti-rotation"], why: "Anchor: a trunk that resists twisting passes force from legs to arms.")
         let antiLat = Slot(block: .accessory, groups: ["anti-lateral", "carry"], why: "Anchor: side strength for cutting, contact and balance.")
+        // Research rule 5: upper = one push + one pull, legs = one squat + one
+        // hinge, core = anti-extension + anti-rotation, full = lower + upper.
+        _ = (pullV, pressV, antiLat)
         switch focus {
         case .lower, .auto:
-            return legBudget >= 2 ? [squat, hinge, singleLeg] : [singleLeg]
+            return legBudget >= 2 ? [squat, hinge] : [singleLeg]
         case .upper:
-            return [pressH, rowH, pullV, pressV]
+            return [pressH, rowH]
         case .core:
-            return [antiExt, antiRot, antiLat]
+            return [antiExt, antiRot]
         case .full:
-            return (legBudget >= 2 ? [squat, pressH, rowH, hinge] : [pressH, rowH, singleLeg])
+            return legBudget >= 2 ? [squat, pressH, rowH] : [pressH, rowH]
         }
     }
 
@@ -334,14 +340,14 @@ enum GymSlots {
     static func accessories(_ focus: GymFocus) -> [[String]] {
         switch focus {
         case .lower, .auto:
-            return [["hamstring-eccentric"], ["single-leg-lateral", "single-leg-hip"], ["calf-ankle"], ["hip-adductor"],
+            return [["single-leg-knee", "single-leg-hip"], ["hamstring-eccentric"], ["single-leg-lateral"], ["calf-ankle"], ["hip-adductor"],
                     ["knee-isometric", "knee-eccentric"], ["hinge-hip-extension"]]
         case .upper:
-            return [["push-incline", "push-vertical"], ["shoulder-health"], ["arm-isolation"], ["pull-horizontal", "pull-vertical"], ["grip"], ["neck"]]
+            return [["pull-vertical"], ["push-vertical", "push-incline"], ["shoulder-health"], ["arm-isolation"], ["grip"], ["neck"]]
         case .core:
-            return [["rotation"], ["carry"], ["back-extension"], ["anti-rotation", "anti-lateral"], ["balance"]]
+            return [["anti-lateral", "carry"], ["rotation"], ["back-extension"], ["balance"]]
         case .full:
-            return [["hamstring-eccentric", "single-leg-lateral"], ["shoulder-health"], ["carry"], ["calf-ankle", "hip-adductor"]]
+            return [["single-leg-knee", "single-leg-hip"], ["pull-vertical"], ["hamstring-eccentric", "single-leg-lateral"], ["shoulder-health"], ["carry"]]
         }
     }
 }

@@ -52,7 +52,7 @@ final class GymFocusTests: XCTestCase {
         for item in session.items where [.primaryStrength, .secondaryStrength].contains(item.block) {
             XCTAssertFalse(profile(item.itemSlug)?.isLower ?? true, "\(item.itemSlug) is a leg lift in an upper-body session")
         }
-        XCTAssertGreaterThanOrEqual(anchors(session).count, 3)
+        XCTAssertEqual(anchors(session).count, 2, "one push, one pull")
     }
 
     func testLegsHaveSquatAndHingeAnchors() {
@@ -125,6 +125,7 @@ final class GymFocusTests: XCTestCase {
 
     func testShortMeasuredSleepShortensTheSession() {
         let history = GymHistory(daysSince: [.upper: 4, .lower: 4], measuredSleepHours: 5.5)
+        XCTAssertNotNil(GymAdvisor.advise(day: day(gym: nil), history: history).notToday[.lower], "under 6 h: no heavy legs")
         let advice = GymAdvisor.advise(day: day(gym: nil), history: history)
         XCTAssertEqual(advice.length, .quick)
         XCTAssertTrue(advice.reason.contains("slept"), advice.reason)

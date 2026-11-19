@@ -191,6 +191,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   words over the anatomical list); `TrainingStage` (foundation / development / performance), effort
   by reps in reserve (never to failure), landing caps, `InjuryPrevention` per sport, pull ≥ push,
   strength before running. Workout tab shows what each exercise trains; "Exercises by muscle" sheet.
+- Gym by focus (owner, 2026-11-19): tap Gym → upper / legs / core / full body / "you pick", 30 / 60 / 90 min
+  (`GymFocus.swift`, `GymStore.swift`, `GymSetupView.swift`). Anchors (one push + one pull, squat + hinge,
+  anti-extension + anti-rotation) hold for a four-week block; accessories rotate every session; a stalled anchor
+  swaps to its sibling. "You pick" (`GymAdvisor`) reads region recency (legs 72 h, upper 48 h), games, practice,
+  soreness, goals and watch-measured sleep. Evidence: `docs/GYM-ALGORITHM-RESEARCH.md` (rules first).
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 
