@@ -598,9 +598,15 @@ public enum SessionPlanner {
         case .gymDevelopment where gym?.length == .full:
             // The full session ends with a finisher on a bike or rower — easy
             // when today calls for it (research rule: strength first, then cardio).
-            let kind = avoid.contains(.hardConditioning) || day.readiness < .normal ? ConditioningType.aerobicBase : conditioningType(day, avoid: avoid)
+            // Hard intervals right after heavy legs blunt the strength and power
+            // gains of trained athletes (Part 2, A26: Petré 2021, Robineau 2016):
+            // after a leg day they ride easy; intervals belong to upper-body days.
+            let heavyLegsToday = (gym?.focus == .lower || gym?.focus == .full) && legBudget >= 2
+            let trained = day.stage == .performance || (day.stage == .development && day.experience == .experienced)
+            let easyOnly = avoid.contains(.hardConditioning) || day.readiness < .normal || (heavyLegsToday && trained)
+            let kind = easyOnly ? ConditioningType.aerobicBase : conditioningType(day, avoid: avoid)
             conditioning = kind
-            conditioningMinutes = kind == .aerobicBase ? 20 : (day.age < 16 ? 12 : 15)
+            conditioningMinutes = kind == .aerobicBase ? (heavyLegsToday && trained ? 15 : 20) : (day.age < 16 ? 12 : 15)
             add(.conditioningGap)
         case .gymDevelopment where gym?.length == .quick:
             break

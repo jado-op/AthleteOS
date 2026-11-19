@@ -186,7 +186,6 @@ public enum GymAdvisor {
         var legsBlocked: String?
         if day.gameToday { legsBlocked = "Game today" }
         else if day.daysToNextGame == 1 { legsBlocked = "Game tomorrow — legs stay fresh" }
-        else if day.daysToNextGame == 2 { legsBlocked = "Game in two days — no heavy legs" }
         else if day.daysSinceLastGame == 1 { legsBlocked = "You played yesterday" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }
@@ -205,6 +204,10 @@ public enum GymAdvisor {
             if notToday[.full] == nil { notToday[.full] = why }
         }
 
+        // Two days before a game legs may train, but short and light (Part 2, A6):
+        // allowed, not first choice.
+        let gameInTwo = day.daysToNextGame == 2 && legsBlocked == nil
+
         // Need: how overdue each region is, plus the sport and goals.
         func need(_ region: GymRegion) -> Double {
             let gap = history.daysSince[region].map(Double.init) ?? 14
@@ -212,8 +215,12 @@ public enum GymAdvisor {
             switch region {
             case .lower:
                 if day.goals.contains(where: { [.strength, .power, .acceleration, .speed].contains($0) }) { value += 0.3 }
-                // In season, practice already loads the legs most days.
-                if day.phase == .inSeason, day.demands.practiceLegLoad >= 2 { value -= 0.3 }
+                if day.phase == .inSeason {
+                    // In season practice loads the legs most days — but leg strength
+                    // fades after about a week without a heavy exposure (Part 2, A4).
+                    if gap >= 8 { value += 0.6 } else if day.demands.practiceLegLoad >= 2 { value -= 0.3 }
+                }
+                if gameInTwo { value -= 0.5 }
             case .upper:
                 if day.goals.contains(.upperStrength) { value += 0.3 }
                 value += 0.2 * (day.demands.weights[.upperStrength] ?? 0)
@@ -288,6 +295,11 @@ public enum GymAdvisor {
         }
         if let blocked = notToday[.lower], focus != .lower, focus != .full { parts.append(blocked.lowercased()) }
         if let region = focus.regions.first(where: history.stalledRegions.contains) { parts.append("\(region.title) stalled — new angle on it") }
+        if day.daysToNextGame == 2, notToday[.lower] == nil {
+            parts.append(focus.regions.contains(.lower) ? "game in two days, so legs stay short and light" : "game in two days, legs stay fresh")
+        } else if day.phase == .inSeason, focus.regions.contains(.lower), (history.daysSince[.lower] ?? 14) >= 8 {
+            parts.append("a week without heavy legs is when strength starts to fade in season")
+        }
         if let sleepNote { parts.append(sleepNote) }
         if parts.isEmpty { return sentence + "." }
         return sentence + ": " + parts.joined(separator: ", ") + "."

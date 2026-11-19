@@ -131,6 +131,39 @@ final class GymFocusTests: XCTestCase {
         XCTAssertTrue(advice.reason.contains("slept"), advice.reason)
     }
 
+    // MARK: Athlete evidence (docs/GYM-ALGORITHM-RESEARCH.md Part 2)
+
+    func testTwoDaysBeforeAGameLegsStayAllowedButLight() {
+        let history = GymHistory(daysSince: [.upper: 1, .core: 1, .lower: 9])
+        let advice = GymAdvisor.advise(day: day(phase: .inSeason, nextGame: 2, gym: nil), history: history)
+        XCTAssertNil(advice.notToday[.lower], "two days out legs are allowed (A6)")
+        let (decision, _) = build(day(phase: .inSeason, nextGame: 2, gym: request(.lower, .standard)))
+        XCTAssertTrue(decision.avoids(.highVolumeLowerBody), "but short: few sets")
+    }
+
+    func testInSeasonLegsComeBackAfterAWeek() {
+        let history = GymHistory(daysSince: [.upper: 3, .core: 3, .lower: 9])
+        let advice = GymAdvisor.advise(day: day(phase: .inSeason, gym: nil), history: history)
+        XCTAssertTrue(advice.focus == .lower || advice.focus == .full, "\(advice.focus): \(advice.reason)")
+    }
+
+    func testLegDaysCarryTheSportsNordicAndCopenhagen() {
+        let (_, session) = build(day(gym: request(.lower, .standard)))
+        let groups = session.items.compactMap { profile($0.itemSlug)?.group }
+        XCTAssertTrue(groups.contains("hamstring-eccentric"), "soccer leg day without Nordics: \(groups)")
+        XCTAssertTrue(groups.contains("hip-adductor"), "soccer leg day without Copenhagen: \(groups)")
+        let (_, quick) = build(day(gym: request(.lower, .quick)))
+        XCTAssertTrue(quick.items.contains { profile($0.itemSlug)?.group == "hamstring-eccentric" }, "even quick keeps the Nordic")
+    }
+
+    func testTrainedAthletesRideEasyAfterHeavyLegs() {
+        var experienced = day(gym: request(.lower, .full))
+        experienced.age = 17
+        experienced.experience = .experienced
+        let decision = SessionPlanner.decide(experienced, requested: .gymDevelopment)
+        XCTAssertEqual(decision.conditioning, .aerobicBase, "no hard intervals after heavy legs (A26)")
+    }
+
     func testFullBodyWhenEverythingIsFresh() {
         let advice = GymAdvisor.advise(day: day(gym: nil), history: GymHistory())
         XCTAssertEqual(advice.focus, .full)

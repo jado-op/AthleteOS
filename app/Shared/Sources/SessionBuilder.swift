@@ -416,13 +416,36 @@ private struct BuildState {
                 pickGroup(.accessory, ["anti-rotation", "anti-extension", "anti-lateral", "carry"], role: "trunk",
                           why: "A trunk that resists movement passes force from legs to arms.")
             }
-            if length != .quick { _ = injuryStaple(rotate: 0) }
+        }
+        // The sport's proven prevention work is a fixed part of the region it
+        // protects, not a rotating slot (Part 2, A18–A21): Nordics and Copenhagens
+        // on leg days, shoulder work on upper days. Low volume is enough
+        // (Cuthbert 2020), so even a quick session keeps the first one.
+        if !regionStaples(focus, limit: length == .quick ? 1 : 2), length != .quick, focus != .core {
+            _ = injuryStaple(rotate: 0)
         }
         if focus == .upper || focus == .full { balancePulling() }
         if length == .full {
             conditioningBlock()
             pickGroup(.cooldown, ["mobility-hip", "mobility-thoracic", "breathing"], why: "A few easy minutes to start recovering.")
         }
+    }
+
+    /// The sport's injury staples that belong to today's focus: hamstring and
+    /// groin with the legs, shoulder with the upper body. Returns whether any was added.
+    mutating func regionStaples(_ focus: GymFocus, limit: Int) -> Bool {
+        var wanted: [InjuryRisk] = []
+        if focus == .lower || focus == .full, decision.legBudget >= 1 { wanted += risks.filter { $0 == .hamstring || $0 == .groin } }
+        if focus == .upper || focus == .full { wanted += risks.filter { $0 == .shoulder } }
+        var added = 0
+        for risk in wanted where added < limit {
+            if picks.contains(where: { risk.groups.contains($0.item.planProfile.group) }) { added += 1; continue }
+            if pickGroup(.accessory, risk.groups, why: risk.why) {
+                if !addedReasons.contains(.sportInjuryRisk) { addedReasons.append(.sportInjuryRisk) }
+                added += 1
+            }
+        }
+        return added > 0
     }
 
     func accessoryWhy(_ group: String) -> String {

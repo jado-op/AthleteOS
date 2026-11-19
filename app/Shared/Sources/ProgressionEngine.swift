@@ -36,7 +36,7 @@ public struct ProgressionTarget: Sendable, Equatable {
 public enum ProgressionEngine {
     public static func next(
         last sets: [LoggedSet], dose: Dose, sessionRPE: Int?, isYouth: Bool, stepKg: Double, deload: Bool = false,
-        previous: [LoggedSet]? = nil, previousRPE: Int? = nil, painInArea: Bool = false
+        previous: [LoggedSet]? = nil, previousRPE: Int? = nil, painInArea: Bool = false, shortSleep: Bool = false
     ) -> ProgressionTarget? {
         guard !sets.isEmpty else { return nil }
         func steady(_ sets: [LoggedSet], _ rpe: Int?) -> Bool {
@@ -54,11 +54,23 @@ public enum ProgressionEngine {
         }
         let steadyNow = steady(sets, sessionRPE)
         let twoSteady = steadyNow && previous.map { steady($0, previousRPE) } == true
+        // APRE (Mann 2010, college athletes): two or more reps past the target on
+        // the last set means the weight is clearly light — step up now. Only for
+        // sets of 12 or fewer reps, where effort is judged well (Halperin 2022).
+        let target0 = dose.reps ?? 8
+        let clearlyLight = dose.kind == "reps" && steadyNow && target0 <= 12
+            && (sets.last?.reps ?? 0) >= target0 + 2 && (sets.last?.weightKg ?? 0) > 0
+        // Short sleep this week: hold, don't add (Part 2, A27).
+        let mayStep = !painInArea && !shortSleep
         // Why it doesn't step up: pain first, then not enough steady sessions.
         func holding(_ reps: Int?, _ kg: Double?, _ secs: Int?, _ same: String) -> ProgressionTarget {
             if painInArea {
                 return ProgressionTarget(reps: reps, weightKg: kg, seconds: secs,
                                          note: "Pain reported: no step up today. Stop if it hurts.", state: .pauseForReview)
+            }
+            if shortSleep, steadyNow {
+                return ProgressionTarget(reps: reps, weightKg: kg, seconds: secs,
+                                         note: "Short sleep lately: same as last time, clean reps. The step up waits.", state: .hold)
             }
             if steadyNow {
                 return ProgressionTarget(reps: reps, weightKg: kg, seconds: secs,
@@ -76,16 +88,20 @@ public enum ProgressionEngine {
                     return ProgressionTarget(reps: target, weightKg: rounded(weight * 0.9, step: stepKg), seconds: nil,
                                              note: "Deload week: a bit lighter on purpose.", state: .deload)
                 }
-                if twoSteady && !painInArea {
+                if twoSteady && mayStep {
                     return ProgressionTarget(reps: target, weightKg: weight + stepKg, seconds: nil,
                                              note: "Two steady sessions in a row: one step heavier.", state: .progress)
+                }
+                if clearlyLight && mayStep {
+                    return ProgressionTarget(reps: target, weightKg: weight + stepKg, seconds: nil,
+                                             note: "Two reps past the target last time: one step heavier.", state: .progress)
                 }
                 return holding(target, weight, nil, "Same weight: aim for \(target) on every set.")
             }
             let best = sets.compactMap(\.reps).min() ?? target
             if deload { return ProgressionTarget(reps: max(1, best - 2), weightKg: nil, seconds: nil, note: "Deload week: a few reps fewer.", state: .deload) }
             let cap = isYouth ? 15 : 20
-            if twoSteady && !painInArea && best < cap {
+            if twoSteady && mayStep && best < cap {
                 return ProgressionTarget(reps: best + 1, weightKg: nil, seconds: nil, note: "Two steady sessions: one more rep.", state: .progress)
             }
             return holding(max(best, target), nil, nil, "Match last time with clean reps.")
@@ -93,7 +109,7 @@ public enum ProgressionEngine {
             let target = dose.seconds ?? 30
             let shortest = sets.compactMap(\.seconds).min() ?? target
             if deload { return ProgressionTarget(reps: nil, weightKg: nil, seconds: max(10, shortest - 10), note: "Deload week: a bit shorter.", state: .deload) }
-            if twoSteady && !painInArea && shortest < 90 {
+            if twoSteady && mayStep && shortest < 90 {
                 return ProgressionTarget(reps: nil, weightKg: nil, seconds: shortest + 5, note: "Two steady sessions: five seconds longer.", state: .progress)
             }
             return holding(nil, nil, max(shortest, 10), "Hold as long as last time.")

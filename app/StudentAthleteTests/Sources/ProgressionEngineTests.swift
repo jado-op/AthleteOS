@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(Engine)
+@testable import Engine
+#endif
 
 /// Progressive overload and planned deload weeks.
 final class ProgressionEngineTests: XCTestCase {
@@ -16,6 +19,25 @@ final class ProgressionEngineTests: XCTestCase {
         let pain = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5, previous: sets, previousRPE: 7, painInArea: true)
         XCTAssertEqual(pain?.weightKg, 40, "pain pauses progression")
         XCTAssertEqual(pain?.state, .pauseForReview)
+    }
+
+    /// APRE (Mann 2010): two reps past the target on the last set steps up at once.
+    func testTwoRepsPastTheTargetStepsUpAfterOneSession() {
+        let sets = [LoggedSet(reps: 8, weightKg: 40), LoggedSet(reps: 8, weightKg: 40), LoggedSet(reps: 10, weightKg: 40)]
+        let target = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5)
+        XCTAssertEqual(target?.weightKg, 42.5)
+        XCTAssertEqual(target?.state, .progress)
+        let oneOver = [LoggedSet(reps: 8, weightKg: 40), LoggedSet(reps: 9, weightKg: 40)]
+        XCTAssertEqual(ProgressionEngine.next(last: oneOver, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5)?.weightKg, 40)
+    }
+
+    /// Short measured sleep holds the weight even after two steady sessions.
+    func testShortSleepHoldsTheWeight() {
+        let sets = Array(repeating: LoggedSet(reps: 8, weightKg: 40), count: 3)
+        let target = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5,
+                                            previous: sets, previousRPE: 7, shortSleep: true)
+        XCTAssertEqual(target?.weightKg, 40)
+        XCTAssertEqual(target?.state, .hold)
     }
 
     func testMissedRepsOrAMaximalSessionKeepTheWeight() {

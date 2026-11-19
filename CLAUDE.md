@@ -196,6 +196,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   anti-extension + anti-rotation) hold for a four-week block; accessories rotate every session; a stalled anchor
   swaps to its sibling. "You pick" (`GymAdvisor`) reads region recency (legs 72 h, upper 48 h), games, practice,
   soreness, goals and watch-measured sleep. Evidence: `docs/GYM-ALGORITHM-RESEARCH.md` (rules first).
+  Part 2 (athlete-population studies only, rules A1–A28) adds: legs allowed but short two days before a game;
+  in season legs come back after ~8 days without a heavy exposure; the sport's Nordic/Copenhagen ride on leg days
+  and shoulder work on upper days (fixed, even in a 30-min session); easy finisher after heavy legs for trained
+  athletes; one-step-up after two reps past target (APRE); watch-measured short sleep holds the weight.
+  Never compute or show an acute:chronic ratio or injury-risk number (A28).
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 

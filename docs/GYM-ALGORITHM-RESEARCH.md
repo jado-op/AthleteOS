@@ -507,3 +507,504 @@ single programme.
 
 Already cited in `docs/TRAINING-RESEARCH.md` and reused here: Rønnestad 2011, Issurin 2010, Simão 2012, Wilson
 2012, Jayanthi 2015, Milewski 2014, Mah 2011, Lloyd & Oliver 2012, Suchomel 2016, Gabbett 2016.
+
+---
+
+## Part 2 — Athlete-population evidence (2026-11-19)
+
+Owner's follow-up: "rely on good research — not studies on ordinary people but on athletes." Part 1 leans on
+general-population and trained-lifter data (frequency, splits, variation, deload surveys). Part 2 re-checks the
+gym algorithm against studies **in athletes**: youth athletes, adolescent team-sport players, college and elite
+athletes.
+
+**Method.** PubMed (NCBI E-utilities) searches by author/topic; every source below was matched to its PubMed
+record (PMID and DOI listed at the end) and its abstract was read. Full texts were not available for most, so
+numbers come from abstracts; where a protocol detail is only in the full text it is not quoted. Population and
+design are given for each. Grades:
+
+- **strong** — meta-analysis (or several RCTs) in athletes with consistent results;
+- **moderate** — one good RCT or a meta-analysis with caveats (mixed populations, heterogeneity, few studies);
+- **limited** — small trials, cohorts/case series, or athlete data extrapolated to teens;
+- **engineering** — a number we chose inside the evidence so the code has something to compute.
+
+**Where youth data is thin.** Injury-prevention RCTs are mostly adult male soccer (Nordic, Copenhagen) or adult
+elite handball (shoulder); only the neuromuscular warm-ups (11+, 11+ Kids, ACL programmes) have strong youth
+trials. In-season maintenance is adult professional data (n = 14). Concurrent-training, velocity-loss and
+reps-in-reserve accuracy studies are young adults. No athlete study tests how many days before a game a heavy
+session is safe. Teen athletes get the conservative end of every range.
+
+### Rules (A1 …)
+
+#### Maturation and growth
+
+**A1. Train by maturity and training age, keep strength training through the growth spurt.**
+Strength gains in adolescent boy athletes were larger **during (ES 1.11) and after (ES 1.01) peak height
+velocity than before it (ES 0.50)** (Moran2017; meta-analysis, 19 studies, boy athletes 10–18 y, 4–16-week
+programmes). Jump training works before and after PHV (RamirezCampillo2023; 11 studies, n = 744, < 18 y, 1–3
+sessions/wk); post-PHV boys gained more from combined lifting + plyometrics than pre-PHV boys (Kumar2025; 40 boys
+9–17 y from several sports, 2×/wk for 12 weeks). The NSCA (Lloyd2016) and IOC (Bergeron2015) statements put
+movement competence and strength at the centre at every stage and ask for maturity-aware programming
+(Lloyd2014b).
+→ Engine: `TrainingStage` stays the main switch. No change to the age cut-offs. Post-PHV / 16+ experienced
+athletes are where heavier anchors and more power pay off most (supports the *performance* stage).
+*Grade: moderate (meta-analyses, short trials, boys only).*
+
+**A2. Growth spurt = more caution on impact, not a stop.**
+Talented youth soccer players had more traumatic injuries in the year of PHV (1.41 vs 0.81 per player-year) and
+more days lost (15.7 vs 7.3) than the year before; overuse injuries rose after PHV (vanderSluis2014; 26 players,
+3-year cohort). In an English academy, injury incidence rose linearly with growth rate and peaked at ~92–95 % of
+predicted adult height; week-to-week jumps in exposure also raised incidence (Johnson2022; 49 elite youth
+players, one season).
+→ Engine (new, optional input): if the athlete reports fast growth ("grew a lot in the last months" or a height
+entry ≥ 7 cm/year — *engineering*), treat them as circa-PHV for 3 months: landing caps ×0.75, no new
+sprint/jump volume increases, anchors held at the current load (technique and control, not new loads), keep 2
+strength sessions a week. *Grade: limited (cohorts, small, male soccer).*
+
+**A3. Apophysitis (Osgood-Schlatter, Sever) — load management, not blanket rest.**
+In 51 adolescents (10–14 y) with Osgood-Schlatter, an activity ladder guided by pain plus progressive knee/hip
+strengthening gave 80 % "improved" at 12 weeks and 90 % at 12 months (Rathleff2020; case series, no control).
+Sever's disease in a German youth academy: 0.36 cases/100 players/year, mean age 11.8, mean 61 days to return
+(Belikan2022; 10-year retrospective).
+→ Engine: the safety rule stays ("pain = stop and get checked", never a diagnosis). After the athlete says it
+has been checked, sore knee-below-kneecap or heel in 10–15-year-olds → no jumps or sprints that day, legs only
+with pain-free strength work, upper/core preferred. *Grade: limited.*
+
+#### In season
+
+**A4. In-season floor: one lower-body strength session every 7 days; two when the schedule allows.**
+One session/week kept the pre-season gains in strength and 40-m sprint for 12 weeks; one every second week lost
+both (Rønnestad2011; professional soccer, n = 14, randomised). Intensity (relative load) is the variable that
+must be kept; frequency and volume can drop a lot (Spiering2021; narrative review — says data in athletes are
+insufficient for precise numbers). Youth players still *improve* in season: 3×/wk integrative neuromuscular
+training added to soccer improved 10/20-m sprint, jump, change of direction and strength in 11-year-olds while
+controls declined in some measures (Panagoulis2020; n = 28, RCT); high-level youth soccer players respond to
+strength, plyometric and combined training despite heavy practice loads (Oliver2024; 34 studies, n = 1,396).
+→ Engine: in season, flag "legs due" when ≥ 7 days since the last lower anchor (≥ 8 days = priority); target
+2 strength exposures/week for foundation/development athletes (they are still developing), 1–2 for performance.
+*Grade: moderate (one small adult RCT + youth meta-analysis).*
+
+**A5. In-season dose: fewer sets, same heaviness.**
+Youth-athlete dose–response: the most effective strength dose was 6–8 reps at 80–89 % 1RM with 3–4 min rest
+(and > 23-week programmes, 5 sets/exercise) (Lesinski2016; meta-analysis, 43 studies, athletes 6–18 y —
+dose–response computed per variable, so treat as direction, not a prescription).
+→ Engine: in season, anchors 2–3 sets of 6–8 (youth floor 6, as now) at 2–3 reps in reserve; never "light
+and many". The existing `dose` rule (sets −1, reps −2, ≥ 6 under 18) matches. Rest for anchors ≥ 2 min
+(Part 1 rule 24). The 5-sets-per-exercise finding is **not** adopted (youth cap of 3 sets stays): it comes from
+mostly supervised programmes and conflicts with time and practice load. *Grade: moderate.*
+
+**A6. Game timing: high-volume heavy legs ≥ 72 h before a game; a short heavy "primer" is allowed the day
+before or the morning of.**
+After 10 × 5 squats at 80 % 1RM or 15 × 30-m sprints, fatigue took up to 72 h to resolve; after jumps 48 h
+(Thomas2018; 10 male athletes). Match fatigue lasts up to 72 h (Silva2018, Part 1). Yet a *small* heavy morning
+session (3RM squat and bench) improved same-afternoon sprint, jump and strength in semi-professional rugby
+players (Cook2014; n = 18, randomised crossover).
+→ Engine (refines Part 1 rule 6): MD-3 or earlier for the main heavy lower session; MD-2 = upper body, or lower
+at reduced volume (≤ 2 sets per anchor, ≥ 3 reps in reserve); MD-1 / match morning = optional primer for
+development/performance stage only: ≤ 3 sets × ≤ 3 reps of a lift or loaded jump at ≥ 3 reps in reserve, plus
+2–3 short sprints, total ≤ 20 min. Upper-body heavy work is fine until MD-2. Two games ≤ 3 days apart → legs get
+primers only. *Grade: limited (small studies, no youth data; the windows are engineering inside them).*
+
+#### Periodisation
+
+**A7. Keep the simple block model; no daily undulation.**
+Linear and undulating periodisation produced the same strength gains (Harries2015; meta-analysis, 17 studies,
+n = 510 — authors note few adolescent or athlete studies). In NCAA Division I track and field athletes, block vs
+daily undulating: no significant difference, but block reached the gains with less volume (more efficient) and
+looked better for fatigue (Painter2012, n = 31; Painter2018, n = 19).
+→ Engine: keep 4-week anchor blocks with a fixed rep range per block (Part 1 rules 8, 11). Don't add DUP.
+*Grade: moderate (no difference) / limited (block efficiency).*
+
+**A8. Season phase sets the emphasis.**
+Off-season = develop (most volume: anchors 3–4 sets, 2–3, max 4 sessions); pre-season = convert (strength kept,
+power and sprint volume up, gym 2–3); in season = maintain/develop at low volume (A4–A5); post-season = 1–3
+weeks of reduced, varied training (Part 1 rule 25: short breaks cost little). Long programmes beat short ones in
+youth athletes (Lesinski2016: > 23 weeks most effective), so consistency across phases matters more than any
+phase's details. *Grade: consensus (sequencing) / moderate (duration).*
+
+**A9. Taper before a key competition.**
+Across competitive athletes, the best taper lasted ~2 weeks, cut volume by 41–60 % and kept intensity and
+frequency (Bosquet2007; meta-analysis, 27 studies, mostly endurance athletes). In team sports, tapers improved
+maximal power (SMD 0.44), change of direction (0.38), repeated-sprint ability (0.41) and VO2max (0.76)
+(Vachon2021; meta-analysis, 14 studies).
+→ Engine: when the athlete marks a competition as **key** (tournament, championship, trials) in the
+Competitions hub: days −10 to −1 halve gym sets (≥ 1–2 per anchor), keep the load and reps in reserve, keep the
+number of sessions, last heavy lower ≥ 72 h out (A6). Not for weekly league games. *Grade: moderate.*
+
+#### Power
+
+**A10. Plyometric dose for youth athletes.**
+Youth soccer review: 2 sessions/week, ~72 h apart, starting at 50–60 foot contacts/session and progressing to no
+more than 80–120 (Bedoya2015; systematic review, 7 studies, ≤ 17 y — the dose is the authors' synthesis, not a
+tested optimum). Jump training is effective pre- and post-PHV with 1–3 sessions/week (RamirezCampillo2023).
+→ Engine: current per-session caps (40/60/80 by stage, ¾ in season) stay — they sit at or below the review's
+start dose, which is right for athletes who also land in practice. Add: ≥ 48 h between sessions with a full
+jump block (jump fatigue resolved by 48 h, Thomas2018); first 2 weeks of a block (or after a break) at ~60 % of
+the cap. *Grade: limited–moderate.*
+
+**A11. Strength + plyometrics together; don't trade strength away for jumps.**
+In high-level youth soccer players, strength, plyometric and combined training all improved jumps, horizontal
+power, acceleration and change of direction (g 0.73–1.08) and speed (g 0.40–0.59); only for strength did mode
+matter — strength training g 1.07, combined 0.75, plyometrics 0.27 (Oliver2024).
+→ Engine: anchors are never dropped to fit a power block; on 30-min sessions, power is the first thing cut
+(already the case). *Grade: strong (large youth-athlete meta-analysis).*
+
+**A12. Weightlifting derivatives — performance stage only, and optional.**
+Weightlifting training beat traditional resistance training for jump height (g 0.95) and matched plyometrics for
+sprint, change of direction, jump and strength (Morris2022; meta-analysis, 16 studies, n = 427, mostly athletes
+incl. adolescents; high heterogeneity).
+→ Engine: keep Olympic pulls/derivatives in the *performance* fast block (current rule); plyometrics are an equal
+alternative, so no athlete is pushed into technical lifts. Prefer pulls/jump shrugs over full catches for teens
+without coaching. *Grade: moderate.*
+
+**A13. Contrast/complex pairs only for strong, experienced athletes.**
+A heavy or plyometric "conditioning activity" before a jump or sprint gives a small boost (jump ES 0.29, sprint
+0.51); larger in **stronger and more experienced** lifters; weaker athletes need longer rest and sub-maximal loads
+to benefit; plyometric primers work sooner than heavy ones (Seitz2016; meta-analysis, 47 studies, n = 1,954).
+→ Engine: no contrast pairs for foundation/development. Performance stage may pair an anchor set (≥ 2 reps in
+reserve) with 3–5 jumps after ≥ 4 min (*engineering*). Order stays: fast work → anchors (Part 1 rule 10).
+*Grade: moderate.*
+
+**A14. Relative strength guides emphasis internally, never as a target.**
+Stronger (1RM squat 1.97× body mass) and weaker (1.32×) men both improved jump and sprint after 10 weeks of
+ballistic training; the stronger group tended to gain more (Cormie2010; n = 24, trained men, not athletes).
+Suchomel2016/2018: weaker athletes build strength first. No validated thresholds for teens.
+→ Engine: Part 1 rule 29 stands (no body-weight targets shown). Emphasis shifts with stage and the athlete's own
+anchor trend (stalled strength → strength emphasis; rising → more power). *Grade: limited.*
+
+#### Speed
+
+**A15. Regular max-velocity exposure protects; sudden spikes don't.**
+In elite soccer, players with moderate weekly sprint distance (201–350 m > 19.8 km/h) had lower injury odds
+(OR 0.54) than those with little (≤ 165 m); large week-to-week changes in sprint distance raised odds a lot
+(OR 6.12) (Malone2018; 37 players, one season, observational). In Australian football, hamstring strains
+followed weeks with high-speed running well above the player's own average (week −1 OR 6.44) (Duhig2016; one
+team, 2 seasons). Six weeks of sprint training lengthened biceps femoris fascicles more than Nordics and
+improved sprint mechanics in soccer players (Mendiguchia2020; n = 32, matched groups).
+→ Engine: field/court sports in off- and pre-season get ≥ 1 max-velocity exposure/week (e.g. 3–5 × 20–30 m
+flying or build-up runs, full rest) when practice doesn't give it; after ≥ 10 days without sprinting (holiday,
+injury), rebuild over 2 weeks rather than full volume at once. In season, practice and games usually cover it.
+*Grade: limited (observational) — the app can't measure speed, so this relies on the athlete's answers.*
+
+**A16. Sleds are optional.**
+Resisted sled training improved acceleration (ES 0.61) and full sprint (0.36) but not max velocity, and was not
+shown better than unresisted sprinting (Alcaraz2018; 13 studies, athletes and active people).
+→ Engine: plain sprints default; sled only as variety for acceleration goals. *Grade: moderate.*
+
+**A17. High days and low days.**
+Heavy squats, sprints and jumps each leave fatigue for 48–72 h (Thomas2018). → Stack the neural work: on a
+day with sprints, put heavy lower anchors after them in the same session (or the same day) rather than on the
+next day; easy days stay easy. *Grade: limited / engineering.*
+
+#### Injury prevention (dose and sports)
+
+**A18. Nordic hamstring.**
+Men's soccer (pro + amateur, 942 players): 10-week progressive programme then a weekly in-season session; acute
+hamstring injuries RR 0.29, new injuries RR 0.41, recurrent RR 0.14; 13 players treated per injury prevented
+(Petersen2011; cluster RCT). Amateur soccer (579 men, 24.5 y): 25 sessions in 13 weeks, OR 0.28, compliance 91 %
+(vanderHorst2015; RCT). All programmes including Nordics: hamstring injuries halved (RR 0.49) (vanDyk2019;
+meta-analysis, 8,459 athletes). **Low-volume programmes gave the same eccentric-strength and fascicle gains as
+high-volume ones** (Cuthbert2020; meta-analysis, 13 studies).
+→ Engine: sprinting sports (soccer, American football, rugby, field hockey, lacrosse, track sprints/jumps,
+basketball, handball, Australian football): off-/pre-season 2×/week, in season 1×/week (≥ 1 every 7 days);
+2–3 sets × 3–6 slow reps (the low-volume end). Matches the current `hamstring-eccentric` dose. Make it a
+weekly **requirement** for these sports rather than a rotation slot. *Grade: strong for adult male soccer;
+limited for teens (no Nordic-only youth RCT — youth evidence comes through A20 programmes that include it).*
+
+**A19. Copenhagen adductor.**
+Semi-professional men's soccer (652 players): one exercise with three progression levels, **3×/week in pre-season
+(6–8 weeks), 1×/week in season (28 weeks)**; groin problems 13.5 % vs 21.3 % (OR 0.59) (Haroy2019; cluster RCT).
+→ Engine: soccer and other kicking/skating/cutting sports (ice hockey, Australian football, futsal — extrapolated):
+pre-season 3×/week can be met by gym + after-practice sessions, in season ≥ 1×/week. Start at the short-lever
+(knee) level. *Grade: moderate (one RCT, adult men; other sports extrapolated).*
+
+**A20. Neuromuscular warm-up and ACL programmes (strongest youth evidence).**
+FIFA 11+ cut football injuries by 39 % (IRR 0.61) (Thorborg2017; meta-analysis, 4 cluster RCTs); it prevented
+injuries in young female footballers (Soligard2008; cluster RCT). 11+ Kids (3,895 players, mean 10.8 y): injuries
+−48 % (HR 0.52), severe −74 %; **at least 1×/week, 2× better** (Rossler2018). Youth athletes: neuromuscular
+training cut lower-extremity injuries by 42 % (IRR 0.58); **2–3×/week, 10–15-min bouts, 30–60 min/week** worked
+best (Steib2017; meta-analysis, 16 trials, ≤ 21 y); lower-extremity IRR 0.64 (Emery2015; youth sport). ACL in
+young female athletes: OR 0.51, **middle/high school OR 0.38** vs college/pro 0.65; average 24 min × 2.5/week;
+best with lower-body strength (Nordics, lunges, calf raises) and landing stabilisation (jump-and-hold) **every
+session** (Petushek2019; 18 studies, 27,231 athletes). Meta-analysis of meta-analyses: all ACL injuries −50 %,
+non-contact ACL in females −67 % (Webster2018). Younger age, higher dose, more exercise variety and feedback
+predicted bigger ACL reductions (Sugimoto2016).
+→ Engine: every lower or full-body session's prep includes a landing-stabilisation drill (jump-and-hold) for
+knee-risk sports (soccer, basketball, handball, volleyball, netball, lacrosse, field hockey) and for all
+foundation/development athletes — extend today's "foundation or knee-risk sport below performance" rule to
+**female athletes at every stage**. Weekly target: ≥ 2 neuromuscular exposures (gym prep + after-practice
+counts). *Grade: strong.*
+
+**A21. Shoulder programme for overhead athletes.**
+Elite handball (660 players, men and women): OSTRC shoulder programme (internal-rotation mobility,
+external-rotation strength, scapular strength, kinetic chain, thoracic mobility) **3×/week in the warm-up**:
+shoulder problems OR 0.72 (17 % vs 23 % prevalence) (Andersson2017; cluster RCT).
+→ Engine: overhead/throwing sports (handball, volleyball, baseball, softball, water polo, tennis, cricket
+bowlers, javelin, swimming — extrapolated) get the `shoulder-health` slot as a **fixed** item in every upper and
+full session (not a rotating accessory), aiming at ≥ 3 short exposures/week including after-practice sessions.
+*Grade: moderate (one large RCT, handball).*
+
+#### Autoregulation
+
+**A22. Reps in reserve works best on sets of ≤ 12.**
+People underpredict reps to failure by ~1 rep on average, with large spread; accuracy is better closer to
+failure and on sets of ≤ 12 reps, much worse above 12; training status didn't change accuracy (Halperin2022;
+12 studies, 414 participants, mostly adults — no adolescent data).
+→ Engine (refines Part 1 rule 12): RIR-driven load changes only on sets with a top of range ≤ 12; above that
+(bodyweight work), progress by variant (Part 1 rule 26). Foundation keeps the easy/right/hard tap. *Grade:
+moderate (adults), limited for teens.*
+
+**A23. Stop sets well short of failure.**
+Squatting with 20 % vs 40 % velocity loss per set gave the same strength gains and more jump improvement (CMJ
++9.5 % vs +3.5 %) with 40 % fewer reps (ParejaBlanco2017a; 22 young men, not athletes). In professional soccer
+players, 15 % loss beat 30 % for jump height (ParejaBlanco2017b; n = 16).
+→ Supports the current RIR cues (2–3 left; "stop if the bar slows") — especially for in-season and power-goal
+athletes. No velocity device is assumed. *Grade: moderate.*
+
+**A24. Progress from the last set's reps (APRE logic).**
+Division I football players progressing with autoregulatory progressive resistance exercise (load set from the
+reps achieved on the last set) gained more bench and squat strength in 6 pre-season weeks than with fixed linear
+progression (Mann2010; n = 23).
+→ Engine: Part 1 rules 11–12 already do this; add that the next session's anchor load is chosen from the **last
+set's** reps at the target RIR (+1 step if ≥ 2 reps over, −1 step if under). *Grade: limited–moderate.*
+
+**A25. Deloads follow the sport calendar.**
+No athlete trial tests deloads. Coaches of strength sports deload for 5–7 days every 4–6 weeks, mostly by cutting
+sets/reps and effort (Bell2022; 18 national-level coaches, interviews; plus Bell2023, Rogerson2024 in Part 1).
+→ Engine (refines Part 1 rule 13.3): for team-sport athletes, put the planned easy week where the calendar
+already gives one — exam week, tournament week (A9), post-season, holidays — instead of a fixed every-5-weeks
+deload. *Grade: consensus.*
+
+#### Concurrent training
+
+**A26. In trained athletes, conditioning straight after legs costs explosive and lower-body strength gains.**
+Concurrent training didn't reduce maximal strength or size overall, but reduced **explosive strength (SMD −0.28),
+more when done in the same session** than ≥ 3 h apart; cycling vs running made no difference (Schumann2022;
+43 studies). In **trained** people, lower-body 1RM gains were reduced (ES −0.35), only when both were in the
+same session (−0.66 vs −0.10 separate) (Petre2021; 27 studies). Amateur rugby players: 0 h between strength
+and aerobic work blunted strength gains; 6 h less so; 24 h best (Robineau2016; n = 58, RCT).
+→ Engine (contradicts Part 1 rule 22 for experienced athletes): on **lower/full** sessions of *performance*-stage
+(and experienced development) athletes in off-/pre-season, no hard interval finisher — either an easy 10–15-min
+aerobic cool-down or move the intervals to an upper day or a session ≥ 6 h apart. Hard practice counts as the
+aerobic session: gym legs before it or ≥ 6 h apart. Foundation athletes are unaffected (no interference in
+untrained/moderately trained). Bike vs run stays an impact choice. *Grade: moderate.*
+
+#### Sleep, readiness and load
+
+**A27. Chronic short sleep matters more than one bad night for injury.**
+Adolescent athletes who chronically slept poorly had higher injury odds (OR 1.58); the effect of one bad night
+was undetermined (Gao2019; meta-analysis, 7 studies, ≤ 19 y). Adolescent elite athletes sleeping > 8 h on
+weekdays had 61 % lower odds of a new injury (OR 0.39) (vonRosen2017; n = 340). Milewski2014 (Part 1): < 8 h,
+1.7×.
+→ Engine (refines Part 1 rule 18): add a **7-night average < 8 h** check: no load increases and no new sprint/jump
+volume increases that week, and a calm note ("a week of short sleep — today holds your loads"). The single-night
+thresholds (< 7 / < 6 / < 5 h) stay for the day's choice. *Grade: moderate (observational).*
+
+**A28. Don't use the acute:chronic workload ratio.**
+The ACWR is a rescaling of acute load that creates statistical artefacts; random "chronic" loads produced the same
+associations, and neither ACWR nor acute load predicted injury better than chance in the original data
+(c-statistic 0.574 vs 0.5) (Impellizzeri2021; Impellizzeri2020 on conceptual pitfalls).
+→ Engine: never compute or show an ACWR or "injury risk". Use plain guard rails on *changes* — weekly landing
+and sprint volume, gym sets — labelled as engineering (e.g. ≤ ~20 % more than the athlete's own last 3 weeks)
+and phrased as "a big jump compared with your usual", never as a risk number. Week-to-week change was associated
+with injury in youth academy and elite players (Johnson2022, Malone2018), but no threshold is validated.
+*Grade: strong against ACWR as a predictor; weak for any threshold.*
+
+### What the app does with Part 2 (2026-11-19)
+- **Done:** A4 (in-season legs come back after 8 days), A6 (two days out: legs allowed, 2 sets per lift), A18, A19 and A21
+  (the sport's Nordic/Copenhagen on every leg or full session, shoulder work on upper or full; the first one even
+  in 30 min), A24 (APRE step-up after two reps past the target on sets of 12 or fewer), A26 (performance-stage and
+  experienced development athletes ride easy after heavy legs), A27 (watch-measured short sleep holds the weight).
+- **Deviation, on purpose:** A27's evidence uses under 8 h. Most teens sleep under 8 h on school nights, so holding
+  every progression at 8 h would freeze the plan for most users. The app uses a 3-night average under 7 h or a
+  last night under 6 h, and says why in the set's note.
+- **Not yet:** A2–A3 (growth-spurt input), A9 (taper: needs a "key competition" flag), A10 (48 h between jump
+  blocks), A15–A17 (weekly max-velocity exposure), A12–A13 (contrast pairs, Olympic derivatives).
+
+### Part 1 rules — what the athlete evidence changes
+
+| Part 1 rule | Status | Why |
+|---|---|---|
+| 1 (gym days; in season ≥ 1) | **refined** | A4: ≥ 1 lower strength exposure every 7 days; 2 for foundation/development in season |
+| 5–6 (practice/games, MD rules) | **refined** | A6: MD-2 reduced-volume lower allowed; MD-1/match-morning primer for development/performance |
+| 8, 11 (blocks, double progression) | **confirmed** | A7: block ≈ undulating; block more efficient in D-I athletes |
+| 12 (RIR autoregulation) | **refined** | A22: RIR only for sets ≤ 12 reps; A24: base next load on the last set |
+| 13.3 (deload every 4–6 weeks) | **refined** | A25: place easy weeks on the sport calendar |
+| 15 / injury staples | **refined** | A18–A21: Nordic and Copenhagen as weekly requirements for listed sports; shoulder fixed for overhead sports; landing drill for all female athletes |
+| 18 (sleep thresholds) | **refined** | A27: add 7-night average < 8 h |
+| 22 (finisher after lifting, bike on leg days) | **contradicted for trained athletes** | A26: same-session conditioning blunts explosive and lower-body strength gains in trained people; separate by ≥ 6 h or put it on upper days |
+| 28–29 (strength before power; no targets) | **confirmed** | A11, A14 |
+| TRAINING-RESEARCH §6 in season (reps −2, ≥ 6 under 18) | **confirmed** | A5 (Lesinski 6–8 reps at 80–89 %) |
+| TRAINING-RESEARCH §8 Gabbett 2016 load spikes | **qualified** | A28: keep "avoid sudden jumps" as advice; no ACWR |
+
+### Sources (Part 2; PubMed record and abstract read, 2026-11-19)
+
+- **Alcaraz2018** — Alcaraz PE, Carlos-Vivas J, Oponjuru BO, Martínez-Rodríguez A. The effectiveness of resisted sled
+  training (RST) for sprint performance: a systematic review and meta-analysis. Sports Med 2018;48:2143–2165.
+  doi:10.1007/s40279-018-0947-8 · PMID 29926369
+- **Andersson2017** — Andersson SH, Bahr R, Clarsen B, Myklebust G. Preventing overuse shoulder injuries among throwing
+  athletes: a cluster-randomised controlled trial in 660 elite handball players. Br J Sports Med 2017;51:1073–1080.
+  doi:10.1136/bjsports-2016-096226 · PMID 27313171
+- **Bedoya2015** — Bedoya AA, Miltenberger MR, Lopez RM. Plyometric training effects on athletic performance in youth
+  soccer athletes: a systematic review. J Strength Cond Res 2015;29(8):2351–2360. doi:10.1519/JSC.0000000000000877 ·
+  PMID 25756326
+- **Belikan2022** — Belikan P, Färber LC, Abel F, Nowak TE, et al. Incidence of calcaneal apophysitis (Sever's disease)
+  and return-to-play in adolescent athletes of a German youth soccer academy: a retrospective study of 10 years.
+  J Orthop Surg Res 2022;17:83. doi:10.1186/s13018-022-02979-9 · PMID 35139872
+- **Bell2022** — Bell L, Nolan D, Immonen V, Helms E, et al. "You can't shoot another bullet until you've reloaded the
+  gun": coaches' perceptions, practices and experiences of deloading in strength and physique sports. Front Sports
+  Act Living 2022;4:1073223. doi:10.3389/fspor.2022.1073223 · PMID 36619355
+- **Bergeron2015** — Bergeron MF, Mountjoy M, Armstrong N, et al. International Olympic Committee consensus statement
+  on youth athletic development. Br J Sports Med 2015;49:843–851. doi:10.1136/bjsports-2015-094962 · PMID 26084524
+- **Bosquet2007** — Bosquet L, Montpetit J, Arvisais D, Mujika I. Effects of tapering on performance: a meta-analysis.
+  Med Sci Sports Exerc 2007;39(8):1358–1365. doi:10.1249/mss.0b013e31806010e0 · PMID 17762369
+- **Cook2014** — Cook CJ, Kilduff LP, Crewther BT, Beaven M, West DJ. Morning based strength training improves afternoon
+  physical performance in rugby union players. J Sci Med Sport 2014;17(3):317–321. doi:10.1016/j.jsams.2013.04.016 ·
+  PMID 23707139
+- **Cormie2010** — Cormie P, McGuigan MR, Newton RU. Influence of strength on magnitude and mechanisms of adaptation to
+  power training. Med Sci Sports Exerc 2010;42(8):1566–1581. doi:10.1249/MSS.0b013e3181cf818d · PMID 20639724
+- **Cuthbert2020** — Cuthbert M, Ripley N, McMahon JJ, Evans M, Haff GG, Comfort P. The effect of Nordic hamstring
+  exercise intervention volume on eccentric strength and muscle architecture adaptations: a systematic review and
+  meta-analyses. Sports Med 2020;50:83–99. doi:10.1007/s40279-019-01178-7 · PMID 31502142
+- **Duhig2016** — Duhig S, Shield AJ, Opar D, Gabbett TJ, et al. Effect of high-speed running on hamstring strain injury
+  risk. Br J Sports Med 2016;50:1536–1540. doi:10.1136/bjsports-2015-095679 · PMID 27288515
+- **Emery2015** — Emery CA, Roy TO, Whittaker JL, Nettel-Aguirre A, van Mechelen W. Neuromuscular training injury
+  prevention strategies in youth sport: a systematic review and meta-analysis. Br J Sports Med 2015;49:865–870.
+  doi:10.1136/bjsports-2015-094639 · PMID 26084526
+- **Gao2019** — Gao B, Dwivedi S, Milewski MD, Cruz AI Jr. Lack of sleep and sports injuries in adolescents: a systematic
+  review and meta-analysis. J Pediatr Orthop 2019;39(5):e324–e333. doi:10.1097/BPO.0000000000001306 · PMID 30888337
+- **Haroy2019** — Harøy J, Clarsen B, Wiger EG, et al. The Adductor Strengthening Programme prevents groin problems among
+  male football players: a cluster-randomised controlled trial. Br J Sports Med 2019;53:150–157.
+  doi:10.1136/bjsports-2017-098937 · PMID 29891614
+- **Halperin2022** — Halperin I, Malleron T, Har-Nir I, Androulakis-Korakakis P, et al. Accuracy in predicting
+  repetitions to task failure in resistance exercise: a scoping review and exploratory meta-analysis. Sports Med
+  2022;52:377–390. doi:10.1007/s40279-021-01559-x · PMID 34542869
+- **Harries2015** — Harries SK, Lubans DR, Callister R. Systematic review and meta-analysis of linear and undulating
+  periodized resistance training programs on muscular strength. J Strength Cond Res 2015;29(4):1113–1125.
+  doi:10.1519/JSC.0000000000000712 · PMID 25268290
+- **Impellizzeri2020** — Impellizzeri FM, Tenan MS, Kempton T, Novak A, Coutts AJ. Acute:chronic workload ratio:
+  conceptual issues and fundamental pitfalls. Int J Sports Physiol Perform 2020;15(6):907–913.
+  doi:10.1123/ijspp.2019-0864 · PMID 32502973
+- **Impellizzeri2021** — Impellizzeri FM, Woodcock S, Coutts AJ, Fanchini M, et al. What role do chronic workloads play in
+  the acute to chronic workload ratio? Time to dismiss ACWR and its underlying theory. Sports Med 2021;51:581–592.
+  doi:10.1007/s40279-020-01378-6 · PMID 33332011
+- **Johnson2022** — Johnson DM, Cumming SP, Bradley B, Williams S. The influence of exposure, growth and maturation on
+  injury risk in male academy football players. J Sports Sci 2022;40(10):1127–1136. doi:10.1080/02640414.2022.2051380 ·
+  PMID 35285754
+- **Kumar2025** — Kumar NTA, Oliver JL, Pedley JS, Dobbs IJ, et al. Maturity-related adaptations to combined traditional
+  resistance and plyometric training in pre- and post-peak height velocity boys. J Strength Cond Res
+  2025;39(10):1034–1045. doi:10.1519/JSC.0000000000005177 · PMID 40644677
+- **Lesinski2016** — Lesinski M, Prieske O, Granacher U. Effects and dose-response relationships of resistance training on
+  physical performance in youth athletes: a systematic review and meta-analysis. Br J Sports Med 2016;50:781–795.
+  doi:10.1136/bjsports-2015-095497 · PMID 26851290
+- **Lloyd2014b** — Lloyd RS, Oliver JL, Faigenbaum AD, Myer GD, De Ste Croix MB. Chronological age vs. biological
+  maturation: implications for exercise programming in youth. J Strength Cond Res 2014;28(5):1454–1464.
+  doi:10.1519/JSC.0000000000000391 · PMID 24476778
+- **Lloyd2016** — Lloyd RS, Cronin JB, Faigenbaum AD, et al. National Strength and Conditioning Association position
+  statement on long-term athletic development. J Strength Cond Res 2016;30(6):1491–1509.
+  doi:10.1519/JSC.0000000000001387 · PMID 26933920
+- **Malone2018** — Malone S, Owen A, Mendes B, Hughes B, Collins K, Gabbett TJ. High-speed running and sprinting as an
+  injury risk factor in soccer: can well-developed physical qualities reduce the risk? J Sci Med Sport
+  2018;21(3):257–262 (online 2017). doi:10.1016/j.jsams.2017.05.016 · PMID 28595870
+- **Mann2010** — Mann JB, Thyfault JP, Ivey PA, Sayers SP. The effect of autoregulatory progressive resistance exercise
+  vs. linear periodization on strength improvement in college athletes. J Strength Cond Res 2010;24(7):1718–1723.
+  doi:10.1519/JSC.0b013e3181def4a6 · PMID 20543732
+- **Mendiguchia2020** — Mendiguchia J, Conceição F, Edouard P, Fonseca M, et al. Sprint versus isolated eccentric
+  training: comparative effects on hamstring architecture and performance in soccer players. PLoS One
+  2020;15(2):e0228283. doi:10.1371/journal.pone.0228283 · PMID 32045411
+- **Moran2017** — Moran J, Sandercock GR, Ramírez-Campillo R, Meylan C, Collison J, Parry DA. A meta-analysis of
+  maturation-related variation in adolescent boy athletes' adaptations to short-term resistance training. J Sports
+  Sci 2017;35(11):1041–1051. doi:10.1080/02640414.2016.1209306 · PMID 27454545
+- **Morris2022** — Morris SJ, Oliver JL, Pedley JS, Haff GG, Lloyd RS. Comparison of weightlifting, traditional resistance
+  training and plyometrics on strength, power and speed: a systematic review with meta-analysis. Sports Med
+  2022;52:1533–1554. doi:10.1007/s40279-021-01627-2 · PMID 35025093
+- **Oliver2024** — Oliver JL, Ramachandran AK, Singh U, Ramirez-Campillo R, Lloyd RS. The effects of strength,
+  plyometric and combined training on strength, power and speed characteristics in high-level, highly trained male
+  youth soccer players: a systematic review and meta-analysis. Sports Med 2024;54:623–643.
+  doi:10.1007/s40279-023-01944-8 · PMID 37897637
+- **Painter2012** — Painter KB, Haff GG, Ramsey MW, et al. Strength gains: block versus daily undulating periodization
+  weight training among track and field athletes. Int J Sports Physiol Perform 2012;7(2):161–169.
+  doi:10.1123/ijspp.7.2.161 · PMID 22173008
+- **Painter2018** — Painter KB, Haff GG, Triplett NT, et al. Resting hormone alterations and injuries: block vs. DUP
+  weight-training among D-1 track and field athletes. Sports (Basel) 2018;6(1):3. doi:10.3390/sports6010003 ·
+  PMID 29910307
+- **Panagoulis2020** — Panagoulis C, Chatzinikolaou A, Avloniti A, et al. In-season integrative neuromuscular strength
+  training improves performance of early-adolescent soccer athletes. J Strength Cond Res 2020;34(2):516–526.
+  doi:10.1519/JSC.0000000000002938 · PMID 30431535
+- **ParejaBlanco2017a** — Pareja-Blanco F, Rodríguez-Rosell D, Sánchez-Medina L, et al. Effects of velocity loss during
+  resistance training on athletic performance, strength gains and muscle adaptations. Scand J Med Sci Sports
+  2017;27(7):724–735. doi:10.1111/sms.12678 · PMID 27038416
+- **ParejaBlanco2017b** — Pareja-Blanco F, Sánchez-Medina L, Suárez-Arrones L, González-Badillo JJ. Effects of velocity
+  loss during resistance training on performance in professional soccer players. Int J Sports Physiol Perform
+  2017;12(4):512–519. doi:10.1123/ijspp.2016-0170 · PMID 27618386
+- **Petersen2011** — Petersen J, Thorborg K, Nielsen MB, Budtz-Jørgensen E, Hölmich P. Preventive effect of eccentric
+  training on acute hamstring injuries in men's soccer: a cluster-randomized controlled trial. Am J Sports Med
+  2011;39(11):2296–2303. doi:10.1177/0363546511419277 · PMID 21825112
+- **Petre2021** — Petré H, Hemmingsson E, Rosdahl H, Psilander N. Development of maximal dynamic strength during
+  concurrent resistance and endurance training in untrained, moderately trained, and trained individuals: a
+  systematic review and meta-analysis. Sports Med 2021;51:991–1010. doi:10.1007/s40279-021-01426-9 · PMID 33751469
+- **Petushek2019** — Petushek EJ, Sugimoto D, Stoolmiller M, Smith G, Myer GD. Evidence-based best-practice guidelines for
+  preventing anterior cruciate ligament injuries in young female athletes: a systematic review and meta-analysis.
+  Am J Sports Med 2019;47(7):1744–1753. doi:10.1177/0363546518782460 · PMID 30001501
+- **RamirezCampillo2023** — Ramirez-Campillo R, Sortwell A, Moran J, Afonso J, et al. Plyometric-jump training effects on
+  physical fitness and sport-specific performance according to maturity: a systematic review with meta-analysis.
+  Sports Med Open 2023;9:23. doi:10.1186/s40798-023-00568-6 · PMID 37036542
+- **Rathleff2020** — Rathleff MS, Winiarski L, Krommes K, Graven-Nielsen T, et al. Activity modification and knee
+  strengthening for Osgood-Schlatter disease: a prospective cohort study. Orthop J Sports Med 2020;8(4):2325967120911106.
+  doi:10.1177/2325967120911106 · PMID 32284945
+- **Robineau2016** — Robineau J, Babault N, Piscione J, Lacome M, Bigard AX. Specific training effects of concurrent
+  aerobic and strength exercises depend on recovery duration. J Strength Cond Res 2016;30(3):672–683.
+  doi:10.1519/JSC.0000000000000798 · PMID 25546450
+- **Rossler2018** — Rössler R, Junge A, Bizzini M, Verhagen E, et al. A multinational cluster randomised controlled trial
+  to assess the efficacy of '11+ Kids': a warm-up programme to prevent injuries in children's football. Sports Med
+  2018;48:1493–1504. doi:10.1007/s40279-017-0834-8 · PMID 29273936
+- **Ronnestad2011** — Rønnestad BR, Nymark BS, Raastad T. Effects of in-season strength maintenance training frequency in
+  professional soccer players. J Strength Cond Res 2011;25(10):2653–2660. doi:10.1519/JSC.0b013e31822dcd96 ·
+  PMID 21873897
+- **Schumann2022** — Schumann M, Feuerbacher JF, Sünkeler M, et al. Compatibility of concurrent aerobic and strength
+  training for skeletal muscle size and function: an updated systematic review and meta-analysis. Sports Med
+  2022;52:601–612. doi:10.1007/s40279-021-01587-7 · PMID 34757594
+- **Seitz2016** — Seitz LB, Haff GG. Factors modulating post-activation potentiation of jump, sprint, throw, and
+  upper-body ballistic performances: a systematic review with meta-analysis. Sports Med 2016;46:231–240.
+  doi:10.1007/s40279-015-0415-7 · PMID 26508319
+- **Soligard2008** — Soligard T, Myklebust G, Steffen K, et al. Comprehensive warm-up programme to prevent injuries in
+  young female footballers: cluster randomised controlled trial. BMJ 2008;337:a2469. doi:10.1136/bmj.a2469 ·
+  PMID 19066253
+- **Spiering2021** — Spiering BA, Mujika I, Sharp MA, Foulis SA. Maintaining physical performance: the minimal dose of
+  exercise needed to preserve endurance and strength over time. J Strength Cond Res 2021;35(5):1449–1458.
+  doi:10.1519/JSC.0000000000003964 · PMID 33629972
+- **Steib2017** — Steib S, Rahlf AL, Pfeifer K, Zech A. Dose-response relationship of neuromuscular training for injury
+  prevention in youth athletes: a meta-analysis. Front Physiol 2017;8:920. doi:10.3389/fphys.2017.00920 ·
+  PMID 29184511
+- **Suchomel2016** — Suchomel TJ, Nimphius S, Stone MH. The importance of muscular strength in athletic performance.
+  Sports Med 2016;46:1419–1449. doi:10.1007/s40279-016-0486-0 · PMID 26838985
+- **Sugimoto2016** — Sugimoto D, Myer GD, Barber Foss KD, et al. Critical components of neuromuscular training to reduce
+  ACL injury risk in female athletes: meta-regression analysis. Br J Sports Med 2016;50:1259–1266.
+  doi:10.1136/bjsports-2015-095596 · PMID 27251898
+- **Thomas2018** — Thomas K, Brownstein CG, Dent J, et al. Neuromuscular fatigue and recovery after heavy resistance,
+  jump, and sprint training. Med Sci Sports Exerc 2018;50(12):2526–2535. doi:10.1249/MSS.0000000000001733 ·
+  PMID 30067591
+- **Thorborg2017** — Thorborg K, Krommes KK, Esteve E, et al. Effect of specific exercise-based football injury prevention
+  programmes on the overall injury rate in football: a systematic review and meta-analysis of the FIFA 11 and 11+
+  programmes. Br J Sports Med 2017;51:562–571. doi:10.1136/bjsports-2016-097066 · PMID 28087568
+- **Vachon2021** — Vachon A, Berryman N, Mujika I, et al. Effects of tapering on neuromuscular and metabolic fitness in
+  team sports: a systematic review and meta-analysis. Eur J Sport Sci 2021;21(3):300–311.
+  doi:10.1080/17461391.2020.1736183 · PMID 32172680
+- **vanderHorst2015** — van der Horst N, Smits DW, Petersen J, Goedhart EA, Backx FJG. The preventive effect of the Nordic
+  hamstring exercise on hamstring injuries in amateur soccer players: a randomized controlled trial. Am J Sports Med
+  2015;43(6):1316–1323. doi:10.1177/0363546515574057 · PMID 25794868
+- **vanderSluis2014** — van der Sluis A, Elferink-Gemser MT, Coelho-e-Silva MJ, et al. Sport injuries aligned to peak
+  height velocity in talented pubertal soccer players. Int J Sports Med 2014;35(4):351–355.
+  doi:10.1055/s-0033-1349874 · PMID 24022568
+- **vanDyk2019** — van Dyk N, Behan FP, Whiteley R. Including the Nordic hamstring exercise in injury prevention
+  programmes halves the rate of hamstring injuries: a systematic review and meta-analysis of 8459 athletes. Br J
+  Sports Med 2019;53:1362–1370. doi:10.1136/bjsports-2018-100045 · PMID 30808663
+- **vonRosen2017** — von Rosen P, Frohm A, Kottorp A, Fridén C, Heijne A. Too little sleep and an unhealthy diet could
+  increase the risk of sustaining a new injury in adolescent elite athletes. Scand J Med Sci Sports
+  2017;27(11):1364–1371. doi:10.1111/sms.12735 · PMID 27539373
+- **Webster2018** — Webster KE, Hewett TE. Meta-analysis of meta-analyses of anterior cruciate ligament injury reduction
+  training programs. J Orthop Res 2018;36(10):2696–2708. doi:10.1002/jor.24043 · PMID 29737024
+
+Reused from Part 1 / TRAINING-RESEARCH without re-listing: Silva2018, Milewski2014, Suchomel2018, Rogerson2024,
+Bell2023. Looked for but not used: an adolescent validation of reps-in-reserve ratings (none found), a trial of
+how many days before a game a heavy session is safe (none found), and Edouard's "sprinting as a vaccine" piece
+(not a trial).
