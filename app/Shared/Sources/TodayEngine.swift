@@ -231,23 +231,27 @@ enum TodayEngine {
         let dayStart = calendar.startOfDay(for: date)
         let weekAgo = calendar.date(byAdding: .day, value: -7, to: dayStart) ?? dayStart.addingTimeInterval(-7 * 86_400)
         let dayAgo = calendar.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart.addingTimeInterval(-86_400)
-        var landed = 0
+        var landed = 0, landedYesterday = 0
         var recentSlugs: Set<String> = []
         for session in athlete.sessions where session.startedAt >= weekAgo && session.startedAt < dayStart {
             for set in session.sets {
                 if session.startedAt >= dayAgo { recentSlugs.insert(set.itemSlug) }
                 guard let group = catalogue.item(set.itemSlug)?.planProfile.group, group.hasPrefix("jump") else { continue }
                 landed += set.contacts ?? set.reps ?? 0
+                if session.startedAt >= dayAgo { landedYesterday += set.contacts ?? set.reps ?? 0 }
             }
         }
         let cap = TrainingExperience.current.contactCap(PlanGenerator.weeklyContactCap(age: age))
         // Equipment: on the road only what needs none.
         // No gym that day (told ahead or travelling): bodyweight only.
         let travelling = DayStatusStore.status(on: date) == .travel || DayStatusStore.status(on: date) == .holiday || NoGymDays.contains(date)
-        return AthleteKit(catalogue: catalogue, sport: sport, positionSlug: active?.positionSlug, formatSlug: active?.formatSlug,
-                          equipment: travelling ? ["none"] : Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
-                          avoidSlugs: recentSlugs, contactsLeft: max(0, cap - landed),
-                          seed: PlanVariant.seed("\(athlete.id)-\(day)"))
+        var kit = AthleteKit(catalogue: catalogue, sport: sport, positionSlug: active?.positionSlug, formatSlug: active?.formatSlug,
+                             equipment: travelling ? ["none"] : Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+                             avoidSlugs: recentSlugs, contactsLeft: max(0, cap - landed),
+                             seed: PlanVariant.seed("\(athlete.id)-\(day)"))
+        // A real jump block yesterday (20+ landings): jumps wait 48 hours (Part 2, A10).
+        kit.jumpedYesterday = landedYesterday >= 20
+        return kit
     }
 
     /// The session the engine builds for `type` on `date` (nil: rest, or

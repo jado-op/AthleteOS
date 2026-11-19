@@ -139,6 +139,15 @@ public let equipmentLevelByTag: [String: EquipmentLevel] = ${swiftDict(tagEntrie
 /// generator's ground-contact cap can never drift from what content
 /// considers a plyometric.
 public let plyometricDoseKind = ${swiftStringLiteral(PLYOMETRIC_DOSE_KIND)}
+
+/// Where an item happens, for every item that needs more than a gym or open
+/// floor (field, track, court, ice, pool, snow, water, outdoors). Compiled in
+/// so a gym session never picks an on-snow or on-water drill, even while the
+/// phone still holds an older downloaded pack.
+public let itemSurfaceBySlug: [String: String] = ${swiftDict(
+    CATALOGUE.filter((i) => i.surface !== 'gym' && i.surface !== 'anywhere')
+      .map((i) => `${swiftStringLiteral(i.slug)}: ${swiftStringLiteral(i.surface)}`),
+  )}
 `;
 }
 

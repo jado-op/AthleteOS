@@ -201,7 +201,14 @@ Reading files, CI logs or the GitHub API needs no lock.
   and shoulder work on upper days (fixed, even in a 30-min session); easy finisher after heavy legs for trained
   athletes; one-step-up after two reps past target (APRE); watch-measured short sleep holds the weight; a tournament or meet within 10 days
   halves the gym sets (taper; weekly games don't).
-  Never compute or show an acute:chronic ratio or injury-risk number (A28).
+  Never compute or show an acute:chronic ratio or injury-risk number (A28). 48 h between jump blocks (A10):
+  the day after 20+ landings the fast work is throws.
+- Gym sessions stay in the gym (owner, 2026-11-19: a skier got on-snow drills mid-workout). Item surfaces
+  include `snow`, `water`, `outdoors`; `CatalogueItem.venue` reads the compiled `itemSurfaceBySlug`
+  (generated into `Equipment.swift`, so it works with older downloaded packs). Every session except a
+  conditioning one is indoor: no snow/ice/water/trail items, sport drills on a gym floor only (a field drill
+  only when the sport/position has no gym-floor drill, e.g. goalkeepers), at most one item outside on a
+  field or track; warm-up skips don't count.
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 

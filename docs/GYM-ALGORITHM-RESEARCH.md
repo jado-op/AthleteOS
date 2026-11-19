@@ -818,8 +818,9 @@ with injury in youth academy and elite players (Johnson2022, Malone2018), but no
 - **Deviation, on purpose:** A27's evidence uses under 8 h. Most teens sleep under 8 h on school nights, so holding
   every progression at 8 h would freeze the plan for most users. The app uses a 3-night average under 7 h or a
   last night under 6 h, and says why in the set's note.
-- **Not yet:** A2–A3 (growth-spurt input), A10 (48 h between jump
-  blocks), A15–A17 (weekly max-velocity exposure), A12–A13 (contrast pairs, Olympic derivatives).
+- **Done (2026-11-19):** A10 spacing — the day after a jump block (20+ logged landings) the fast work is
+  throws (`AthleteKit.jumpedYesterday`). Gym sessions only hold what a gym can host (`CatalogueItem.venue`).
+- **Not yet:** A2–A3 (growth-spurt input), A10's 60 % start dose, A15–A17 (weekly max-velocity exposure), A12–A13 (contrast pairs, Olympic derivatives).
 
 ### Part 1 rules — what the athlete evidence changes
 

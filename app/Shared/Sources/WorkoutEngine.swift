@@ -127,6 +127,8 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case pullBalancesPush = "PULL_BALANCES_PUSH"
     /// Jump landings held to what this stage can absorb (§3).
     case landingsCapped = "LANDINGS_CAPPED"
+    /// Jumps yesterday: today's power work is throws, 48 hours between jump blocks (Part 2, A10).
+    case jumpsYesterday = "JUMPS_YESTERDAY"
     /// A tournament or meet within ten days: half the sets, the same weights (Bosquet 2007; Part 2, A9).
     case taper = "TAPER"
     /// The athlete said what today holds ("What's on today?"): their word wins over the schedule.

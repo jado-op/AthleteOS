@@ -183,4 +183,57 @@ final class GymFocusTests: XCTestCase {
         let advice = GymAdvisor.advise(day: day(gym: nil), history: GymHistory())
         XCTAssertEqual(advice.focus, .full)
     }
+
+    /// Part 2, A10: about 48 hours between jump blocks — the day after one,
+    /// the legs session's fast work is throws, not jumps.
+    func testTheDayAfterJumpsTheFastWorkIsThrows() {
+        let training = day(gym: request(.lower, .full))
+        let decision = SessionPlanner.decide(training, requested: .gymDevelopment)
+        var kit = AthleteKit(catalogue: Self.catalogue, sport: Self.catalogue.sportsBySlug["soccer"], equipment: fullGym, seed: "test")
+        let fresh = SessionBuilder.build(decision, day: training, kit: kit)
+        XCTAssertTrue(fresh.items.contains { profile($0.itemSlug)?.group.hasPrefix("jump") ?? false }, "fresh legs jump")
+        kit.jumpedYesterday = true
+        let after = SessionBuilder.build(decision, day: training, kit: kit)
+        let power = after.items.filter { $0.block == .power }
+        XCTAssertFalse(power.isEmpty, "still fast work")
+        // Isometric "jumps" never leave the floor: no landings, allowed.
+        for item in after.items where !item.itemSlug.contains("isometric") {
+            XCTAssertFalse(profile(item.itemSlug)?.group.hasPrefix("jump") ?? false, "\(item.itemSlug): jumps the day after jumps")
+        }
+        XCTAssertTrue(after.decision?.reasons.contains(.jumpsYesterday) ?? false)
+    }
+
+    /// Owner, 2026-11-19: a skier's gym session sent them onto the snow. A
+    /// gym session never holds a drill that needs snow, ice, water, a trail,
+    /// a pitch or a court; at most one general sprint or jump may go outside.
+    func testGymSessionsStayInTheGym() {
+        XCTAssertEqual(Self.catalogue.item("skiing-hop-turns")?.venue, .away)
+        let sports = ["skiing", "snowboarding", "soccer", "ice-hockey", "cross-country", "rowing", "ultimate", "mountain-biking", "basketball"]
+        for slug in sports {
+            guard let sport = Self.catalogue.sportsBySlug[slug] else { continue }
+            let kit = { (seed: String) in AthleteKit(catalogue: Self.catalogue, sport: sport, equipment: self.fullGym, seed: seed) }
+            for focus in GymFocus.allCases where focus != .auto {
+                for length in [GymLength.quick, .standard, .full] {
+                    for seed in ["a", "b", "c", "d"] {
+                        var training = day(gym: request(focus, length))
+                        training.demands = SportDemandsTable.demands(sport: sport, position: nil)
+                        let decision = SessionPlanner.decide(training, requested: .gymDevelopment)
+                        let session = SessionBuilder.build(decision, day: training, kit: kit(seed))
+                        var outside = 0
+                        for item in session.items {
+                            guard let catalogueItem = Self.catalogue.item(item.itemSlug) else { continue }
+                            XCTAssertNotEqual(catalogueItem.venue, .away, "\(slug) \(focus) gym session sends the athlete to \(catalogueItem.place): \(item.itemSlug)")
+                            if catalogueItem.itemSportSlug != nil {
+                                XCTAssertNotEqual(catalogueItem.venue, .hall, "\(slug) drill \(item.itemSlug) needs a court")
+                            }
+                            // Skiing has gym-floor drills of its own: no reason to leave the gym.
+                            if slug == "skiing", catalogueItem.itemSportSlug != nil { XCTAssertEqual(catalogueItem.venue, .gym, "\(item.itemSlug)") }
+                            if catalogueItem.venue == .open, item.block != .prep { outside += 1 }
+                        }
+                        XCTAssertLessThanOrEqual(outside, 1, "\(slug) \(focus): more than one item outside")
+                    }
+                }
+            }
+        }
+    }
 }

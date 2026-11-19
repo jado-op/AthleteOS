@@ -228,6 +228,8 @@ struct WorkoutEditorView: View {
         if let quality = current.qualities.max(by: { $0.value < $1.value })?.key {
             let similar = catalogue.itemsBySlug.values
                 .filter { $0.kind == current.kind && ($0.qualities[quality] ?? 0) >= 0.6 && $0.fits(sport: sportSlug, position: nil) && $0.variant == nil }
+                // Same kind of place: a gym exercise never swaps to an on-snow or on-water drill.
+                .filter { $0.venue != .away || current.venue == .away }
                 .sorted { ($0.qualities[quality] ?? 0) > ($1.qualities[quality] ?? 0) }
                 .prefix(12).map(\.slug)
             slugs += similar

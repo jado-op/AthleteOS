@@ -187,6 +187,7 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         if r.contains(.sportInjuryRisk) { behind.append("Your sport has a well-known injury risk, and this session includes the exercise that measurably lowers it.") }
         if r.contains(.pullBalancesPush) { behind.append("A little more pulling than pressing keeps the shoulders healthy.") }
         if r.contains(.taper) { behind.append("A tournament or meet is coming: half the sets at the same weights, so you arrive strong and fresh.") }
+        if r.contains(.jumpsYesterday) { behind.append("You jumped yesterday. Today's fast work is throws, because legs need about 48 hours between jump sessions.") }
         if r.contains(.landingsCapped) { behind.append("Jumps are capped at what you're ready to land in one session; more come as your training age grows.") }
         if !behind.isEmpty { add("What's behind it?", behind.joined(separator: " ")) }
         // 10. How does it progress?

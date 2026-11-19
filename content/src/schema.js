@@ -15,7 +15,7 @@ import { isQuality } from './qualities.js';
 export const ITEM_KINDS = ['exercise', 'drill'];
 
 /** §7: field, court, ice, pool, gym, anywhere. */
-export const SURFACES = ['field', 'court', 'ice', 'pool', 'gym', 'track', 'anywhere'];
+export const SURFACES = ['field', 'court', 'ice', 'pool', 'gym', 'track', 'anywhere', 'snow', 'water', 'outdoors'];
 
 /**
  * §7's youth gating is a field, not an afterthought. `COACHED` items are

@@ -35,6 +35,8 @@ public struct AthleteKit: Sendable {
     public var avoidSlugs: Set<String>
     /// Jump contacts still allowed this week.
     public var contactsLeft: Int
+    /// Yesterday held a real jump block: jumps wait for 48 hours (Part 2, A10).
+    public var jumpedYesterday = false
     public var seed: String
 
     public init(catalogue: Catalogue, sport: SportInfo?, positionSlug: String? = nil, formatSlug: String? = nil,
@@ -138,7 +140,9 @@ private struct BuildState {
         // Per-session landings by stage, a quarter fewer in season — inside the weekly cap.
         let inSeason = day.phase == .inSeason || day.phase == .postSeason
         let sessionCap = inSeason ? stage.sessionLandingCap * 3 / 4 : stage.sessionLandingCap
-        contactsLeft = min(kit.contactsLeft, sessionCap)
+        // Jump fatigue takes about 48 hours to clear (Thomas 2018; Part 2, A10):
+        // the day after a jump block, today's fast work is throws.
+        contactsLeft = kit.jumpedYesterday ? 0 : min(kit.contactsLeft, sessionCap)
         risks = InjuryPrevention.risks(sport: kit.sport?.slug, demands: day.demands)
         var weights = kit.sport?.qualityProfile ?? [:]
         if let position = kit.positionSlug, let profile = kit.sport?.positions.first(where: { $0.slug == position })?.qualityProfile {
@@ -158,10 +162,26 @@ private struct BuildState {
             lhs.score != rhs.score ? lhs.score > rhs.score : lhs.item.slug < rhs.item.slug
         }
         pool = candidates
+        // The sport's drill goes outside only when nothing of the sport (for
+        // the position, when it has drills) works on a gym floor; then that
+        // drill takes the session's one place outside.
+        let sport = kit.sport?.slug
+        let own = candidates.filter { $0.profile.role == "skill" && sport != nil && $0.item.itemSportSlug == sport }
+        let position = kit.positionSlug
+        let forPosition = own.filter { c in position.map { c.item.positions?.contains($0) ?? false } ?? false }
+        let relevant = forPosition.isEmpty ? own.filter { $0.item.positions?.isEmpty ?? true } : forPosition
+        drillNeedsOutside = !relevant.isEmpty && !relevant.contains { $0.item.venue == .gym }
     }
+
+    /// No drill of the sport works on a gym floor (worked out once per build).
+    var drillNeedsOutside = false
 
     /// Slugs already in the session (kept in step with `picks`; read for every item on every pick).
     var used: Set<String> = []
+    /// Field or track items in a gym session (one at most, power work only).
+    var outdoorPicks = 0
+    /// The sport-drill fallback: a field or track drill is allowed for this pick.
+    var skillMayGoOutside = false
     /// Sets added to a block when the session came out short (§7: more good
     /// sets before more exercises).
     var extraSets: [SessionBlock: Int] = [:]
@@ -215,6 +235,7 @@ private struct BuildState {
             if used.contains(candidate.item.slug) { continue }
             if strengthBlock, candidate.item.variant?.tempo == "explosive" { continue }
             guard filter(candidate.item, candidate.profile) else { continue }
+            guard placeFits(candidate.item, block) else { continue }
             if Self.landings(candidate.item, candidate.profile, sets: 1) > 0, contactsLeft < Self.landings(candidate.item, candidate.profile, sets: 3) {
                 skippedForLandings = true
                 continue
@@ -228,11 +249,41 @@ private struct BuildState {
             a.value != b.value ? a.value < b.value : a.key > b.key
         }
         let quality: String = best?.key ?? ""
-        picks.append((item, block, why, quality))
+        if item.venue == .open, indoorSession, block != .prep {
+            outdoorPicks += 1
+            picks.append((item, block, why + " On a field or track next to the gym, if you have one.", quality))
+        } else {
+            picks.append((item, block, why, quality))
+        }
         used.insert(item.slug)
         // Charged at the sets it will actually get (power: up to 4).
         contactsLeft -= Self.landings(item, item.planProfile, sets: block == .power ? (decision.sessionType == .primer ? 2 : 4) : 3)
         return true
+    }
+
+    /// Every session type here happens in a gym or at home, except a
+    /// conditioning session, which may go outside on a run or ride.
+    var indoorSession: Bool { decision.sessionType != .conditioning }
+
+    /// Whether the item can be done where this session happens. A gym
+    /// session never sends the athlete onto snow, ice, water or a trail; a
+    /// sport's drill there must work on a gym floor (a field or court drill
+    /// needs its pitch, goals or hoop); one general sprint or jump may go
+    /// outside onto a field or track, nothing more.
+    func placeFits(_ item: CatalogueItem, _ block: SessionBlock) -> Bool {
+        switch item.venue {
+        case .gym: return true
+        case .hall: return !indoorSession || item.itemSportSlug == nil
+        case .open:
+            guard indoorSession else { return true }
+            guard decision.sessionType != .travel else { return false }
+            // Warm-up drills (skips, crawls) need only a strip of floor.
+            if item.itemSportSlug == nil, block == .prep { return true }
+            guard outdoorPicks == 0 else { return false }
+            if item.itemSportSlug != nil { return block == .skill && skillMayGoOutside }
+            return block == .power && !drillNeedsOutside
+        case .away: return !indoorSession && item.place == "outdoors"
+        }
     }
 
     /// Jump landings for `sets` sets: plyometric contacts, or the reps of a
@@ -302,14 +353,25 @@ private struct BuildState {
 
     /// One drill of the athlete's own sport — for their position when there
     /// is one (owner's rule: every session has at least one).
+    /// It must work on a gym floor; only when the sport has no such drill
+    /// (a goalkeeper's saves need a pitch) may it go outside onto a field
+    /// next to the gym — never onto snow, ice, water or a trail.
     mutating func skillBlock(why: String) {
         guard let sport = kit.sport?.slug else { return }
-        if let position = kit.positionSlug,
-           pick(.skill, why: "A drill for your position — the job you do in your sport.", { item, profile in
-               profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.contains(position) ?? false)
-           }) { return }
-        pick(.skill, why: why) { item, profile in
-            profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.isEmpty ?? true)
+        for outside in [false, true] {
+            skillMayGoOutside = outside
+            defer { skillMayGoOutside = false }
+            if let position = kit.positionSlug,
+               pick(.skill, why: "A drill for your position — the job you do in your sport.", { item, profile in
+                   profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.contains(position) ?? false)
+               }) { return }
+        }
+        for outside in [false, true] {
+            skillMayGoOutside = outside
+            defer { skillMayGoOutside = false }
+            if pick(.skill, why: why, { item, profile in
+                profile.role == "skill" && item.itemSportSlug == sport && (item.positions?.isEmpty ?? true)
+            }) { return }
         }
     }
 
@@ -548,9 +610,18 @@ private struct BuildState {
             if p.isUpper, !main.isDisjoint(with: ["chest", "front-delts", "triceps"]) { push += 1 }
             if p.isUpper, !main.isDisjoint(with: ["lats", "upper-back", "rear-delts", "rotator-cuff"]) { pull += 1 }
         }
-        guard push > pull else { return }
-        if pickGroup(.accessory, ["shoulder-health", "pull-horizontal"], why: "More pulling than pressing keeps the shoulders healthy and balanced.") {
-            addedReasons.append(.pullBalancesPush)
+        // Up to two pulls: a power throw from the chest can tip it by two.
+        for _ in 0..<max(0, min(2, push - pull)) {
+            // A real pull: shoulder-health holds push-up plus too, which presses.
+            let pulls: Set<String> = ["lats", "upper-back", "rear-delts", "rotator-cuff"]
+            let pushes: Set<String> = ["chest", "front-delts", "triceps"]
+            guard ["shoulder-health", "pull-horizontal"].contains(where: { group in
+                pick(.accessory, why: Self.pullBalanceWhy) { _, p in
+                    let main = Set(p.primaryMuscles)
+                    return p.group == group && !main.isDisjoint(with: pulls) && main.isDisjoint(with: pushes)
+                }
+            }) else { break }
+            if !addedReasons.contains(.pullBalancesPush) { addedReasons.append(.pullBalancesPush) }
         }
     }
 
@@ -559,10 +630,13 @@ private struct BuildState {
         let lowImpact = decision.avoids(.highImpact) || decision.legBudget < 2
         let catalogue = kit.catalogue, equipment = kit.equipment, pain = day.painAreas
         let age = day.age, experience = day.experience, coached = kit.trainsUnderCoach
+        // In the gym the finisher stays inside: bike, rower, rope, a hall shuttle.
+        let indoor = indoorSession
         // The same limits as every other exercise: equipment, pain, age, coaching, experience.
         let usable: (String) -> Bool = { slug in catalogue.item(slug).map { item in
             PlanGenerator.isEligibleForEquipment(item, available: equipment) && !PainFilter.loads(item, areas: pain)
                 && item.minAge <= age && (coached || !item.isCoached) && experience.allows(item)
+                && (!indoor || item.venue == .gym || item.venue == .hall)
         } ?? false }
         guard let rx = ConditioningEngine.prescribe(type, minutes: decision.conditioningMinutes, lowImpact: lowImpact, age: day.age,
                                                     experience: day.experience,
@@ -826,6 +900,14 @@ private struct BuildState {
 
     /// Trims to the target (drop the least important first), or — when
     /// there's lots of room — adds an accessory.
+    static let pullBalanceWhy = "More pulling than pressing keeps the shoulders healthy and balanced."
+
+    /// The accessory to drop first when the session runs long: the latest
+    /// one that isn't keeping pulling level with pressing.
+    var trimmableAccessory: Int? {
+        picks.lastIndex { $0.block == .accessory && $0.why != Self.pullBalanceWhy } ?? picks.lastIndex { $0.block == .accessory }
+    }
+
     mutating func fit() {
         let target = decision.durationTarget
         var guardCount = 0
@@ -833,11 +915,11 @@ private struct BuildState {
         while minutes(planned()) > target + 4, guardCount < 16 {
             guardCount += 1
             if let i = picks.lastIndex(where: { $0.block == .cooldown }), picks.filter({ $0.block == .cooldown }).count > 1 { picks.remove(at: i); continue }
-            if picks.filter({ $0.block == .accessory }).count > 2, let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); continue }
+            if picks.filter({ $0.block == .accessory }).count > 2, let i = trimmableAccessory { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .power }).count > 1, let i = picks.lastIndex(where: { $0.block == .power }) { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .prep }).count > 3, let i = picks.lastIndex(where: { $0.block == .prep }) { picks.remove(at: i); continue }
             if picks.filter({ $0.block == .secondaryStrength }).count > 1, let i = picks.lastIndex(where: { $0.block == .secondaryStrength }) { picks.remove(at: i); continue }
-            if picks.filter({ $0.block == .accessory }).count > 1, let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); continue }
+            if picks.filter({ $0.block == .accessory }).count > 1, let i = trimmableAccessory { picks.remove(at: i); continue }
             // Still too long for the time there is (a 20-minute day): fewer
             // sets first, then the smaller strength work, then the fast work.
             if extraSets[.secondaryStrength, default: 0] > -1, picks.contains(where: { $0.block == .secondaryStrength }) { extraSets[.secondaryStrength] = -1; trimmedHard = true; continue }
@@ -845,7 +927,7 @@ private struct BuildState {
             if let i = picks.lastIndex(where: { $0.block == .secondaryStrength }) { picks.remove(at: i); trimmedHard = true; continue }
             if let i = picks.lastIndex(where: { $0.block == .power }) { picks.remove(at: i); trimmedHard = true; continue }
             if picks.filter({ $0.block == .prep }).count > 2, let i = picks.lastIndex(where: { $0.block == .prep }) { picks.remove(at: i); trimmedHard = true; continue }
-            if let i = picks.lastIndex(where: { $0.block == .accessory }) { picks.remove(at: i); trimmedHard = true; continue }
+            if let i = trimmableAccessory { picks.remove(at: i); trimmedHard = true; continue }
             break
         }
         // Trimmed to fit: never grown back past the time.
@@ -930,7 +1012,7 @@ private struct BuildState {
             default: return true
             }
         }
-        if landingsLimited { extra.append(.landingsCapped) }
+        if landingsLimited { extra.append(kit.jumpedYesterday ? .jumpsYesterday : .landingsCapped) }
         for reason in extra where !built.reasons.contains(reason) { built.reasons.append(reason) }
         session.decision = built
         session.explanation = PlanExplanation.make(decision: built, day: day, items: items, catalogue: kit.catalogue, conditioning: conditioning)

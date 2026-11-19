@@ -160,7 +160,33 @@ public struct CataloguePack: Codable, Sendable {
     public let items: [CatalogueItem]
 }
 
+/// Where an item can be done, as far as a session's place is concerned.
+public enum ItemVenue: Sendable {
+    /// A gym or open floor (the pack says gym or anywhere).
+    case gym
+    /// A sports hall (court): fine for general agility work, not a sport's drill.
+    case hall
+    /// A field or track: outside, next to the gym at best.
+    case open
+    /// Somewhere a gym can't be: snow, ice, pool, open water, trails and roads.
+    case away
+}
+
 extension CatalogueItem {
+    /// The item's surface: the compiled table first (it carries the newest
+    /// content, e.g. on-snow ski drills), the downloaded pack's field otherwise.
+    public var place: String { itemSurfaceBySlug[slug] ?? surface }
+
+    public var venue: ItemVenue {
+        if equipment.contains("skates") { return .away }
+        switch place {
+        case "gym", "anywhere": return .gym
+        case "court": return .hall
+        case "field", "track": return .open
+        default: return .away
+        }
+    }
+
     /// Whether this can go into a plan for an athlete of `sport` playing
     /// `position`: general exercises fit everyone; a sport's drill fits only
     /// that sport's athletes — never anyone else's plan — and a drill written
