@@ -35,14 +35,19 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         switch decision.sessionType {
         case .afterPractice:
             summary = (practiceCovered ?? "You trained with the team today.") + " "
-            summary += decision.legBudget >= 2
-                ? "This short session adds \(targets) with only a little leg work, so you still recover."
-                : "This short session focuses on \(targets) without adding unnecessary leg fatigue."
+            if r.contains(.weeklyHeavyLegs) {
+                summary += "Your legs haven't lifted for a week, so this short session adds one heavy leg lift with few sets: enough to keep your strength, not enough to slow your recovery."
+            } else {
+                summary += decision.legBudget >= 2
+                    ? "This short session adds \(targets) with only a little leg work, so you still recover."
+                    : "This short session focuses on \(targets) without adding unnecessary leg fatigue."
+            }
             if r.contains(.choseGym) { summary += " You said gym too: after a full practice, this is the gym part — more would only add fatigue." }
         case .gymDevelopment:
             summary = r.contains(.choseGym)
                 ? (day.practice != nil ? "You said gym after a short, easy practice, so this is a full development session: \(targets)."
                     : "You said gym today, so this is your main development session: \(targets).")
+                : day.practice != nil ? "After practice, this is your development session: \(targets)."
                 : "No practice today, so this is your main development session: \(targets)."
             if r.contains(.gameYesterday) { summary += " You played yesterday, so the legs get less and the upper body more." }
             else if r.contains(.gameWithin48h) { summary += " Leg volume is lower because you compete in two days." }

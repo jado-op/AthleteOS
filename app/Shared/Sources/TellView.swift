@@ -224,7 +224,7 @@ struct TellView: View {
         case .pain: "Today's training leaves it alone. Sharp or getting worse: stop and get it checked."
         case .headKnock: "No training until a doctor clears you. Tell a parent or coach today."
         case .examWeek: "Fewer, shorter sessions that week — time and sleep for studying."
-        case .dayStatus: "Your plan adjusts while it lasts; your streak is protected."
+        case .dayStatus: "Your plan adjusts while it lasts; rest days never count against you."
         case .goals: "Your training leans towards them (up to three)."
         case .season(let part, _):
             part == "pre" ? "Strength and speed for the season ahead from then; until then you build in the off-season."

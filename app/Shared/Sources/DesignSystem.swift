@@ -473,10 +473,12 @@ public struct SecondaryButtonStyle: ButtonStyle {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .padding(.horizontal, 18)
-            .foregroundStyle(AppTheme.ink)
+            .foregroundStyle(Color.white)
+            .tint(.white)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(Color.white.opacity(0.04), in: Capsule())
-            .overlay { Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1) }
+            // A dark glass capsule: readable on black and on a coloured card.
+            .background(Color.black.opacity(0.24), in: Capsule())
+            .overlay { Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1) }
             .opacity(configuration.isPressed ? 0.75 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)

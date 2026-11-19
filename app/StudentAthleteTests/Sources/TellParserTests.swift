@@ -95,6 +95,40 @@ final class TellParserTests: XCTestCase {
         XCTAssertEqual(firstCompetitionDay(parse("game tomorrow, that 3 hour bus ride")), day(19))
     }
 
+    /// US dates are month first; a number over 12 can only be the day.
+    func testMonthFirstDates() {
+        let us = Locale(identifier: "en_US"), de = Locale(identifier: "de_DE")
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("game 11/24", now: now, calendar: calendar, locale: us)), day(24))
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("game 12/5", now: now, calendar: calendar, locale: us)), day(5, 12))
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("game 5/12", now: now, calendar: calendar, locale: de)), day(5, 12))
+        // Unambiguous either way.
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("game 11/24", now: now, calendar: calendar, locale: de)), day(24))
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("game 24/11", now: now, calendar: calendar, locale: us)), day(24))
+        // Dots are day first everywhere.
+        XCTAssertEqual(firstCompetitionDay(TellParser.parse("race on 5.12.", now: now, calendar: calendar, locale: us)), day(5, 12))
+    }
+
+    /// "sat" and "sun" are words too: a weekday only after on/this/next/until or with a dot.
+    func testSatAndSunAreNotAlwaysWeekdays() {
+        XCTAssertNil(firstCompetitionDay(parse("Lost the game, sat on the bench")))
+        let sat = parse("I sat out practice, knee hurts")
+        XCTAssertTrue(sat.proposals.contains(.pain(areas: ["knee"], level: "some")))
+        XCTAssertFalse(sat.proposals.contains { if case .competition = $0 { true } else { false } })
+        XCTAssertEqual(firstCompetitionDay(parse("game on sat")), day(21))
+        XCTAssertEqual(firstCompetitionDay(parse("game next sun")), day(29))
+        XCTAssertEqual(firstCompetitionDay(parse("tournament this sun at 10am")), day(22, hour: 10))
+    }
+
+    /// "Guten Morgen" and "good morning" are greetings, not "tomorrow".
+    func testGreetingsAreNotDates() {
+        XCTAssertEqual(parse("Guten Morgen, ich bin krank").proposals, [.dayStatus("sick", from: day(18), days: 2)])
+        XCTAssertEqual(parse("Good morning, I'm sick").proposals, [.dayStatus("sick", from: day(18), days: 2)])
+        XCTAssertTrue(parse("Guten Morgen!").unread.isEmpty)
+        XCTAssertTrue(parse("Good morning").proposals.isEmpty)
+        // "morgen" alone is still tomorrow.
+        XCTAssertEqual(parse("Ich bin morgen krank").proposals, [.dayStatus("sick", from: day(19), days: 2)])
+    }
+
     private func firstCompetitionDay(_ result: TellParser.Result) -> Date? {
         for proposal in result.proposals {
             if case .competition(let date, _, _, _) = proposal { return date }

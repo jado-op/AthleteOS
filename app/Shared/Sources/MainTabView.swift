@@ -151,6 +151,9 @@ public struct MainTabView: View {
         .onChange(of: athlete.activeSport?.id) { regenerate() }
         .onChange(of: athlete.sports.count) { regenerate() }
         .onChange(of: ProAccess.isPro) { regenerate() }
+        // A check-in or a finished workout: the same week everywhere (Home,
+        // Workout, widgets, Watch), not a throwaway copy for the widget.
+        .onReceive(NotificationCenter.default.publisher(for: WeeklyPlan.inputsChanged)) { _ in regenerate() }
         .proPaywall(isPresented: $demoPaywall, athlete: athlete, feature: .skillBlocks)
     }
 
@@ -346,7 +349,9 @@ public struct MainTabView: View {
         WidgetSnapshotWriter.write(for: athlete, week: week)
         let settings = ReminderScheduler.settings
         if settings.anyEnabled {
-            let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
+            // The sport's own word ("Race", "Match"…) for a plain game.
+            let event = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
+            let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind == .game ? event : $0.kind.rawValue.capitalized) }
             Task { await ReminderScheduler.reschedule(games: games) }
         }
     }
@@ -382,6 +387,10 @@ enum PlanVariant {
 /// Shared by the Today and Plan tabs so the two can never disagree about
 /// what "this week" is.
 enum WeeklyPlan {
+    /// Posted after a check-in is saved or a workout is finished: the tab
+    /// view rebuilds the week once, and the widgets and the Watch with it.
+    static let inputsChanged = Notification.Name("AthleteOS.weeklyPlanInputsChanged")
+
     /// What this week's plan is generated from (a plan variant other than the
     /// current one when building a new plan, and exercises to leave out).
     @MainActor

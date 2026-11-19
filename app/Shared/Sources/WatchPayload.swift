@@ -67,13 +67,22 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
     public var nextGameDate: Date?
     public var isGameDay: Bool
     public var checkedInOnPhone: Bool
+    /// Tonight's reflection was done on the phone: the Watch stops asking.
+    /// Optional so a payload from an older phone build still decodes.
+    public var reflectedOnPhone: Bool?
+    /// Today's workout was finished (on the phone or the Watch): the Watch
+    /// shows it done instead of offering Start again.
+    public var doneToday: Bool?
+    /// The sport's word for a competition ("Game", "Race", "Meet"…).
+    public var eventWord: String?
     /// The emergency card, so the Watch can show it without the phone.
     public var emergency: EmergencyCard?
 
     public init(
         athleteId: String, appleUserId: String, birthDate: Date, sportSlug: String, sportName: String,
         sessionToken: String?, day: Date, sessionTitle: String?, sessionMinutes: Int?, items: [WatchPlanItem],
-        nextGameDate: Date?, isGameDay: Bool, checkedInOnPhone: Bool, emergency: EmergencyCard? = nil
+        nextGameDate: Date?, isGameDay: Bool, checkedInOnPhone: Bool, reflectedOnPhone: Bool? = nil, doneToday: Bool? = nil,
+        eventWord: String? = nil, emergency: EmergencyCard? = nil
     ) {
         self.athleteId = athleteId
         self.appleUserId = appleUserId
@@ -88,6 +97,9 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
         self.nextGameDate = nextGameDate
         self.isGameDay = isGameDay
         self.checkedInOnPhone = checkedInOnPhone
+        self.reflectedOnPhone = reflectedOnPhone
+        self.doneToday = doneToday
+        self.eventWord = eventWord
         self.emergency = emergency
     }
 
@@ -137,6 +149,9 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
             nextGameDate: AthleteStats.upcomingCompetitions(athlete).first?.date,
             isGameDay: athlete.competitions.contains { calendar.isDateInToday($0.date) },
             checkedInOnPhone: checkIn != nil,
+            reflectedOnPhone: MindsetStore.reflection(on: .now, calendar: calendar) != nil,
+            doneToday: TodayEngine.workoutDone(athlete, calendar: calendar),
+            eventWord: AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"],
             emergency: { let card = EmergencyCard.load(); return card.isEmpty ? nil : card }()
         )
     }

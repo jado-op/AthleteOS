@@ -102,20 +102,6 @@ public enum MindsetStore {
         return reflections.filter { keys.contains($0.day) }.count
     }
 
-    /// Consecutive days with a reflection, ending today (or yesterday, so
-    /// the streak doesn't look lost before this evening's).
-    public static func reflectionStreak(now: Date = .now, calendar: Calendar = .current) -> Int {
-        let days = Set(reflections.map(\.day))
-        var day = days.contains(dayKey(now, calendar: calendar)) ? now : (calendar.date(byAdding: .day, value: -1, to: now) ?? now)
-        var streak = 0
-        while days.contains(dayKey(day, calendar: calendar)) {
-            streak += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
-            day = previous
-        }
-        return streak
-    }
-
     // Pre-game routines.
 
     private static var routineLog: [String: [String]] {

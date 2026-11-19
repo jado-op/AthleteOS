@@ -16,7 +16,6 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public var checkedIn: Bool
     public var readiness: String?
     public var nextGameDate: Date?
-    public var streak: Int
     public var sessionsThisWeek: Int
     public var plannedThisWeek: Int
     /// The athlete's word for a competition ("Match", "Race"); nil in older snapshots.
@@ -26,7 +25,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
 
     public init(
         day: Date, sportName: String, sessionTitle: String?, sessionMinutes: Int?, exerciseCount: Int,
-        isGameDay: Bool, checkedIn: Bool, readiness: String?, nextGameDate: Date?, streak: Int,
+        isGameDay: Bool, checkedIn: Bool, readiness: String?, nextGameDate: Date?,
         sessionsThisWeek: Int, plannedThisWeek: Int
     ) {
         self.day = day
@@ -38,7 +37,6 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         self.checkedIn = checkedIn
         self.readiness = readiness
         self.nextGameDate = nextGameDate
-        self.streak = streak
         self.sessionsThisWeek = sessionsThisWeek
         self.plannedThisWeek = plannedThisWeek
     }
@@ -46,7 +44,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public static let placeholder = WidgetSnapshot(
         day: .now, sportName: "Soccer", sessionTitle: "Speed session", sessionMinutes: 42, exerciseCount: 4,
         isGameDay: false, checkedIn: false, readiness: nil, nextGameDate: Calendar.current.date(byAdding: .day, value: 3, to: .now),
-        streak: 5, sessionsThisWeek: 1, plannedThisWeek: 3
+        sessionsThisWeek: 1, plannedThisWeek: 3
     )
 
     static var fileURL: URL? {
@@ -73,7 +71,13 @@ enum WidgetSnapshotWriter {
         let adjusted = TodayEngine.todaysWorkout(athlete: athlete, week: week,
                                                  catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), calendar: calendar)
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
-        let sessionsThisWeek = athlete.sessions.filter { weekInterval?.contains($0.startedAt) ?? false }.count
+        // Workouts against the week's planned gym days, as on Home: mobility
+        // alone doesn't count, and the ring stops at the plan (never 5/3).
+        let planned = week?.sessions.count ?? 0
+        let trained = athlete.sessions.filter {
+            (weekInterval?.contains($0.startedAt) ?? false) && SessionKinds.kind(of: $0.clientId) != .mobility
+        }.count
+        let sessionsThisWeek = planned > 0 ? min(trained, planned) : trained
 
         var snapshot = WidgetSnapshot(
             day: today,
@@ -85,12 +89,12 @@ enum WidgetSnapshotWriter {
             checkedIn: checkIn != nil,
             readiness: checkIn == nil ? nil : DailyLoop.today(athlete)?.level.band.rawValue,
             nextGameDate: AthleteStats.upcomingCompetitions(athlete).first?.date,
-            streak: AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: athlete.sessions.map(\.startedAt)),
             sessionsThisWeek: sessionsThisWeek,
-            plannedThisWeek: week?.sessions.count ?? 0
+            plannedThisWeek: planned
         )
         snapshot.eventWord = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"]
-        snapshot.doneToday = athlete.sessions.contains { calendar.isDateInToday($0.startedAt) && $0.endedAt != nil }
+        // As on Home: a short mobility session alone isn't "done for today".
+        snapshot.doneToday = TodayEngine.workoutDone(athlete, calendar: calendar)
         guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)
         #if canImport(WidgetKit)

@@ -36,21 +36,24 @@ public enum TellParser {
         public var unread: [String] = []
     }
 
-    public static func parse(_ text: String, now: Date = .now, calendar: Calendar = .current) -> Result {
+    /// `locale` decides how "11/12" reads: 12 November where the month comes
+    /// first (US), 11 December elsewhere.
+    public static func parse(_ text: String, now: Date = .now, calendar: Calendar = .current, locale: Locale = .current) -> Result {
         let lower = text.lowercased()
             .replacingOccurrences(of: "’", with: "'")
         var proposals: [Proposal] = []
         var safety: String?
         // Sentences end at . ! ? ; followed by a space or the end — "24.11." stays one date.
         let marked = lower.replacingOccurrences(of: #"[.!?;]+(\s+|$)"#, with: "\n", options: .regularExpression)
-        let sentences = marked.split(separator: "\n").map(String.init)
+        // "Guten Morgen", "good morning": a greeting, never "tomorrow".
+        let sentences = marked.split(separator: "\n").map { withoutGreetings(String($0)) }
         var goals: [String] = []
         var unread: [String] = []
         var lastSeason: String?
 
         for sentence in sentences {
             let words = tokens(sentence)
-            let date = findDate(sentence, words: words, now: now, calendar: calendar)
+            let date = findDate(sentence, words: words, now: now, calendar: calendar, monthFirst: monthFirst(locale))
             let before = proposals.count
             let goalsBefore = goals.count
             var understood = false
@@ -154,6 +157,23 @@ public enum TellParser {
         let markers = ["after the", "before the", "until the", "till the", "nach den", "vor den", "bis zu den", "bis zu", "bis den"]
         let nouns = ["holiday", "holidays", "vacation", "break", "christmas holidays", "ferien", "weihnachtsferien", "urlaub"]
         return markers.contains { marker in nouns.contains { sentence.contains("\(marker) \($0)") } }
+    }
+
+    /// Greetings taken out before reading: "guten morgen" has "morgen"
+    /// (tomorrow) in it, and none of them says anything about a day.
+    static func withoutGreetings(_ sentence: String) -> String {
+        let greetings = ["guten morgen", "good morning", "guten tag", "guten abend", "good afternoon", "good evening"]
+        guard greetings.contains(where: sentence.contains) else { return sentence }
+        var out = sentence
+        for greeting in greetings { out = out.replacingOccurrences(of: greeting, with: " ") }
+        return out.trimmingCharacters(in: CharacterSet.whitespaces.union(.punctuationCharacters))
+    }
+
+    /// Whether the locale writes the month before the day ("11/24" in the US).
+    static func monthFirst(_ locale: Locale) -> Bool {
+        guard let format = DateFormatter.dateFormat(fromTemplate: "dM", options: 0, locale: locale),
+              let month = format.firstIndex(of: "M"), let day = format.firstIndex(of: "d") else { return false }
+        return month < day
     }
 
     /// "Hi", "thanks", "ok" — nothing to read, nothing to report as not understood.
@@ -280,7 +300,7 @@ public enum TellParser {
         (["nov", "november"], 11), (["dec", "december", "dez", "dezember"], 12),
     ]
 
-    static func findDate(_ sentence: String, words: [String], now: Date, calendar: Calendar) -> FoundDate? {
+    static func findDate(_ sentence: String, words: [String], now: Date, calendar: Calendar, monthFirst: Bool = false) -> FoundDate? {
         let today = calendar.startOfDay(for: now)
         func add(_ days: Int) -> Date { calendar.date(byAdding: .day, value: days, to: today) ?? today }
         if containsAny(words, sentence, ["day after tomorrow", "übermorgen"]) { return FoundDate(day: add(2)) }
@@ -291,11 +311,19 @@ public enum TellParser {
            let days = Int(sentence[match].filter(\.isNumber)), days <= 120 {
             return FoundDate(day: add(days))
         }
-        // 24.11. / 24/11 / 24.11.2026
+        // 24.11. / 24/11 / 24.11.2026 — and 11/24 where the month comes first.
         if let match = sentence.range(of: #"\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?"#, options: .regularExpression) {
-            let parts = sentence[match].split(whereSeparator: { $0 == "." || $0 == "/" }).compactMap { Int($0) }
-            if parts.count >= 2, let date = upcoming(day: parts[0], month: parts[1], year: parts.count > 2 ? parts[2] : nil, now: today, calendar: calendar) {
-                return FoundDate(day: date)
+            let text = sentence[match]
+            let parts = text.split(whereSeparator: { $0 == "." || $0 == "/" }).compactMap { Int($0) }
+            if parts.count >= 2 {
+                // Dots are always day first (24.11.); a slash follows the locale,
+                // unless one of the numbers can only be the day (11/24, 24/11).
+                var swap = monthFirst && text.contains("/")
+                if parts[0] > 12 { swap = false } else if parts[1] > 12 { swap = true }
+                let (d, m) = swap ? (parts[1], parts[0]) : (parts[0], parts[1])
+                if let date = upcoming(day: d, month: m, year: parts.count > 2 ? parts[2] : nil, now: today, calendar: calendar) {
+                    return FoundDate(day: date)
+                }
             }
         }
         // "24 nov", "nov 24", "24th of november", "am 24. november"
@@ -340,7 +368,15 @@ public enum TellParser {
         let skip = containsAny(words, sentence, ["next", "nächsten", "nächste", "nächstes", "kommenden"])
         for (names, number) in weekdays {
             // Two-letter German abbreviations are too ambiguous unless followed by a dot ("Sa.").
-            let usable = names.filter { $0.count > 2 || sentence.contains("\($0).") }
+            // "sat" and "sun" are words too ("I sat out", "in the sun"): only after
+            // on / this / next / until, or with a dot ("Sat.").
+            let usable = names.filter { name in
+                if name.count <= 2 { return sentence.contains("\(name).") }
+                if name == "sat" || name == "sun" {
+                    return sentence.contains("\(name).") || ["on", "this", "next", "until", "till", "by"].contains { sentence.contains("\($0) \(name)") }
+                }
+                return true
+            }
             if usable.contains(where: { words.contains($0) }) {
                 return FoundDate(day: nextWeekday(number, after: today, skipThisWeek: skip, calendar: calendar))
             }

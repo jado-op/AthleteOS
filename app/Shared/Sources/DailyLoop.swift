@@ -305,7 +305,8 @@ public enum DailyLoop {
         }
         if let answers {
             var named: [String] = []
-            if (answers.sleepHours ?? 8) < 6 || answers.sleepQuality <= 1 { named.append("short sleep") }
+            // A long but restless night is poor sleep, not short sleep.
+            if (answers.sleepHours ?? 8) < 6 { named.append("short sleep") } else if answers.sleepQuality <= 1 { named.append("poor sleep") }
             if answers.energy <= 1 { named.append("low energy") }
             if answers.soreness >= 5 { named.append("heavy soreness") }
             if answers.stress >= 5 { named.append("a lot of stress") }
@@ -342,7 +343,7 @@ public enum DailyLoop {
     /// Why today's plan looks the way it does, in one sentence.
     public static func whyThisPlan(
         status: DayStatus, mode: WorkoutMode?, practiceToday: Bool, gameToday: Bool, daysToNextGame: Int?,
-        readiness: (level: TodayReadiness, reason: String)?
+        readiness: (level: TodayReadiness, reason: String)?, eventWord: String = "Game"
     ) -> String {
         switch status {
         case .sick: return "You're resting today, so there's no training."
@@ -351,10 +352,10 @@ public enum DailyLoop {
         case .holiday: return "Your plan is paused. A light workout is optional."
         case .active: break
         }
-        if gameToday { return "Game day: no workout — save your energy for the game." }
+        if gameToday { return "\(eventWord) day: no workout — save your energy for the \(eventWord.lowercased())." }
         if let readiness, readiness.level > .normal { return readiness.reason }
         if let days = daysToNextGame, days <= 2, mode == .gymDay || mode == .afterPractice {
-            return "Game in \(days == 1 ? "1 day" : "\(days) days"), so today stays short and sharp."
+            return "\(eventWord) in \(days == 1 ? "1 day" : "\(days) days"), so today stays short and sharp."
         }
         switch mode {
         case .afterPractice?: return "You have practice today, so the gym work is short and complements it."

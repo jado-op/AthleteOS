@@ -112,11 +112,33 @@ struct HomeView: View {
     /// Today's workout: built around practice, games and the day's status.
     /// Today's decision from the rules (safety first; see KnowledgeSystem.swift).
     private var planning: PlanningEvaluation {
-        _ = revision
-        return PlanningRules.today(athlete, sessions: allSessions)
+        refreshToday()
+        return memo.planning ?? PlanningRules.today(athlete, sessions: allSessions)
     }
 
     private var todaysWorkout: (mode: WorkoutMode, session: GeneratedSession)? {
+        refreshToday()
+        return memo.workout
+    }
+
+    /// Today's plan and workout, worked out once per change in what they
+    /// read (a redraw asks for them a dozen times; the clock ticks each minute).
+    @State private var memo = HomeTodayMemo()
+
+    private func refreshToday() {
+        let key = HomeTodayMemo.Key(
+            revision: revision, clock: clock, sessions: allSessions.count, checkIns: athlete.checkIns.count,
+            competitions: athlete.competitions.map(\.date), status: status, catalogue: catalogue.itemsBySlug.count,
+            override: readinessOverrideDay, practiceDays: practiceDays, week: week)
+        guard memo.key != key else { return }
+        // Planning first and the key set, so building the workout (which reads
+        // `planning`) doesn't start over.
+        memo.planning = PlanningRules.today(athlete, sessions: allSessions)
+        memo.key = key
+        memo.workout = buildTodaysWorkout()
+    }
+
+    private func buildTodaysWorkout() -> (mode: WorkoutMode, session: GeneratedSession)? {
         // No added training when the rules say so (game near, illness, pain…).
         guard planning.decision.allowsAddedTraining else { return nil }
         switch status {
@@ -206,7 +228,7 @@ struct HomeView: View {
         // V6: the engine's own reason for today's session.
         if let summary = todaysWorkout?.session.explanation?.summary { return summary }
         return DailyLoop.whyThisPlan(status: status, mode: todaysWorkout?.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
-                              daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : readiness)
+                              daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : readiness, eventWord: eventWord)
     }
 
     // MARK: - Learning and reflecting
@@ -529,8 +551,10 @@ struct HomeView: View {
     /// A workout type found in search, built for today like Home's own.
     private func searchSession(_ mode: WorkoutMode) -> GeneratedSession? {
         if mode == .gymDay {
-            let planned = week?.sessions.first { calendar.isDateInToday($0.date) } ?? week?.sessions.first
-            return planned.map { adjusted($0) }
+            // Today's gym day when there is one; otherwise a gym session built
+            // for today (never another day's session shown as today's).
+            if let planned = week?.sessions.first(where: { calendar.isDateInToday($0.date) }) { return adjusted(planned) }
+            return engine(.gymDay)
         }
         return engine(mode)
     }
@@ -1102,7 +1126,7 @@ struct HomeView: View {
                 Button { openLesson() } label: { heroTitle(briefing.title) }
                     .buttonStyle(.pressable)
                 bigNumber("\(briefing.minutes)", unit: "min")
-                heroMeta("Your coach assigned it from your twin")
+                heroMeta("Picked for you by AthleteOS Coach, from your twin")
                 Button { openLesson() } label: { HeroCTALabel("Read") }
                     .buttonStyle(.primary)
                     .padding(.top, 6)
@@ -1574,17 +1598,17 @@ struct HomeView: View {
 
     /// After midnight without a finished day: nothing to do but sleep.
     private var nightView: some View {
-        VStack(spacing: 12) {
-            HomeEyebrow("It's late")
-            Text("Sleep is training too.")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-                .multilineTextAlignment(.center)
-            Text("Everything else can wait until morning.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+        // V8: the body (blue) card — sleep is the one job left today.
+        AuraCard(.body, focus: UnitPoint(x: 0.25, y: 0.4), radius: 200) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("It's late")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                Headline([.strong("Sleep is training too. "), .soft("Everything else can wait until morning.")], size: 30)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     private struct DoneRow {
@@ -1907,4 +1931,25 @@ struct AnnouncementCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassSurface()
     }
+}
+
+/// What Home worked out for today, and from what (see `HomeView.refreshToday`).
+/// Only read and written from Home's body, on the main thread.
+final class HomeTodayMemo {
+    struct Key: Equatable {
+        let revision: Int
+        let clock: Date
+        let sessions: Int
+        let checkIns: Int
+        let competitions: [Date]
+        let status: DayStatus
+        let catalogue: Int
+        let override: String
+        let practiceDays: Set<Int>
+        let week: GeneratedWeek?
+    }
+
+    var key: Key?
+    var planning: PlanningEvaluation?
+    var workout: (mode: WorkoutMode, session: GeneratedSession)?
 }

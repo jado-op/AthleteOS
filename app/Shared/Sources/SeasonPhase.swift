@@ -63,10 +63,21 @@ public enum PhaseCalculator {
 public enum PreSeasonStore {
     static let key = "season.preSeasonStart"
 
+    /// Kept as seconds since 1970 (a plain number) so the settings backup
+    /// (`CloudSync`) carries it; an older build's stored Date still reads.
     public static var start: Date? {
-        get { UserDefaults.standard.object(forKey: key) as? Date }
+        get {
+            let stored = UserDefaults.standard.object(forKey: key)
+            if let date = stored as? Date { return date }
+            if let seconds = stored as? NSNumber { return Date(timeIntervalSince1970: seconds.doubleValue) }
+            return nil
+        }
         set {
-            if let newValue { UserDefaults.standard.set(newValue, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+            if let newValue {
+                UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
         }
     }
 }

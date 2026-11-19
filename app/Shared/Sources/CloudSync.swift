@@ -28,7 +28,7 @@ public enum CloudSync {
     static let settingsKeys: Set<String> = [
         "dayStatus.v1", "reminderSettings", "home.introSeen", "appTourSeen",
         "libraryOpened", "gameStartMinutes", "weightUnit",
-        "freeSportSwitchDates", "muscleWorkoutStarts",
+        "freeSportSwitchDates", "muscleWorkoutStarts", "season.preSeasonStart",
     ]
     /// Whole families of athlete keys, including ones later features add.
     static let settingsPrefixes = ["campus.", "schedule.", "plans.", "progress.", "profile.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league.", "academyTwin."]

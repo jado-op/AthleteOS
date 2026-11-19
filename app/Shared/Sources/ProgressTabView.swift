@@ -60,10 +60,8 @@ struct PieDot: View {
     var body: some View {
         let done = marks.done
         let planned = marks.planned
-        let ring = false
-        let ringColor = AppTheme.ink
         Canvas { context, canvasSize in
-            let inset: CGFloat = ring ? 3 : 1
+            let inset: CGFloat = 1
             let rect = CGRect(origin: .zero, size: canvasSize).insetBy(dx: inset, dy: inset)
             let center = CGPoint(x: rect.midX, y: rect.midY)
             let radius = min(rect.width, rect.height) / 2
@@ -89,10 +87,6 @@ struct PieDot: View {
                     arc.addArc(center: center, radius: radius - 1, startAngle: start, endAngle: end, clockwise: false)
                     context.stroke(arc, with: .color(color), lineWidth: 2)
                 }
-            }
-            if ring {
-                let outer = CGRect(x: center.x - radius - 2.5, y: center.y - radius - 2.5, width: (radius + 2.5) * 2, height: (radius + 2.5) * 2)
-                context.stroke(Path(ellipseIn: outer), with: .color(ringColor), lineWidth: 1.5)
             }
         }
         .frame(width: size, height: size)

@@ -89,7 +89,6 @@ struct AcademyTabView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .accessibilityLabel("Close")
                     .buttonStyle(.plain)
                     .padding(.top, 14)
                     .padding(.trailing, 20)

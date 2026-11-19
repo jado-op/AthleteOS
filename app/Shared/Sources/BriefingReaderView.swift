@@ -96,7 +96,7 @@ struct BriefingReaderView: View {
 
     private func whyBlock(_ insight: TwinInsight) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Why your coach gave you this")
+            Text("Why AthleteOS Coach gave you this")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
             Text(insight.why)

@@ -260,7 +260,7 @@ struct WorkoutTabView: View {
             return rec.reason
         }
         return DailyLoop.whyThisPlan(status: status, mode: rec.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
-                                     daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : DailyLoop.today(athlete))
+                                     daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : DailyLoop.today(athlete), eventWord: eventWord)
     }
 
     /// Short tags: what today's workout is shaped around.
@@ -518,18 +518,19 @@ struct WorkoutTabView: View {
                 SectionHeader("This week", subtitle: isDeloadWeek(week)
                               ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
                 VStack(spacing: 0) {
-                    ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
-                        Button { preview = PreviewBox(session: adjusted(session), kind: .gym, slot: session.slot.map { PlanSlot.gym($0) }) } label: {
+                    ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, planned in
+                        let session = rowSession(planned)
+                        Button { preview = PreviewBox(session: session, kind: .gym, slot: planned.slot.map { PlanSlot.gym($0) }) } label: {
                             HStack(spacing: 12) {
-                                Text(session.date.formatted(.dateTime.weekday(.abbreviated)))
+                                Text(planned.date.formatted(.dateTime.weekday(.abbreviated)))
                                     .font(.headline)
-                                    .foregroundStyle(calendar.isDateInToday(session.date) ? AppTheme.onAccent : AppTheme.ink)
+                                    .foregroundStyle(calendar.isDateInToday(planned.date) ? AppTheme.onAccent : AppTheme.ink)
                                     .frame(width: 52, height: 40)
-                                    .background(calendar.isDateInToday(session.date) ? AppTheme.accent : AppTheme.fill, in: Capsule())
+                                    .background(calendar.isDateInToday(planned.date) ? AppTheme.accent : AppTheme.fill, in: Capsule())
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
                                         Text(session.title).font(.headline).foregroundStyle(AppTheme.ink)
-                                        if let slot = session.slot, custom.workout(for: .gym(slot)) != nil { Tag("Yours", color: AppTheme.brand) }
+                                        if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil { Tag("Yours", color: AppTheme.brand) }
                                     }
                                     Text("About \(session.estimatedMinutes) min · \(session.items.count) exercises")
                                         .font(.caption).foregroundStyle(AppTheme.secondaryText)
@@ -546,6 +547,15 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
         }
+    }
+
+    /// What a row of the week opens. Today's row opens the very session the
+    /// card above shows, so the screen never offers two different "todays".
+    private func rowSession(_ planned: GeneratedSession) -> GeneratedSession {
+        guard calendar.isDateInToday(planned.date) else { return adjusted(planned) }
+        if recommendation.mode == .gymDay, let today = recommendedSession { return today }
+        if let today = gymSession, today.isToday { return today.session }
+        return adjusted(planned)
     }
 
     private func isDeloadWeek(_ week: GeneratedWeek) -> Bool {

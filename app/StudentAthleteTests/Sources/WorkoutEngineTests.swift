@@ -62,6 +62,28 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertLessThanOrEqual(mainWork(session).count, 7, "quality over exercise count (§7)")
     }
 
+    // In season, practice every day: one short, heavy leg lift once the legs
+    // have gone a week without one (Rønnestad 2011) — never close to a game.
+    func testDailyPracticeStillGetsAWeeklyLegLift() {
+        let practices = RecentLoad(days: (1...7).map { DayLoad(daysAgo: $0, practice: .normal, game: $0 == 3) })
+        let (decision, session) = build(day("soccer", position: "midfielder", phase: .inSeason, practice: .normal, nextGame: 4, recent: practices),
+                                        sport: "soccer", position: "midfielder")
+        XCTAssertEqual(decision.sessionType, .afterPractice)
+        XCTAssertTrue(decision.reasons.contains(.weeklyHeavyLegs))
+        XCTAssertGreaterThanOrEqual(decision.legBudget, 2)
+        XCTAssertTrue(decision.primaryTargets.contains(.strength))
+        XCTAssertTrue(decision.avoidToday.contains(.highVolumeLowerBody), "low volume")
+        XCTAssertTrue(session.items.contains { profile($0)?.isLower ?? false && [.primaryStrength, .secondaryStrength].contains($0.block) })
+        XCTAssertTrue(session.explanation?.summary.contains("heavy leg lift") ?? false)
+        // A leg lift 3 days ago, a game in 2 days, or a low check-in: not today.
+        var lifted = practices
+        lifted.days[2].lowerPattern = "squat"
+        XCTAssertFalse(SessionPlanner.decide(day("soccer", phase: .inSeason, practice: .normal, nextGame: 4, recent: lifted)).reasons.contains(.weeklyHeavyLegs))
+        XCTAssertFalse(SessionPlanner.decide(day("soccer", phase: .inSeason, practice: .normal, nextGame: 2, recent: practices)).reasons.contains(.weeklyHeavyLegs))
+        XCTAssertFalse(SessionPlanner.decide(day("soccer", phase: .inSeason, practice: .normal, nextGame: 4, readiness: .belowNormal,
+                                                 recent: practices)).reasons.contains(.weeklyHeavyLegs))
+    }
+
     // §8's example: hard practice today, game tomorrow, tired legs → upper body + trunk.
     func testHardPracticeBeforeAGameMeansNoHeavyLowerBody() {
         let (decision, session) = build(day("basketball", phase: .inSeason, practice: .hard, nextGame: 1), sport: "basketball")

@@ -44,7 +44,7 @@ enum TodayEngine {
         // That evening's reflection says how hard it was, when there is one;
         // before it, how hard the athlete said it would be.
         switch MindsetStore.reflection(on: date, calendar: calendar)?.hardness {
-        case 4?: return .hard
+        case 3?, 4?: return .hard
         case 1?: return .light
         default: return said?.practice ?? .normal
         }
@@ -187,31 +187,42 @@ enum TodayEngine {
     }
 
     /// What the athlete's twin has found that changes training (TwinSteer):
-    /// the same analysis the Academy shows, read by the planner. Worked out
-    /// once per day and per change in the data it reads.
+    /// the same analysis the Academy shows, read by the planner. It describes
+    /// the athlete, not the date, so it is worked out once per day (and per
+    /// change in the data it reads) and every day of the week reuses it.
     private static var twinCache: (key: String, steers: Set<TwinSteer>)?
 
     static func twinSteers(_ athlete: Athlete, date: Date, calendar: Calendar = .current) -> Set<TwinSteer> {
-        let key = [DayKey.of(date, calendar: calendar), "\(athlete.sessions.count)", "\(athlete.checkIns.count)", "\(athlete.competitions.count)",
+        let now = Date.now
+        let todayStart = calendar.startOfDay(for: now)
+        // Sessions before today only: today's own workout doesn't reshape itself.
+        let earlier = athlete.sessions.filter { $0.startedAt < todayStart }.count
+        let games = athlete.competitions.map { DayKey.of($0.date, calendar: calendar) }.sorted().joined(separator: ",")
+        let key = [DayKey.of(now, calendar: calendar), "\(earlier)", "\(athlete.checkIns.count)", games,
                    "\(MindsetStore.reflections.count)", "\(PracticeLogStore.logs.count)", "\(BenchmarkStore.results.count)"].joined(separator: "|")
         if let twinCache, twinCache.key == key { return twinCache.steers }
-        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load(), now: date, calendar: calendar)
+        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load(), now: now, calendar: calendar)
         let steers = TwinSteer.from(TwinAnalysis.report(input, calendar: calendar).insights.map(\.kind))
         twinCache = (key, steers)
         return steers
     }
 
-    static func kit(_ athlete: Athlete, catalogue: Catalogue, date: Date, recent: RecentLoad) -> AthleteKit {
+    static func kit(_ athlete: Athlete, catalogue: Catalogue, date: Date, recent: RecentLoad, calendar: Calendar = .current) -> AthleteKit {
         let active = athlete.activeSport
         let sport = active.flatMap { catalogue.sportsBySlug[$0.sportSlug] ?? allSportsBySlug[$0.sportSlug] }
         let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: date)
-        let day = Int(date.timeIntervalSince1970 / 86_400)
-        // The last 7 days: jumps already landed come off the weekly cap, and
-        // yesterday's exercises step back so sessions vary.
-        let weekAgo = date.addingTimeInterval(-7 * 86_400), dayAgo = date.addingTimeInterval(-36 * 3600)
+        // The athlete's own calendar day: the same picks all day long, and the
+        // same session whether it is asked for at 07:00 or at 23:00.
+        let day = DayKey.of(date, calendar: calendar)
+        // The 7 days before today: jumps already landed come off the weekly cap,
+        // and yesterday's exercises step back so sessions vary. Today's own
+        // sessions don't count, so the workout doesn't change once it's started.
+        let dayStart = calendar.startOfDay(for: date)
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: dayStart) ?? dayStart.addingTimeInterval(-7 * 86_400)
+        let dayAgo = calendar.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart.addingTimeInterval(-86_400)
         var landed = 0
         var recentSlugs: Set<String> = []
-        for session in athlete.sessions where session.startedAt >= weekAgo && session.startedAt < date {
+        for session in athlete.sessions where session.startedAt >= weekAgo && session.startedAt < dayStart {
             for set in session.sets {
                 if session.startedAt >= dayAgo { recentSlugs.insert(set.itemSlug) }
                 guard let group = catalogue.item(set.itemSlug)?.planProfile.group, group.hasPrefix("jump") else { continue }
@@ -237,8 +248,7 @@ enum TodayEngine {
                                     date: Date, plannedGymDay: Bool, calendar: Calendar = .current) -> String {
         let checkIn = AthleteStats.todaysCheckIn(athlete)
         let answers = checkIn.map { "\($0.sleepQuality),\($0.sleepHours ?? -1),\($0.soreness),\($0.energy),\($0.stress)" } ?? "none"
-        let hour = calendar.component(.hour, from: .now)
-        return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar), "\(hour)",
+        return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar),
                 "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", "\(athlete.competitions.count)",
                 DayStatusStore.status().rawValue, "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
@@ -296,6 +306,14 @@ enum TodayEngine {
         return isAvailable(catalogue) ? nil : WorkoutModeBuilder.build(mode, context)
     }
 
+    /// A workout (mobility on its own doesn't count) finished today — the
+    /// same test as Home's "Training done", for the Watch and the widgets.
+    static func workoutDone(_ athlete: Athlete, calendar: Calendar = .current) -> Bool {
+        athlete.sessions.contains {
+            calendar.isDateInToday($0.startedAt) && $0.endedAt != nil && SessionKinds.kind(of: $0.clientId) != .mobility
+        }
+    }
+
     /// Today's main workout, the way Home picks it — for the Watch and the
     /// widgets, so every screen shows the same session. Nil: rest or no plan.
     static func todaysWorkout(athlete: Athlete, week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar = .current) -> GeneratedSession? {
@@ -312,14 +330,22 @@ enum TodayEngine {
             guard let band = DailyLoop.todayBand(athlete) else { return safe }
             return ReadinessApplier.apply(to: safe, band: band).session
         }
+        // The athlete's own version of a workout wins, as on Home (`workout(_:)`).
+        func mine(_ mode: WorkoutMode) -> GeneratedSession? {
+            guard let custom = PlanCustomizationStore.load().workout(for: .mode(mode)), !custom.items.isEmpty else { return nil }
+            return custom.session(date: .now, catalogue: catalogue)
+        }
         // "Something light" (and no gym): mobility, whatever else the day holds.
         if let said, said.choices.contains(.light), !said.choices.contains(.gym), isAvailable(catalogue) {
+            if let custom = mine(.mobility) { return TodaysPain.apply(custom, athlete: athlete, catalogue: catalogue) }
             return session(.mobility, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
         }
         if status == .travel || status == .holiday {
+            if let custom = mine(.travel) { return TodaysPain.apply(custom, athlete: athlete, catalogue: catalogue) }
             return session(.travel, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
         }
         if PracticeSchedule.hasPractice(on: .now, calendar: calendar) {
+            if let custom = mine(.afterPractice) { return old(custom) }
             return session(.afterPractice, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
                 ?? (isAvailable(catalogue) ? nil : planned.map(old))
         }

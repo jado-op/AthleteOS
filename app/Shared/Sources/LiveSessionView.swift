@@ -795,7 +795,7 @@ public struct LiveSessionView: View {
         endActivity()
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
-        WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         let sessionRef = session
         let sportSlug = athlete.activeSport?.sportSlug
         Task {

@@ -270,7 +270,7 @@ public enum ReminderScheduler {
                 guard let when = gameReminderDate(for: game.date) else { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "\(game.kind) tomorrow"
-                content.body = "Primer day today — keep it light, eat a good dinner and get to bed early."
+                content.body = "Keep today light and get to bed early."
                 content.sound = .default
                 let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: when)
                 let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)

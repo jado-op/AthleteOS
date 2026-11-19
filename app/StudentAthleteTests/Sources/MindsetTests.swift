@@ -17,13 +17,12 @@ final class MindsetTests: XCTestCase {
 
     private var evening: Date { calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 21))! }
 
-    func testOneReflectionPerDayAndAStreak() {
+    func testOneReflectionPerDay() {
         MindsetStore.saveReflection(win: "Stayed calm", lesson: "Call for the ball earlier", feeling: 4, on: evening, calendar: calendar)
         MindsetStore.saveReflection(win: "Good serve", lesson: "Sleep earlier", feeling: nil, on: evening.addingTimeInterval(-86_400), calendar: calendar)
         MindsetStore.saveReflection(win: "Stayed calm again", lesson: "Talk more", feeling: 5, on: evening, calendar: calendar)
         XCTAssertEqual(MindsetStore.reflections.count, 2, "a second one the same evening replaces the first")
         XCTAssertEqual(MindsetStore.reflection(on: evening, calendar: calendar)?.win, "Stayed calm again")
-        XCTAssertEqual(MindsetStore.reflectionStreak(now: evening, calendar: calendar), 2)
     }
 
     func testBreathingPhasesAndVisualizationLength() {

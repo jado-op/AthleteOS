@@ -133,6 +133,8 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case choseRest = "ATHLETE_CHOSE_REST"
     /// Asked for the gym, but safety (recovery, a game tomorrow or today) made it a lighter session.
     case choseGymMadeLighter = "ATHLETE_CHOSE_GYM_MADE_LIGHTER"
+    /// A week without a lower-body lift on practice days: one short, heavy leg lift keeps strength in season.
+    case weeklyHeavyLegs = "WEEKLY_HEAVY_LEGS"
 }
 
 /// Where an athlete is in their development (docs/TRAINING-RESEARCH.md §1:
@@ -547,6 +549,19 @@ public enum SessionPlanner {
         if avoid.contains(.heavyLowerBody) { legBudget = min(legBudget, 1) }
         if day.gameToday { legBudget = 0 }
         if day.daysToNextGame == 1 || day.soreLegs || day.readiness == .low { legBudget = min(legBudget, day.practice == nil ? 1 : 0) }
+        // A sport that practices most days would otherwise never lift heavy
+        // legs in season. One short, heavy lower-body exposure a week keeps
+        // the strength (Rønnestad 2011): after practice, once the legs have
+        // gone 6 days without a lower-body lift, with no game within 2 days
+        // and a normal (or better) check-in. Few sets, so practice recovery holds.
+        let lastLowerLift = day.recent.week.filter { $0.heavyLower || $0.lowerPattern != nil }.map(\.daysAgo).min()
+        if type == .afterPractice, day.practice != nil, legBudget < 2, day.recent.week.count >= 6, (lastLowerLift ?? 99) >= 6,
+           !day.gameToday, (day.daysToNextGame ?? 99) > 2, day.readiness >= .normal, !day.soreLegs,
+           !avoid.contains(.heavyLowerBody), !mustRecover {
+            legBudget = 2
+            avoid.insert(.highVolumeLowerBody)
+            add(.weeklyHeavyLegs)
+        }
         if legBudget <= 1 { avoid.insert(.highVolumeLowerBody) }
         if legBudget <= 1, day.practice != nil { add(.lowerBodyTrainedRecently) }
 

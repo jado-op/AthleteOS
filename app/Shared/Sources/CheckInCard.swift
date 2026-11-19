@@ -62,6 +62,8 @@ struct CheckInSheet: View {
     @State private var saveAfterPain = false
     /// The summary exists: the step-by-step flow can go back to it.
     @State private var hasSummary = false
+    /// Apple Health filled in sleep or energy (the summary shows where from).
+    @State private var fromWatch = false
     @State private var canConnectHealth = false
     @State private var dayStatus = DayStatusStore.status()
     @State private var showingSafety = false
@@ -103,10 +105,12 @@ struct CheckInSheet: View {
         .task {
             canConnectHealth = await HealthKitManager.shared.needsAuthorization()
             await loadHealth()
-            // With a watch or band's data: one screen to confirm or edit.
-            let fromWatch = healthHours != nil || energyFromWatch
-            hasSummary = fromWatch
-            withAnimation(.easeInOut(duration: 0.2)) { step = fromWatch ? .summary : .today }
+            // With a watch or band's data, or an earlier check-in to start
+            // from: one screen to confirm or edit. The very first check-in
+            // goes step by step (and the summary keeps that one tap away).
+            fromWatch = healthHours != nil || energyFromWatch
+            hasSummary = fromWatch || lastCheckIn != nil || AthleteStats.todaysCheckIn(athlete) != nil
+            withAnimation(.easeInOut(duration: 0.2)) { step = hasSummary ? .summary : .today }
         }
         .sheet(isPresented: $showingSafety) { SafetyCenterView() }
     }
@@ -316,10 +320,16 @@ struct CheckInSheet: View {
 
     private var summaryPage: some View {
         QuestionPage(progress: 0, question: "Your morning",
-                     hint: "Filled in from Apple Health. Confirm, or change anything.",
+                     hint: fromWatch ? "Filled in from Apple Health. Confirm, or change anything." : "Tap what's true this morning, then confirm.",
                      buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil
                         && !dayAnswer.choices.isEmpty,
                      onClose: { dismiss() }, onButton: { confirm() }, tone: .body) {
+            if !fromWatch {
+                // Nothing measured: this morning's sleep and energy as taps, right here.
+                compactRow("Sleep", hint: nil, CheckInOptions.sleepHours, selection: $sleepHours)
+                compactRow("Sleep quality", hint: nil, CheckInOptions.sleepQuality, selection: $sleepQuality)
+                compactRow("Energy", hint: nil, CheckInOptions.energy, selection: $energy)
+            } else {
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
                     ListRow(systemImage: "moon.fill", color: AppTheme.purple,
@@ -336,6 +346,7 @@ struct CheckInSheet: View {
                 .buttonStyle(.plain)
             }
             .cardStyle(padding: 12)
+            }
             compactRow("Soreness", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.soreness, selection: $soreness)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Any pain or discomfort?").font(.headline).foregroundStyle(AppTheme.ink)
@@ -452,7 +463,7 @@ struct CheckInSheet: View {
         IllnessStore.set(illness)
         // "No pain" today: a pain reported on an earlier day is gone.
         if hasPain == false { PainFollowUp.markResolved() }
-        WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         saveCount += 1
         withAnimation(.easeInOut(duration: 0.25)) { step = .result }
     }
@@ -460,7 +471,8 @@ struct CheckInSheet: View {
     // MARK: Result
 
     private var resultPage: some View {
-        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }, tone: .body) {
+        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: "Done", onClose: { dismiss() },
+                     onButton: { dismiss() }, tone: .body) {
             if let readiness = DailyLoop.today(athlete) {
                 ReadinessBlock(level: readiness.level, reason: readiness.reason)
             }

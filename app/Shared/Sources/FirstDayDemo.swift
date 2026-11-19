@@ -21,7 +21,7 @@ struct FirstDayDemo: View {
         Moment(id: 1, time: "7:16", icon: "list.bullet.rectangle", title: "Today's plan",
                body: "Practice at 3:30, so the gym work is short: strength and injury prevention for your sport. And why."),
         Moment(id: 2, time: "12:30", icon: "graduationcap.fill", title: "Academy",
-               body: "Your twin spots a pattern — short nights before games — and your coach assigns a read on it."),
+               body: "Your twin spots a pattern — short nights before games — and AthleteOS Coach assigns a read on it."),
         Moment(id: 3, time: "3:00", icon: "figure.run", title: "Movement prep",
                body: "Ten minutes to wake your body up before practice. Every exercise shows you how."),
         Moment(id: 4, time: "9:00", icon: "moon.stars.fill", title: "Evening reflection",

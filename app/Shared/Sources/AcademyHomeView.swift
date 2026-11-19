@@ -1,5 +1,8 @@
 import Charts
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // The Academy tab (docs/ACADEMY-PLAN.md, v3): the Digital Twin as an analysis
 // of the athlete. The coach's read, the insights found in their own data with
@@ -29,9 +32,16 @@ extension TwinInsightKind {
 }
 
 /// Reading serif (New York on iOS) for the coach's voice and the briefings.
+/// Scales with the athlete's text size (Dynamic Type): the long reads are
+/// the screens where it matters most.
 extension Font {
     static func reading(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .serif)
+        #if os(iOS)
+        let scaled = UIFontMetrics(forTextStyle: .body).scaledValue(for: size)
+        #else
+        let scaled = size
+        #endif
+        return .system(size: scaled, weight: weight, design: .serif)
     }
 }
 
@@ -239,7 +249,7 @@ struct AcademyHomeView: View {
 
     private func coachRead(_ report: TwinReport) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Coach's read")
+            Text("AthleteOS Coach's read")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.ink.opacity(0.8))
             Text(report.coachRead)
@@ -325,7 +335,7 @@ struct AcademyHomeView: View {
                 } label: {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Coach assigned: \(briefing.title)")
+                            Text("AthleteOS Coach assigned: \(briefing.title)")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(AppTheme.ink)
                                 .multilineTextAlignment(.leading)

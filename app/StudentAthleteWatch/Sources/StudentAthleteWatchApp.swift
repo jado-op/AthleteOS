@@ -58,10 +58,12 @@ enum WatchSnapshotWriter {
             exerciseCount: today ? payload.items.count : 0,
             isGameDay: today && payload.isGameDay, checkedIn: checkedIn, readiness: nil,
             nextGameDate: payload.nextGameDate,
-            streak: athlete.map { AthleteStats.streak(checkInDates: $0.checkIns.map(\.date), sessionDates: $0.sessions.map(\.startedAt)) } ?? 0,
             sessionsThisWeek: sessionsThisWeek, plannedThisWeek: 0
         )
-        guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
+        var done = snapshot
+        done.doneToday = today && payload.doneToday == true || (athlete.map { WatchRootView.finishedToday($0) } ?? false)
+        done.eventWord = payload.eventWord
+        guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(done) else { return }
         try? data.write(to: url, options: .atomic)
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -81,6 +83,23 @@ struct WatchRootView: View {
         guard let payload else { return athletes.first }
         return athletes.first { $0.id == payload.athleteId } ?? athletes.first
     }
+
+    /// A workout finished today, logged on this Watch.
+    static func finishedToday(_ athlete: Athlete) -> Bool {
+        athlete.sessions.contains { Calendar.current.isDateInToday($0.startedAt) && $0.endedAt != nil }
+    }
+
+    /// Today's workout is done, on the phone or here: no second Start.
+    private var doneToday: Bool {
+        (payload?.doneToday == true && payload?.isForToday == true) || (athlete.map { Self.finishedToday($0) } ?? false)
+    }
+
+    /// Tonight's reflection, done here or on the phone.
+    private var reflectionDone: Bool {
+        reflectedToday || (payload?.reflectedOnPhone == true && payload?.isForToday == true)
+    }
+
+    private var eventWord: String { payload?.eventWord ?? "Game" }
 
     private var checkedInToday: Bool {
         (payload?.checkedInOnPhone == true && payload?.isForToday == true)
@@ -147,7 +166,7 @@ struct WatchRootView: View {
 
                 // Screenshots run at whatever time the runner's clock says; an
                 // evening button there would push today's session off screen.
-                if Calendar.current.component(.hour, from: .now) >= 18, !reflectedToday, !DemoData.isEnabled {
+                if Calendar.current.component(.hour, from: .now) >= 18, !reflectionDone, !DemoData.isEnabled {
                     Button {
                         showingReflection = true
                     } label: {
@@ -159,7 +178,9 @@ struct WatchRootView: View {
                 }
 
                 if today && payload.isGameDay {
-                    card(big: "Game", label: "Warm-up only today", icon: "sportscourt.fill")
+                    card(big: eventWord, label: "Warm-up only today", icon: "sportscourt.fill")
+                } else if today, doneToday {
+                    card(big: "Done", label: "Training done today", icon: "checkmark.circle.fill")
                 } else if today, let title = payload.sessionTitle, !payload.items.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -193,7 +214,7 @@ struct WatchRootView: View {
 
                 if let next = payload.nextGameDate, next >= Calendar.current.startOfDay(for: .now) {
                     let days = AthleteStats.daysUntil(next)
-                    Label(days == 0 ? "Game today" : "Next game in \(days)d", systemImage: "sportscourt.fill")
+                    Label(days == 0 ? "\(eventWord) today" : "Next \(eventWord.lowercased()) in \(days)d", systemImage: "sportscourt.fill")
                         .font(.caption)
                         .foregroundStyle(AuraTone.game.mark)
                 }
