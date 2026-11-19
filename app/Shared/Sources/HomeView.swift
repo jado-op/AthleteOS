@@ -42,6 +42,7 @@ struct HomeView: View {
     /// Where the Competitions hub opens (overview, add a game, game prep).
     @State private var hubOpening: CompetitionHubFocus = .overview
     @State private var showingTell = false
+    @State private var showingGym = false
     @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
     /// Picked in search: opens once the search has closed.
@@ -453,6 +454,13 @@ struct HomeView: View {
                         onPlanInputsChanged()
                     }
                 }
+            }
+            .sheet(isPresented: $showingGym, onDismiss: { revision += 1 }) {
+                GymSetupView(athlete: athlete, catalogue: catalogue,
+                             onStart: { session in liveLaunch = LiveSessionLaunch(planned: session, kind: .gym) },
+                             onPreview: { session in
+                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { preview = PreviewBox(session: session, kind: .gym) }
+                             })
             }
             .sheet(item: $preview) { box in
                 SessionPreviewSheet(session: box.session, catalogue: catalogue) {
@@ -1081,11 +1089,26 @@ struct HomeView: View {
                 // One short line instead of a row of grey boxes: the load word
                 // and, for a plain session, how many exercises.
                 heroMeta(loadLine(session))
-                Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) } label: {
-                    HeroCTALabel("Start training")
+                // The athlete's own gym session: why this focus, and a way to pick another.
+                if session.decision?.gymFocus != nil {
+                    if let note = session.decision?.gymNote { heroMeta(note) }
+                    ButtonRow {
+                        Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) } label: {
+                            HeroCTALabel("Start training")
+                        }
+                        .buttonStyle(.primary)
+                        Button("Change") { showingGym = true }
+                            .buttonStyle(.secondary)
+                            .accessibilityLabel("Change what you train today")
+                    }
+                    .padding(.top, 8)
+                } else {
+                    Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) } label: {
+                        HeroCTALabel("Start training")
+                    }
+                    .buttonStyle(.primary)
+                    .padding(.top, 8)
                 }
-                .buttonStyle(.primary)
-                .padding(.top, 8)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

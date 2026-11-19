@@ -16,6 +16,7 @@ struct GymSetupView: View {
     @State private var session: GeneratedSession?
     @State private var showingAll = false
     @State private var loaded = false
+    @State private var lastTime: [String: String] = [:]
 
     var body: some View {
         NavigationStack {
@@ -187,10 +188,18 @@ struct GymSetupView: View {
                             Circle()
                                 .fill(anchor ? AuraTone.training.mark : Color.white.opacity(0.25))
                                 .frame(width: 8, height: 8)
-                            Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
-                                .font(.body.weight(anchor ? .semibold : .regular))
-                                .foregroundStyle(AppTheme.ink)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(catalogue.item(item.itemSlug)?.name ?? displayName(forSlug: item.itemSlug))
+                                    .font(.body.weight(anchor ? .semibold : .regular))
+                                    .foregroundStyle(AppTheme.ink)
+                                    .lineLimit(1)
+                                // The number the anchor is chasing.
+                                if anchor, let last = lastTime[item.itemSlug] {
+                                    Text("Last time \(last)")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(AuraTone.training.mark)
+                                }
+                            }
                             Spacer(minLength: 8)
                             Text(DoseFormatter.text(item.dose))
                                 .font(.footnote.monospacedDigit())
@@ -265,5 +274,33 @@ struct GymSetupView: View {
         guard loaded else { return }
         GymChoiceStore.save(.init(focus: focus, length: length))
         session = TodayEngine.session(.gymDevelopment, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, plannedGymDay: true)
+        lastTime = Self.lastTime(for: Set(session?.items.filter { $0.rationale.hasPrefix("Anchor") }.map(\.itemSlug) ?? []),
+                                 sessions: athlete.sessions)
+    }
+
+    /// The best set of each anchor's most recent session: "60 kg × 8" (or "× 12"
+    /// without a weight), so the athlete walks in knowing the number to beat.
+    static func lastTime(for slugs: Set<String>, sessions: [Session]) -> [String: String] {
+        guard !slugs.isEmpty else { return [:] }
+        let unit = WeightUnit.current
+        var found: [String: String] = [:]
+        for session in sessions.sorted(by: { $0.startedAt > $1.startedAt }) {
+            for slug in slugs where found[slug] == nil {
+                let sets = session.sets.filter { $0.itemSlug == slug }
+                guard !sets.isEmpty else { continue }
+                let best = sets.max { (($0.weightKg ?? 0), ($0.reps ?? 0)) < (($1.weightKg ?? 0), ($1.reps ?? 0)) }
+                if let best {
+                    if let kg = best.weightKg, kg > 0 {
+                        found[slug] = "\(unit.format(kg: kg)) × \(best.reps ?? 0)"
+                    } else if let reps = best.reps {
+                        found[slug] = "× \(reps)"
+                    } else if let seconds = best.seconds {
+                        found[slug] = "\(seconds) s"
+                    }
+                }
+            }
+            if found.count == slugs.count { break }
+        }
+        return found
     }
 }

@@ -145,6 +145,18 @@ struct WorkoutTabView: View {
             .task {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 status = DayStatusStore.status()
+                // Screenshots: `-tab workout -sheet gym|live`.
+                if DemoData.initialTab == .workout {
+                    switch DemoData.initialSheet {
+                    case "gym": showingGym = true
+                    case "live":
+                        if let session = TodayEngine.session(.gymDevelopment, athlete: athlete, sessions: athlete.sessions,
+                                                             catalogue: catalogue, plannedGymDay: true) {
+                            liveLaunch = LiveSessionLaunch(planned: session, kind: .gym)
+                        }
+                    default: break
+                    }
+                }
             }
             // Workouts added from a link, or restored from the backup, show up.
             .onAppear {

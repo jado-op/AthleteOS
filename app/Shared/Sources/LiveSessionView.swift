@@ -161,7 +161,7 @@ public struct LiveSessionView: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingRPE) {
-            RPEPromptView(rpe: $rpe, heartRate: heartRate, onKeepTraining: { showingRPE = false }) { finish() }
+            RPEPromptView(rpe: $rpe, heartRate: heartRate, recap: recap(), onKeepTraining: { showingRPE = false }) { finish() }
                 .task {
                     guard let session else { return }
                     let asked = rpe
@@ -946,6 +946,28 @@ public struct LiveSessionView: View {
         updateActivity()
     }
 
+    /// What this session did, for the finish screen: minutes, sets, new bests,
+    /// and each anchor lift against its last session — progress the athlete
+    /// can see, never points.
+    private func recap() -> SessionRecap {
+        let minutes = max(1, Int(Date.now.timeIntervalSince(session?.startedAt ?? startedAt) / 60))
+        var lines: [SessionRecap.Line] = []
+        let todaySets = session?.sets ?? []
+        var seen = Set<String>()
+        for item in queue where item.rationale.hasPrefix("Anchor") && seen.insert(item.itemSlug).inserted {
+            let slug = item.itemSlug
+            let mine = todaySets.filter { $0.itemSlug == slug }
+            guard let best = SessionRecap.best(mine) else { continue }
+            let before = athlete.sessions
+                .filter { $0.id != session?.id && $0.sets.contains { $0.itemSlug == slug } }
+                .max { $0.startedAt < $1.startedAt }
+            let previous = before.flatMap { SessionRecap.best($0.sets.filter { $0.itemSlug == slug }) }
+            let name = catalogue.item(slug)?.name ?? displayName(forSlug: slug)
+            lines.append(SessionRecap.line(name: name, best: best, previous: previous, unit: unit))
+        }
+        return SessionRecap(minutes: minutes, sets: totalLogged, bests: bestCount, lines: lines)
+    }
+
     private func finish() {
         endActivity()
         guard let session else { return }
@@ -1148,9 +1170,47 @@ struct ExercisePickerSheet: View {
 
 /// §11: "After every training session, exactly one more question: how hard
 /// was that, 1–10?"
+/// The finish screen's summary of one session.
+struct SessionRecap {
+    struct Line: Identifiable {
+        let name: String
+        let today: String
+        let change: String?
+        let up: Bool
+        var id: String { name }
+    }
+    let minutes: Int
+    let sets: Int
+    let bests: Int
+    let lines: [Line]
+
+    /// The heaviest set (then the most reps).
+    static func best(_ sets: [SetLog]) -> SetLog? {
+        sets.max { (($0.weightKg ?? 0), ($0.reps ?? 0), ($0.seconds ?? 0)) < (($1.weightKg ?? 0), ($1.reps ?? 0), ($1.seconds ?? 0)) }
+    }
+
+    static func line(name: String, best: SetLog, previous: SetLog?, unit: WeightUnit) -> Line {
+        let kg = best.weightKg ?? 0, reps = best.reps ?? 0
+        let today = kg > 0 ? "\(unit.format(kg: kg)) × \(reps)" : best.seconds.map { "\($0) s" } ?? "× \(reps)"
+        guard let previous else { return Line(name: name, today: today, change: "First time", up: false) }
+        let lastKg = previous.weightKg ?? 0, lastReps = previous.reps ?? 0
+        if kg > lastKg + 0.01 {
+            return Line(name: name, today: today, change: "+\(unit.format(kg: kg - lastKg))", up: true)
+        }
+        if abs(kg - lastKg) < 0.01, reps > lastReps {
+            return Line(name: name, today: today, change: "+\(reps - lastReps) rep\(reps - lastReps == 1 ? "" : "s")", up: true)
+        }
+        if let secs = best.seconds, let last = previous.seconds, secs > last {
+            return Line(name: name, today: today, change: "+\(secs - last) s", up: true)
+        }
+        return Line(name: name, today: today, change: "Same as last time", up: false)
+    }
+}
+
 struct RPEPromptView: View {
     @Binding var rpe: Int
     var heartRate: HeartRateSummary? = nil
+    var recap: SessionRecap? = nil
     /// "Keep training": back to the workout (a mistaken Finish).
     var onKeepTraining: (() -> Void)? = nil
     let onDone: () -> Void
@@ -1163,6 +1223,52 @@ struct RPEPromptView: View {
         case 7...8: "Hard — only a few words at a time"
         case 9: "Very hard — nearly everything you had"
         default: "Maximum — nothing left"
+        }
+    }
+
+    private func recapFigure(_ value: String, unit: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            BigFigure(value, unit: unit, size: 34)
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func recapCard(_ recap: SessionRecap) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 0) {
+                recapFigure("\(recap.minutes)", unit: "min", label: "Time")
+                recapFigure("\(recap.sets)", unit: "", label: "Sets")
+                recapFigure("\(recap.bests)", unit: "", label: recap.bests == 1 ? "New best" : "New bests")
+            }
+            if !recap.lines.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(recap.lines) { line in
+                        HStack(spacing: 10) {
+                            Text(line.name)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text(line.today)
+                                .font(.subheadline.monospacedDigit())
+                                .foregroundStyle(AppTheme.secondaryText)
+                            if let change = line.change {
+                                Text(change)
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(line.up ? Color.black : AppTheme.secondaryText)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(line.up ? Color.white : Color.white.opacity(0.08), in: Capsule())
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
         }
     }
 
@@ -1202,6 +1308,13 @@ struct RPEPromptView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Effort \(value) of 10: \(description(value))")
                     }
+                }
+                if let recap {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionLabel("This session")
+                        recapCard(recap)
+                    }
+                    .padding(.top, 12)
                 }
             }
         }

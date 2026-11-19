@@ -255,8 +255,10 @@ struct LiftTrendWidget: View {
         return "Holding steady — the next step comes with consistent sessions."
     }
 
+    /// In the athlete's own unit (kg or lb), whole numbers: it's an estimate.
     static func kg(_ value: Double) -> String {
-        value.rounded() == value ? "\(Int(value)) kg" : String(format: "%.1f kg", value)
+        let unit = WeightUnit.current
+        return "\(Int(unit.value(kg: value).rounded())) \(unit.rawValue)"
     }
 
     static func signed(_ value: Double) -> String {

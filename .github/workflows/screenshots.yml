@@ -132,6 +132,12 @@ jobs:
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
+              for sheet in gym live; do
+                xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab workout -sheet "$sheet" >/dev/null
+                sleep 8
+                xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-workout-${sheet}.png"
+                xcrun simctl terminate "$UDID" "$BUNDLE" || true
+              done
               for sheet in checkIn quickActions addGame dayStatus schedule reflection search safety mentalSkills tests seasonReview; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab today -sheet "$sheet" >/dev/null
                 sleep 6
