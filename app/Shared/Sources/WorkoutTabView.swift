@@ -94,6 +94,15 @@ struct WorkoutTabView: View {
         case .concussion: return (nil, "Training is paused until a doctor clears you.")
         case .travel, .holiday: return (.travel, "A short workout you can do anywhere, only if you feel like it.")
         case .active:
+            // The athlete's own word from the check-in wins over the schedule.
+            if let said = TodayEngine.said(on: .now) {
+                if said.choices.contains(.rest) { return (nil, "You chose a rest day. Rest is part of the plan.") }
+                if said.choices.contains(.game) { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
+                if said.choices.contains(.light), !said.choices.contains(.gym) { return (.mobility, "You asked for something light today.") }
+                if said.choices.contains(.gym), !said.choices.contains(.practice), let day = engineDay {
+                    return (.gymDay, day.explanation?.summary ?? "You said: gym today.")
+                }
+            }
             if gameToday != nil { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
             if practiceToday { return (.afterPractice, "You have practice today, so the gym work is short.") }
             if gymSession?.isToday == true { return (.gymDay, "No team practice today, so this is your main session.") }
