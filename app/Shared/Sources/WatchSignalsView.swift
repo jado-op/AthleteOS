@@ -61,10 +61,10 @@ extension WearableSignalsLoader {
         let hours: [Double] = [7.2, 8.4, 6.9, 7.8, 8.6, 9.1, 7.4, 6.6, 8.2, 8.9, 7.7, 8.3, 7.1, 8.1]
         let sleep = hours.enumerated().map { TwinPoint(date: day(hours.count - 1 - $0.offset), value: $0.element) }
         let heart = (0..<28).map { back -> TwinPoint in
-            TwinPoint(date: day(27 - back), value: 52 + Double((back * 7) % 5) - (back == 27 ? 3 : 0))
+            TwinPoint(date: day(27 - back), value: 53 + 1.6 * sin(Double(back) * 0.45) + Double((back * 7) % 3) * 0.6 - (back == 27 ? 2 : 0))
         }
         let hrv = (0..<28).map { back -> TwinPoint in
-            TwinPoint(date: day(27 - back), value: 62 + Double((back * 11) % 9) + (back == 27 ? 6 : 0))
+            TwinPoint(date: day(27 - back), value: 64 + 4 * sin(Double(back) * 0.38 + 1) + Double((back * 11) % 3) * 1.2 + (back == 27 ? 5 : 0))
         }
         func workout(_ back: Int, hour: Double, minutes: Int, _ activity: String, _ bpm: Double) -> ExternalWorkout {
             let start = day(back).addingTimeInterval(hour * 3600)
@@ -196,7 +196,7 @@ struct WatchSignalsSection: View {
                 let shown = lastNight ?? signals.sleep.last
                 if let shown {
                     let minutes = Int((shown.value * 60).rounded())
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 14) {
                         BigFigure("\(minutes / 60)", unit: "h", size: 56)
                         BigFigure(String(format: "%02d", minutes % 60), unit: "min", size: 56)
                     }
@@ -329,7 +329,7 @@ struct SignalTile: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
                 }
                 ForEach(Array(series.enumerated()), id: \.offset) { _, point in
-                    AreaMark(x: .value("Day", point.date), y: .value(label, point.value))
+                    AreaMark(x: .value("Day", point.date), yStart: .value("Floor", yDomain.lowerBound), yEnd: .value(label, point.value))
                         .foregroundStyle(LinearGradient(colors: [tint.opacity(0.35), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
                         .interpolationMethod(.monotone)
                     LineMark(x: .value("Day", point.date), y: .value(label, point.value))
@@ -347,6 +347,7 @@ struct SignalTile: View {
             .chartYAxis(.hidden)
             .chartYScale(domain: yDomain)
             .frame(height: 54)
+            .clipped()
             .accessibilityHidden(true)
             Text(note ?? (series.count < 8 ? "Learning your usual" : "4 weeks"))
                 .font(.caption.weight(.semibold))
