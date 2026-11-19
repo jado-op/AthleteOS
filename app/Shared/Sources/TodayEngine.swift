@@ -152,12 +152,13 @@ enum TodayEngine {
                 || sessions.contains { calendar.isDate($0.startedAt, inSameDayAs: d) }
             if busy { inARow += 1 } else { break }
         }
-        let status = isToday ? DayStatusStore.status() : .active
+        // Days told ahead (Tell AthleteOS: "holiday Friday until Monday") count on their own day.
+        let status = isToday ? DayStatusStore.status() : DayStatusStore.status(on: date, calendar: calendar)
         let said = Self.said(on: date, calendar: calendar)
         let gameToday = said.map { $0.choices.contains(.game) } ?? games.contains(day)
         let moment = PrepMoment.at(date, gameToday: gameToday)
         let custom = PlanCustomizationStore.load()
-        return TrainingDay(
+        var built = TrainingDay(
             date: date,
             phase: PhaseCalculator.phase(today: date, seasonStart: active.seasonStart, seasonEnd: active.seasonEnd),
             age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: date),
@@ -184,6 +185,9 @@ enum TodayEngine {
             twin: twinSteers(athlete, date: date, calendar: calendar),
             said: said?.engineChoices ?? []
         )
+        // A gym day: what to train and for how long — the athlete's pick, or the advisor's.
+        built.gym = GymHistoryBuilder.request(athlete, day: built, catalogue: catalogue, calendar: calendar).0
+        return built
     }
 
     /// What the athlete's twin has found that changes training (TwinSteer):
@@ -231,7 +235,8 @@ enum TodayEngine {
         }
         let cap = TrainingExperience.current.contactCap(PlanGenerator.weeklyContactCap(age: age))
         // Equipment: on the road only what needs none.
-        let travelling = DayStatusStore.status(on: date) == .travel || DayStatusStore.status(on: date) == .holiday
+        // No gym that day (told ahead or travelling): bodyweight only.
+        let travelling = DayStatusStore.status(on: date) == .travel || DayStatusStore.status(on: date) == .holiday || NoGymDays.contains(date)
         return AthleteKit(catalogue: catalogue, sport: sport, positionSlug: active?.positionSlug, formatSlug: active?.formatSlug,
                           equipment: travelling ? ["none"] : Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
                           avoidSlugs: recentSlugs, contactsLeft: max(0, cap - landed),
@@ -250,13 +255,14 @@ enum TodayEngine {
         let answers = checkIn.map { "\($0.sleepQuality),\($0.sleepHours ?? -1),\($0.soreness),\($0.energy),\($0.stress)" } ?? "none"
         return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar),
                 "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", "\(athlete.competitions.count)",
-                DayStatusStore.status().rawValue, "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
+                DayStatusStore.status(on: date, calendar: calendar).rawValue + "\(NoGymDays.contains(date, calendar: calendar))", "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
                 DayChoiceStore.answer(on: date, calendar: calendar)?.encoded ?? "auto",
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
                 athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
                 athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)",
+                GymChoiceStore.fingerprint(on: date, calendar: calendar), "\(MeasuredSleepStore.all().count)",
                 twinSteers(athlete, date: date, calendar: calendar).map(\.rawValue).sorted().joined()].joined(separator: "|")
     }
 

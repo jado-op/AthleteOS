@@ -159,6 +159,54 @@ final class TellParserTests: XCTestCase {
         XCTAssertTrue(parse("the jump test was fine").proposals.isEmpty)
     }
 
+    // MARK: Spans, no gym, practice
+
+    func testTheOwnersHolidaySentence() {
+        // Friday 20 to Monday 23 November: holiday (bodyweight workouts), four days.
+        XCTAssertEqual(parse("Friday until Monday I don't have a real gym, I'm on holiday").proposals,
+                       [.dayStatus("holiday", from: day(20), days: 4)])
+        XCTAssertEqual(parse("From Fri to Mon I'm on holiday").proposals, [.dayStatus("holiday", from: day(20), days: 4)])
+        XCTAssertEqual(parse("Ich bin Fr bis Mo im Urlaub").proposals, [.dayStatus("holiday", from: day(20), days: 4)])
+        XCTAssertEqual(parse("Von Freitag bis Sonntag bin ich verreist").proposals, [.dayStatus("travel", from: day(20), days: 3)])
+    }
+
+    func testSpans() {
+        // "until" alone starts today.
+        XCTAssertEqual(parse("I'm on holiday until Sunday").proposals, [.dayStatus("holiday", from: day(18), days: 5)])
+        XCTAssertEqual(parse("Ich bin bis Sonntag krank").proposals, [.dayStatus("sick", from: day(18), days: 5)])
+        XCTAssertEqual(parse("No gym this weekend").proposals, [.noGym(from: day(21), days: 2)])
+        XCTAssertEqual(parse("Travelling next week").proposals, [.dayStatus("travel", from: day(23), days: 7)])
+        XCTAssertEqual(parse("Holiday 20.11 to 24.11").proposals, [.dayStatus("holiday", from: day(20), days: 5)])
+        // "to" between words that aren't days is no span.
+        XCTAssertEqual(parse("Flight to Spain tomorrow").proposals, [.dayStatus("travel", from: day(19), days: 1)])
+        XCTAssertTrue(parse("I want to get stronger").proposals.allSatisfy { if case .goals = $0 { true } else { false } })
+        // A two-day tournament: one competition each day, the time on the first.
+        let tournament = parse("Tournament Saturday to Sunday at 9am").proposals
+        XCTAssertEqual(tournament, [.competition(date: day(21, hour: 9), kind: .tournament, note: nil, hasTime: true),
+                                    .competition(date: day(22), kind: .tournament, note: nil, hasTime: false)])
+    }
+
+    func testNoGymAndPractice() {
+        XCTAssertEqual(parse("The gym is closed tomorrow").proposals, [.noGym(from: day(19), days: 1)])
+        XCTAssertEqual(parse("Nur Eigengewicht bis Sonntag").proposals, [.noGym(from: day(18), days: 5)])
+        XCTAssertEqual(parse("No practice on Friday").proposals, [.practice(from: day(20), days: 1, happening: false)])
+        XCTAssertEqual(parse("Training fällt morgen aus").proposals, [.practice(from: day(19), days: 1, happening: false)])
+        XCTAssertEqual(parse("Morgen fällt das Training aus").proposals, [.practice(from: day(19), days: 1, happening: false)])
+        XCTAssertEqual(parse("Extra practice on Saturday").proposals, [.practice(from: day(21), days: 1, happening: true)])
+        // Practice words without a day change nothing.
+        XCTAssertFalse(parse("I want to practice my free throws").proposals.contains { if case .practice = $0 { true } else { false } })
+        // An away game is a game, not travel.
+        XCTAssertFalse(parse("Away game on Saturday").proposals.contains { if case .dayStatus = $0 { true } else { false } })
+    }
+
+    func testModelSpansAndRulesSafetyNet() {
+        let items = [TellModelReader.Item(kind: "practiceOff", day: "2026-11-20", time: "", days: 2, areas: [], level: "", goals: [],
+                                          opponent: "", words: "no practice fri and sat")]
+        let rules = parse("The gym is closed tomorrow")
+        let result = TellModelReader.proposals(from: items, rules: rules, now: now, calendar: calendar)
+        XCTAssertEqual(result.proposals, [.practice(from: day(20), days: 2, happening: false), .noGym(from: day(19), days: 1)])
+    }
+
     // MARK: The competition coach
 
     func testFocusComesFromTheLastResultThenTheTwin() {

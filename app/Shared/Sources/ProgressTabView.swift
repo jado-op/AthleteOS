@@ -192,7 +192,7 @@ struct ProgressTabView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 36) {
                     AcademyPageSwitcher(name: athlete.displayName)
                     summaryCard
                     calendarCard
@@ -554,7 +554,8 @@ struct ProgressTabView: View {
         let loggedToday = PracticeLogStore.log(on: todayKey, sportSlug: sportSlug) != nil
         let practiceToday = PracticeSchedule.hasPractice(on: .now, calendar: calendar)
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Practice Log")
+            SectionHeader("Practice log")
+            // V8: two capsules and one line, not two boxes.
             HStack(spacing: 8) {
                 ForEach(TrackingLevel.allCases, id: \.self) { level in
                     let locked = level == .exact && !ProAccess.isPro
@@ -566,20 +567,14 @@ struct ProgressTabView: View {
                             TrackingLevel.current = level
                         }
                     } label: {
-                        VStack(spacing: 2) {
-                            Text(level.title).font(.headline)
-                            Text(level == .easy ? "Time, effort, mood, result" : "+ each part of your sport")
-                                .font(.caption2)
-                                .multilineTextAlignment(.center)
-                        }
-                        .foregroundStyle(tracking == level ? AppTheme.onAccent : AppTheme.ink)
-                        .frame(maxWidth: .infinity, minHeight: 64)
-                        .padding(.horizontal, 6)
-                        .background(tracking == level ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        Chip(level.title, isSelected: tracking == level)
                     }
                     .buttonStyle(.pressable)
                 }
             }
+            Text(tracking == .easy ? "Time, effort, mood and result." : "Plus each part of your sport.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
             if loggedToday {
                 Label("Today's practice is logged", systemImage: "checkmark.circle.fill")
                     .font(.headline)
@@ -690,8 +685,8 @@ struct ProgressTabView: View {
     private var workoutsSection: some View {
         let kinds = SessionKinds.all
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Training History", subtitle: "\(sessions.count) workouts so far.")
-            ForEach(sessions.prefix(5)) { session in
+            SectionHeader("Training history", subtitle: "\(sessions.count) workouts so far.")
+            ForEach(sessions.prefix(3)) { session in
                 let kind = kinds[session.clientId] ?? .gym
                 HStack(spacing: 12) {
                     Circle().fill(color(kind)).frame(width: 14, height: 14)
@@ -703,7 +698,7 @@ struct ProgressTabView: View {
                     }
                     Spacer()
                 }
-                .cardStyle(padding: 12)
+                .padding(.vertical, 4)
             }
             // Every look back lives here (docs/CLARITY-PLAN.md): one list.
             VStack(spacing: 0) {
@@ -711,23 +706,19 @@ struct ProgressTabView: View {
                     ListRow(systemImage: "clock.arrow.circlepath", color: AppTheme.ink, title: "All workouts", detail: "\(sessions.count)")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { sheet = .trends } label: {
                     ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Last 30 days, sleep, load")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { sheet = .checkIns } label: {
                     ListRow(systemImage: "sun.max.fill", color: AppTheme.ink, title: "Past check-ins", detail: "\(athlete.checkIns.count)")
                 }
                 .buttonStyle(.pressable)
-                Divider().padding(.leading, 54)
                 Button { sheet = .seasonReview } label: {
                     ListRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Season review", detail: "Your season, PDF, recruiting")
                 }
                 .buttonStyle(.pressable)
             }
-            .cardStyle(padding: 12)
         }
     }
 

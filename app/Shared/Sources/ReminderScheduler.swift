@@ -281,3 +281,55 @@ public enum ReminderScheduler {
     }
     #endif
 }
+
+/// Reminders for days told ahead in Tell AthleteOS ("holiday Friday until
+/// Monday", "no gym this weekend"): one the evening before the first day and
+/// one each morning — a short bodyweight workout is ready, always optional.
+/// Kept apart from `ReminderScheduler.reschedule`, which leaves these alone.
+public enum AwayReminders {
+    static let prefix = "reminder.away."
+
+    /// "holiday", "travel" or "noGym" for each day.
+    public static func title(_ kind: String) -> String {
+        switch kind {
+        case "holiday": "Holiday"
+        case "travel": "Travel day"
+        default: "No gym"
+        }
+    }
+
+    #if canImport(UserNotifications)
+    public static func schedule(days: [(day: Date, kind: String)], now: Date = .now, calendar: Calendar = .current) async {
+        let sorted = days.filter { ["holiday", "travel", "noGym"].contains($0.kind) }.sorted { $0.day < $1.day }
+        guard let first = sorted.first, await ReminderScheduler.requestAuthorization() else { return }
+        let center = UNUserNotificationCenter.current()
+        func add(_ id: String, at date: Date, title: String, body: String) async {
+            guard date > now else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            try? await center.add(UNNotificationRequest(identifier: id, content: content,
+                                                        trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)))
+        }
+        let body = first.kind == "noGym"
+            ? "Your workouts switch to bodyweight — same plan, no equipment. Do as much as you like."
+            : "Bodyweight workouts are ready, 15–20 minutes. All optional."
+        if let eve = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: first.day)),
+           let at = calendar.date(bySettingHour: 19, minute: 30, second: 0, of: eve) {
+            await add(prefix + "eve." + DayKey.of(first.day, calendar: calendar), at: at, title: "\(title(first.kind)) from tomorrow", body: body)
+        }
+        // Mornings: the check-in time when that reminder is on, otherwise 9:30.
+        let settings = ReminderScheduler.settings
+        let hour = settings.checkInEnabled ? settings.checkInHour : 9
+        let minute = settings.checkInEnabled ? settings.checkInMinute : 30
+        for entry in sorted.prefix(14) {
+            guard let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: calendar.startOfDay(for: entry.day)) else { continue }
+            await add(prefix + DayKey.of(entry.day, calendar: calendar), at: at, title: "\(title(entry.kind)) today",
+                      body: entry.kind == "noGym" ? "Today's workout is bodyweight only. Optional, as always."
+                                                  : "A quick bodyweight workout is ready if you feel like moving.")
+        }
+    }
+    #endif
+}

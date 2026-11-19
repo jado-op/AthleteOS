@@ -44,7 +44,7 @@ enum TellModelReader {
         var words: String
     }
 
-    static let kinds = ["game", "tournament", "race", "pain", "headKnock", "examWeek", "sick", "travel", "holiday",
+    static let kinds = ["game", "tournament", "race", "pain", "headKnock", "examWeek", "sick", "travel", "holiday", "noGym", "practiceOff", "practiceOn",
                         "preSeasonStart", "seasonStart", "seasonEnd", "goals", "notUnderstood"]
     static let areas = ["head", "neck", "shoulder", "chest", "arm", "back", "core", "hip", "leg", "knee", "ankle"]
     static let goals = ["acceleration", "maxSpeed", "agility", "strength", "power", "verticalJump", "conditioning", "aerobicFitness",
@@ -97,6 +97,11 @@ enum TellModelReader {
             case "sick", "travel", "holiday":
                 let fallback = item.kind == "sick" ? 2 : item.kind == "travel" ? 1 : 7
                 out.append(.dayStatus(item.kind, from: when ?? today, days: (1...30).contains(item.days) ? item.days : fallback))
+            case "noGym":
+                out.append(.noGym(from: when ?? today, days: (1...30).contains(item.days) ? item.days : 1))
+            case "practiceOff", "practiceOn":
+                guard let date = when else { unread.append(item.words); continue }
+                out.append(.practice(from: date, days: (1...30).contains(item.days) ? item.days : 1, happening: item.kind == "practiceOn"))
             case "preSeasonStart", "seasonStart", "seasonEnd":
                 guard let date = when else { unread.append(item.words); continue }
                 out.append(.season(item.kind == "preSeasonStart" ? "pre" : item.kind == "seasonStart" ? "in" : "end", from: date))
@@ -109,6 +114,17 @@ enum TellModelReader {
         if !goals.isEmpty { out.append(.goals(Array(goals.prefix(3)))) }
         // Safety never depends on the model: the rules' head knock and pain warnings stay.
         if rules.proposals.contains(.headKnock), !out.contains(.headKnock) { out.append(.headKnock) }
+        // No gym and practice changes the rules read are kept when the model missed them.
+        let awayDays = out.contains { if case .dayStatus(let kind, _, _) = $0 { kind != "sick" } else { false } }
+        let modelNoGym = out.contains { if case .noGym = $0 { true } else { false } }
+        let modelPractice = out.contains { if case .practice = $0 { true } else { false } }
+        for proposal in rules.proposals {
+            switch proposal {
+            case .noGym where !modelNoGym && !awayDays: out.append(proposal)
+            case .practice where !modelPractice: out.append(proposal)
+            default: break
+            }
+        }
         var seen: [TellParser.Proposal] = []
         for p in out where !seen.contains(p) { seen.append(p) }
         return TellParser.Result(proposals: seen, safety: rules.safety ?? (seen.contains(.headKnock)
@@ -141,13 +157,13 @@ struct TellReadingOutput {
 @available(iOS 26.0, *)
 @Generable
 struct TellReadingItem {
-    @Guide(description: "One of: game, tournament, race, pain, headKnock, examWeek, sick, travel, holiday, preSeasonStart, seasonStart, seasonEnd, goals, notUnderstood")
+    @Guide(description: "One of: game, tournament, race, pain, headKnock, examWeek, sick, travel, holiday, noGym, practiceOff, practiceOn, preSeasonStart, seasonStart, seasonEnd, goals, notUnderstood")
     var kind: String
     @Guide(description: "The day it starts or happens as yyyy-MM-dd, worked out from the calendar given. Empty when the athlete gave no day.")
     var day: String
     @Guide(description: "Start time as HH:mm in 24-hour time, only for a game, tournament or race when the athlete said a time. Otherwise empty.")
     var time: String
-    @Guide(description: "How many days it lasts (sick, travel, holiday), or 0 when not said.")
+    @Guide(description: "How many days it lasts (sick, travel, holiday, noGym, practiceOff, practiceOn), counting both the first and the last day — Friday until Monday is 4 — or 0 when not said.")
     var days: Int
     @Guide(description: "For pain only: body areas from head, neck, shoulder, chest, arm, back, core, hip, leg, knee, ankle. Otherwise empty.")
     var areas: [String]
@@ -169,7 +185,9 @@ enum ModelReading {
     Kinds: game, tournament or race = a competition on a day. pain = something hurts (not the head). \
     headKnock = they hit their head or may have a concussion. examWeek = exams or tests at school. \
     sick, travel, holiday = days away from normal training (only when the athlete themselves is sick, travelling or on holiday; \
-    "after the holidays" is a time, not a holiday). preSeasonStart = preparation training for the season begins \
+    "after the holidays" is a time, not a holiday). noGym = no gym or equipment on those days (gym closed, hotel, \
+    only bodyweight) while not travelling or on holiday. practiceOff = team practice is cancelled; practiceOn = extra or moved \
+    team practice. For a span ("Friday until Monday") give the first day and the number of days. preSeasonStart = preparation training for the season begins \
     (pre-season, dryland, training camp, Vorbereitung). seasonStart = the competition season itself begins. \
     seasonEnd = the season ends or the off-season begins. goals = what they want to get better at. \
     notUnderstood = anything else they said that the app can't act on; copy their words. \

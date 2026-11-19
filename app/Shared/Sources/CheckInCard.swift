@@ -16,7 +16,8 @@ extension DailyLoop {
                          painFollowUp: PainFollowUp.pending(reports: PainStore.all(), resolvedDays: PainFollowUp.resolvedDays(), today: now),
                          wearable: WearableLoad.reason(ExternalWorkoutStore.recent, now: now,
                                                        age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: now),
-                                                       practiceToday: PracticeSchedule.hasPractice(on: now) ? PracticeSchedule.time(on: now) : nil))
+                                                       practiceToday: PracticeSchedule.hasPractice(on: now) ? PracticeSchedule.time(on: now) : nil),
+                         measuredSleep: MeasuredSleepStore.recent(now: now))
     }
 
     /// How today's training is adjusted (nil: as planned).
@@ -280,6 +281,7 @@ struct CheckInSheet: View {
 
     private func loadHealth() async {
         healthHours = await HealthKitManager.shared.sleepHours()
+        if let healthHours { MeasuredSleepStore.save(healthHours) }
         restingHeartRate = await HealthKitManager.shared.restingHeartRate()
         hrv = await HealthKitManager.shared.heartRateVariability()
         if sleepHours == nil, let healthHours {

@@ -15,7 +15,7 @@ H=${1:-/tmp/aos-engine-harness}
 rm -rf "$H"
 mkdir -p "$H/Sources/Engine" "$H/Tests/EngineTests"
 
-for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine DayChoice ConditioningEngine SessionBuilder PlanExplanation \
+for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine GymFocus DayChoice ConditioningEngine SessionBuilder PlanExplanation \
          PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight TodayPlan \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \
@@ -34,7 +34,7 @@ awk '/^\/\/\/ Today.s workouts with today.s pain/{exit} {print}' "$SRC/PainFilte
   awk '/^public struct Dose: Codable/,/^}/' "$SRC/AthleteModels.swift"
 } > "$H/Sources/Engine/Shims.swift"
 
-for t in WorkoutEngineTests TrainingRulesTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests; do
+for t in WorkoutEngineTests TrainingRulesTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests GymFocusTests; do
   ln -s "$TESTS/$t.swift" "$H/Tests/EngineTests/$t.swift"
 done
 

@@ -15,6 +15,7 @@ struct WorkoutTabView: View {
     @State private var status: DayStatus = DayStatusStore.status()
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var preview: PreviewBox?
+    @State private var showingGym = false
     @State private var showingImprove = false
     @State private var showingMuscles = false
     @State private var showingLibrary = false
@@ -149,6 +150,13 @@ struct WorkoutTabView: View {
             .onAppear {
                 myWorkouts = MyWorkoutsStore.load()
                 custom = PlanCustomizationStore.load()
+            }
+            .sheet(isPresented: $showingGym) {
+                GymSetupView(athlete: athlete, catalogue: catalogue,
+                             onStart: { session in liveLaunch = LiveSessionLaunch(planned: session, kind: .gym) },
+                             onPreview: { session in
+                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { preview = PreviewBox(session: session, kind: .gym) }
+                             })
             }
             .sheet(item: $preview, onDismiss: { runAfterPreview() }) { box in
                 SessionPreviewSheet(
@@ -304,6 +312,22 @@ struct WorkoutTabView: View {
                 .foregroundStyle(AppTheme.ink)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
+            if let session = recommendedSession, session.decision?.gymFocus != nil {
+                // A gym day: why this focus, and one tap to change focus or length.
+                Button { showingGym = true } label: {
+                    HStack(spacing: 6) {
+                        Text(session.decision?.gymNote ?? "Change what you train")
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Image(systemName: "slider.horizontal.3").font(.caption.weight(.bold))
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.9))
+                    .frame(minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.pressable)
+                .accessibilityHint("Change focus or length")
+            }
             if let session = recommendedSession {
                 // What it builds, in one short line (docs/TRAINING-RESEARCH.md §2).
                 let builds = SessionTrains.builds(session.items, catalogue: catalogue)
@@ -624,12 +648,14 @@ struct WorkoutTabView: View {
                 ForEach(others, id: \.self) { mode in
                     let modeSession = session(for: mode)
                     Button {
-                        if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
+                        // The gym: pick what to train and for how long.
+                        if mode == .gymDay { showingGym = true }
+                        else if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
                     } label: {
                         workoutTile(mode, modeSession)
                     }
                     .buttonStyle(.pressable)
-                    .disabled(modeSession == nil)
+                    .disabled(modeSession == nil && mode != .gymDay)
                 }
             }
             SectionHeader("Build and explore")

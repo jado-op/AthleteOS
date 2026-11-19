@@ -118,6 +118,12 @@ func stableOrder(_ count: Int, seed: String) -> [Int] {
 /// briefings are the main reading; these are the short follow-ups.
 struct CampusView: View {
     let athlete: Athlete
+    /// The Academy's Campus page (no close button; the page switcher on top).
+    var embedded = false
+    /// Shown above the lessons (the switcher, "Campus asks").
+    var prelude: AnyView? = nil
+    /// Shown under the lessons (long reads, mental skills).
+    var extra: AnyView? = nil
     @AppStorage(CampusProgress.learnedKey) private var learnedRaw = ""
     @State private var playing: CampusLesson?
     @State private var reviewing: ReviewSession?
@@ -145,6 +151,7 @@ struct CampusView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
+                    if let prelude { prelude }
                     header
                     continueRow
                     if !dueForReview.isEmpty { reviewCard }
@@ -154,9 +161,6 @@ struct CampusView: View {
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
                             NavigationLink(value: topic) { areaRow(topic, index: index) }
                                 .buttonStyle(.plain)
-                            if index < campusTopics.count - 1 {
-                                Divider().padding(.leading, 54).opacity(0.5)
-                            }
                         }
                     }
                     VStack(alignment: .leading, spacing: 12) {
@@ -172,6 +176,7 @@ struct CampusView: View {
                             .glassSurface(cornerRadius: 16)
                         }
                     }
+                    if let extra { extra }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -250,8 +255,8 @@ struct CampusView: View {
                 .accessibilityAddTraits(.isHeader)
             Headline([.strong("\(learned.count) of \(totalLessons)"), .soft(" learned. A few minutes each.")], size: 30)
         }
-        .padding(.top, 8)
-        .padding(.trailing, 44) // the sheet's close button
+        .padding(.top, embedded ? 12 : 8)
+        .padding(.trailing, embedded ? 0 : 44) // the sheet's close button
     }
 
     /// The athlete's position, as a lesson from their sport's guide.

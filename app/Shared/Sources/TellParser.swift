@@ -19,6 +19,10 @@ public enum TellParser {
         case examWeek(Date)
         /// A day status ("sick", "travel", "holiday") from a day, for some days.
         case dayStatus(String, from: Date, days: Int)
+        /// No gym (holiday flat, hotel, gym closed): bodyweight-only workouts on these days.
+        case noGym(from: Date, days: Int)
+        /// Team practice cancelled (`happening` false) or added (true) on these days.
+        case practice(from: Date, days: Int, happening: Bool)
         /// Development goals (Struggle raw values), most important first.
         case goals([String])
         /// The season calendar: "pre" (pre-season training starts), "in" (the
@@ -39,8 +43,8 @@ public enum TellParser {
     /// `locale` decides how "11/12" reads: 12 November where the month comes
     /// first (US), 11 December elsewhere.
     public static func parse(_ text: String, now: Date = .now, calendar: Calendar = .current, locale: Locale = .current) -> Result {
-        let lower = text.lowercased()
-            .replacingOccurrences(of: "’", with: "'")
+        let lower = expandGermanDayRanges(text.lowercased()
+            .replacingOccurrences(of: "’", with: "'"))
         var proposals: [Proposal] = []
         var safety: String?
         // Sentences end at . ! ? ; followed by a space or the end — "24.11." stays one date.
@@ -54,6 +58,9 @@ public enum TellParser {
         for sentence in sentences {
             let words = tokens(sentence)
             let date = findDate(sentence, words: words, now: now, calendar: calendar, monthFirst: monthFirst(locale))
+            // "Friday until Monday", "this weekend", "next week": a span of days.
+            let range = findRange(sentence, words: words, now: now, calendar: calendar, monthFirst: monthFirst(locale))
+            let today = calendar.startOfDay(for: now)
             let before = proposals.count
             let goalsBefore = goals.count
             var understood = false
@@ -76,7 +83,21 @@ public enum TellParser {
             }
 
             // A competition on a day.
-            if let kind = competitionWord(words, sentence), let day = date?.day {
+            let competition = competitionWord(words, sentence)
+            if let kind = competition, let range, range.days > 1, range.days <= 4 {
+                // "Tournament Friday to Sunday": one competition a day, the time on the first.
+                for offset in 0..<range.days {
+                    guard let day = calendar.date(byAdding: .day, value: offset, to: range.from) else { continue }
+                    var when = day
+                    var hasTime = false
+                    if offset == 0, let (hour, minute) = findTime(sentence),
+                       let timed = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) {
+                        when = timed
+                        hasTime = true
+                    }
+                    proposals.append(.competition(date: when, kind: kind, note: opponent(sentence), hasTime: hasTime))
+                }
+            } else if let kind = competition, let day = date?.day {
                 var when = day
                 var hasTime = false
                 if let (hour, minute) = findTime(sentence),
@@ -113,14 +134,28 @@ public enum TellParser {
                 proposals.append(.examWeek(day))
             }
 
-            // Sick, travel, holiday.
+            // Sick, travel, holiday — over a span when one was given ("Friday until Monday").
+            let spanFrom = range?.from ?? date?.day ?? today
+            var hasStatus = false
             if containsAny(words, sentence, ["sick", "ill", "flu", "fever", "a cold", "krank", "erkältet", "erkältung", "fieber", "grippe"]) {
-                proposals.append(.dayStatus("sick", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 2))
-            } else if containsAny(words, sentence, ["travel", "travelling", "traveling", "flight", "flying", "trip", "reise", "reisen", "flug", "fliege", "unterwegs"]) {
-                proposals.append(.dayStatus("travel", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 1))
+                proposals.append(.dayStatus("sick", from: spanFrom, days: range?.days ?? forDays(sentence) ?? 2))
+            } else if containsAny(words, sentence, ["travel", "travelling", "traveling", "flight", "flying", "trip", "i'm away", "i am away", "be away", "going away", "reise", "reisen", "flug", "fliege", "unterwegs", "verreist", "nicht da"]) {
+                proposals.append(.dayStatus("travel", from: spanFrom, days: range?.days ?? forDays(sentence) ?? 1))
+                hasStatus = true
             } else if containsAny(words, sentence, ["vacation", "holiday", "holidays", "urlaub", "ferien"]) && !holidayIsOnlyADate(sentence)
                         && seasonPart(words, sentence) == nil {
-                proposals.append(.dayStatus("holiday", from: date?.day ?? calendar.startOfDay(for: now), days: forDays(sentence) ?? 7))
+                proposals.append(.dayStatus("holiday", from: spanFrom, days: range?.days ?? forDays(sentence) ?? 7))
+                hasStatus = true
+            }
+
+            // No gym: bodyweight days. Travel and holiday already mean bodyweight.
+            if !hasStatus, mentionsNoGym(sentence) {
+                proposals.append(.noGym(from: spanFrom, days: range?.days ?? forDays(sentence) ?? 1))
+            }
+
+            // Team practice off or on, on a day or a span.
+            if competition == nil, range != nil || date != nil, let happening = practiceChange(words, sentence) {
+                proposals.append(.practice(from: spanFrom, days: range?.days ?? forDays(sentence) ?? 1, happening: happening))
             }
 
             // Goals: "I want to get faster", "ich will stärker werden".
@@ -136,6 +171,100 @@ public enum TellParser {
         }
         if !goals.isEmpty { proposals.append(.goals(Array(goals.prefix(3)))) }
         return Result(proposals: dedupe(proposals), safety: safety, unread: unread)
+    }
+
+    // MARK: Spans, gyms and practice
+
+    static let noGymPhrases = [
+        "no gym", "no real gym", "no proper gym", "not a real gym", "don't have a gym", "dont have a gym", "don't have a real gym",
+        "dont have a real gym", "do not have a gym", "don't have access to a gym", "no access to a gym", "without a gym", "can't go to the gym",
+        "cant go to the gym", "gym is closed", "gym closed", "no equipment", "without equipment", "no weights", "bodyweight only",
+        "only bodyweight", "just bodyweight", "body weight only", "only my bodyweight", "own bodyweight", "hotel gym",
+        "kein gym", "kein richtiges gym", "kein fitnessstudio", "kein studio", "keine geräte", "ohne geräte", "keine hanteln", "nur eigengewicht",
+        "mit eigengewicht", "ohne gym", "fitnessstudio zu", "gym zu", "gym hat zu", "studio hat zu",
+    ]
+
+    static func mentionsNoGym(_ sentence: String) -> Bool { noGymPhrases.contains(where: sentence.contains) }
+
+    /// false: practice is off ("no practice Friday"); true: practice is on ("extra practice Saturday"); nil: not about practice.
+    static func practiceChange(_ words: [String], _ sentence: String) -> Bool? {
+        let off = ["no practice", "no team practice", "practice is cancelled", "practice is canceled", "practice cancelled", "practice canceled",
+                   "practice is off", "practice got cancelled", "practice got canceled", "skip practice", "skipping practice", "no training",
+                   "kein training", "kein mannschaftstraining", "training fällt aus", "training ist abgesagt", "training abgesagt",
+                   "fällt das training aus", "trainingsfrei", "kein vereinstraining"]
+        if off.contains(where: sentence.contains) { return false }
+        // "Training fällt morgen aus", "practice tomorrow is cancelled".
+        if containsAny(words, sentence, ["training", "practice"]),
+           containsAny(words, sentence, ["abgesagt", "cancelled", "canceled", "off"]) || (words.contains("fällt") && words.contains("aus")) { return false }
+        let on = ["extra practice", "practice moved to", "practice is on", "we have practice", "i have practice", "have practice on",
+                  "practice on", "practice at", "practice tomorrow", "practice today", "zusatztraining", "extra training", "training am",
+                  "training ist am", "training verschoben auf", "haben training", "habe training", "training morgen", "training heute"]
+        if on.contains(where: sentence.contains) { return true }
+        return nil
+    }
+
+    /// "Fr bis Mo", "Fr-Mo": two-letter German days only read as days next to "bis" or a dash.
+    static func expandGermanDayRanges(_ text: String) -> String {
+        let names = ["mo": "montag", "di": "dienstag", "mi": "mittwoch", "do": "donnerstag", "fr": "freitag", "sa": "samstag", "so": "sonntag"]
+        let pattern = #"\b(mo|di|mi|do|fr|sa|so)\.?\s*(bis|-|–)\s*(mo|di|mi|do|fr|sa|so)\b\.?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        var out = text
+        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+            guard let whole = Range(match.range, in: out), let a = Range(match.range(at: 1), in: out), let b = Range(match.range(at: 3), in: out),
+                  let first = names[String(out[a])], let last = names[String(out[b])] else { continue }
+            out.replaceSubrange(whole, with: "\(first) bis \(last)")
+        }
+        return out
+    }
+
+    /// A span of days: "Friday until Monday", "from Fri to Sun", "until Sunday"
+    /// (from today), "bis Sonntag", "this weekend", "next week".
+    static func findRange(_ sentence: String, words: [String], now: Date, calendar: Calendar, monthFirst: Bool) -> (from: Date, days: Int)? {
+        let today = calendar.startOfDay(for: now)
+        func span(_ from: Date, _ to: Date) -> (from: Date, days: Int)? {
+            guard let days = calendar.dateComponents([.day], from: from, to: to).day.map({ $0 + 1 }), (1...30).contains(days) else { return nil }
+            return (from, days)
+        }
+        // Words that join two days. " to " and dashes need a day on both sides.
+        let connectors: [(String, Bool)] = [(" until ", false), (" till ", false), (" til ", false), (" through ", true), (" thru ", true),
+                                            (" to ", true), (" bis einschließlich ", false), (" bis zum ", false), (" bis ", false),
+                                            (" - ", true), (" – ", true), ("-", true)]
+        let skip: Set<String> = ["the", "next", "on", "am", "zum", "zur", "einschließlich", "including", "and", "this", "dem", "den", "kommenden"]
+        for (connector, needsStart) in connectors {
+            guard let hit = sentence.range(of: connector) else { continue }
+            let left = String(sentence[..<hit.lowerBound])
+            let right = String(sentence[hit.upperBound...])
+            var rightWords = tokens(right)
+            while let first = rightWords.first, skip.contains(first) { rightWords.removeFirst() }
+            guard let head = rightWords.first else { continue }
+            let leftDate = findDate(left, words: tokens(left), now: now, calendar: calendar, monthFirst: monthFirst)?.day
+            if needsStart && leftDate == nil { continue }
+            let start = leftDate ?? today
+            var end: Date?
+            if let weekday = weekdays.first(where: { $0.names.contains(head) && head.count >= 3 }) {
+                end = nextWeekday(weekday.number, after: start, skipThisWeek: false, calendar: calendar)
+            } else if head.first?.isNumber == true || months.contains(where: { $0.names.contains(head) })
+                        || ["tomorrow", "morgen", "übermorgen", "today", "heute"].contains(head) {
+                let rest = rightWords.prefix(4).joined(separator: " ")
+                let raw = String(right.trimmingCharacters(in: .whitespaces).prefix(16))
+                end = findDate(raw, words: tokens(rest), now: now, calendar: calendar, monthFirst: monthFirst)?.day
+            }
+            guard let last = end, last >= start, let found = span(start, last) else { continue }
+            return found
+        }
+        let next = containsAny(words, sentence, ["next weekend", "nächstes wochenende", "nächsten wochenende", "kommendes wochenende"])
+        if next || containsAny(words, sentence, ["this weekend", "over the weekend", "the weekend", "on the weekend", "at the weekend",
+                                                 "übers wochenende", "über das wochenende", "am wochenende", "dieses wochenende", "wochenende"]) {
+            let weekday = calendar.component(.weekday, from: today)
+            if weekday == 1 && !next { return (today, 1) }
+            let saturday = nextWeekday(7, after: today, skipThisWeek: next && weekday != 7, calendar: calendar)
+            return (saturday, 2)
+        }
+        if containsAny(words, sentence, ["next week", "nächste woche", "nächsten woche", "kommende woche", "die ganze nächste woche"]) {
+            let monday = calendar.dateInterval(of: .weekOfYear, for: calendar.date(byAdding: .day, value: 7, to: today) ?? today)?.start ?? today
+            return (monday, 7)
+        }
+        return nil
     }
 
     // MARK: Season

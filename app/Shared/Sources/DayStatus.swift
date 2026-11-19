@@ -77,11 +77,72 @@ public enum DayStatusStore {
     }
 
     public static func status(on date: Date = .now, calendar: Calendar = .current) -> DayStatus {
-        guard let stored else { return .active }
         let day = calendar.startOfDay(for: date)
-        guard day >= calendar.startOfDay(for: stored.from) else { return .active }
-        if let until = stored.until, day > calendar.startOfDay(for: until) { return .active }
-        return stored.status
+        if let stored, day >= calendar.startOfDay(for: stored.from),
+           stored.until.map({ day <= calendar.startOfDay(for: $0) }) ?? true {
+            return stored.status
+        }
+        // Days told ahead ("holiday Friday until Monday"); the latest told wins.
+        if let ahead = planned.last(where: { day >= calendar.startOfDay(for: $0.from) && day <= calendar.startOfDay(for: $0.until) }) {
+            return ahead.status
+        }
+        return .active
+    }
+
+    // MARK: Days told ahead
+
+    private static let plannedKey = "dayStatus.planned.v1"
+
+    private struct Planned: Codable {
+        var status: DayStatus
+        var from: Date
+        /// Last day, inclusive.
+        var until: Date
+    }
+
+    private static var planned: [Planned] {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: plannedKey) else { return [] }
+            return (try? JSONDecoder().decode([Planned].self, from: data)) ?? []
+        }
+        set {
+            UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: plannedKey)
+        }
+    }
+
+    /// Statuses told for days ahead (sick, travel, holiday), from `from` for
+    /// `days` days. Starting today it's the current status (`set`); later it
+    /// waits for its day without touching today's. Rest days never break the streak.
+    public static func schedule(_ status: DayStatus, from: Date, days: Int, now: Date = .now, calendar: Calendar = .current) {
+        guard status != .active, status != .concussion, days > 0 else { return }
+        let today = calendar.startOfDay(for: now)
+        let start = max(calendar.startOfDay(for: from), today)
+        let lastDay = calendar.date(byAdding: .day, value: days - 1, to: calendar.startOfDay(for: from)) ?? start
+        guard lastDay >= start else { return }
+        if start == today {
+            // A head-injury pause is only lifted by the Safety Center.
+            guard self.status(on: now, calendar: calendar) != .concussion else { return }
+            let left = (calendar.dateComponents([.day], from: today, to: lastDay).day ?? 0) + 1
+            set(status, days: left, now: now, calendar: calendar)
+            return
+        }
+        var all = planned.filter { calendar.startOfDay(for: $0.until) >= today }
+        all.append(Planned(status: status, from: start, until: lastDay))
+        planned = Array(all.suffix(20))
+    }
+
+    /// Days ahead with a told status, in order (for "coming up" lists).
+    public static func plannedDays(now: Date = .now, calendar: Calendar = .current) -> [(day: Date, status: DayStatus)] {
+        let today = calendar.startOfDay(for: now)
+        var out: [(day: Date, status: DayStatus)] = []
+        for entry in planned where calendar.startOfDay(for: entry.until) >= today {
+            var day = max(calendar.startOfDay(for: entry.from), today)
+            for _ in 0..<31 where day <= calendar.startOfDay(for: entry.until) {
+                out.append((day, status(on: day, calendar: calendar)))
+                day = calendar.date(byAdding: .day, value: 1, to: day) ?? day.addingTimeInterval(86_400)
+            }
+        }
+        return out.sorted { $0.day < $1.day }
     }
 
     /// The last day the current status lasts, if it has an end.
@@ -96,6 +157,15 @@ public enum DayStatusStore {
         // Leaving "sick" starts the return after illness (IllnessReturn).
         if stored?.status == .sick, status != .sick, self.status(on: now, calendar: calendar) == .sick {
             IllnessReturn.markRecovered(on: now, calendar: calendar)
+        }
+        // Today's own choice wins over anything told ahead for today.
+        let todayStart = calendar.startOfDay(for: now)
+        planned = planned.compactMap { (original: Planned) -> Planned? in
+            var entry = original
+            guard calendar.startOfDay(for: entry.from) <= todayStart, calendar.startOfDay(for: entry.until) >= todayStart else { return entry }
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: todayStart), tomorrow <= calendar.startOfDay(for: entry.until) else { return nil }
+            entry.from = tomorrow
+            return entry
         }
         guard status != .active else { stored = nil; return }
         let today = calendar.startOfDay(for: now)
@@ -133,5 +203,31 @@ public enum ReadinessOverride {
 
     public static func isOn(_ date: Date = .now, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
         defaults.string(forKey: key) == DayKey.of(date, calendar: calendar)
+    }
+}
+
+/// Days without a gym (gym closed, hotel, holiday flat): the planned workout
+/// stays, built from bodyweight exercises only. Keyed by local day.
+public enum NoGymDays {
+    static let key = "schedule.noGymDays"
+
+    public static func contains(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
+        (defaults.stringArray(forKey: key) ?? []).contains(DayKey.of(date, calendar: calendar))
+    }
+
+    public static func add(from: Date, days: Int, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        var all = Set(defaults.stringArray(forKey: key) ?? [])
+        let start = calendar.startOfDay(for: from)
+        for offset in 0..<max(0, min(days, 31)) {
+            if let day = calendar.date(byAdding: .day, value: offset, to: start) { all.insert(DayKey.of(day, calendar: calendar)) }
+        }
+        // Keep recent and future days only.
+        let oldest = DayKey.of(calendar.date(byAdding: .day, value: -14, to: Date()) ?? Date(), calendar: calendar)
+        defaults.set(all.filter { $0 >= oldest }.sorted(), forKey: key)
+    }
+
+    public static func remove(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        let day = DayKey.of(date, calendar: calendar)
+        defaults.set((defaults.stringArray(forKey: key) ?? []).filter { $0 != day }, forKey: key)
     }
 }

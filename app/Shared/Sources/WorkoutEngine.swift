@@ -307,6 +307,8 @@ public struct TrainingDay: Sendable {
     /// Practice and a game are already in `practice` / `gameToday`; gym,
     /// something light and rest steer the session type here.
     public var said: Set<DayChoice> = []
+    /// The gym session's focus and length, when it's a gym day (nil: the engine's own mix).
+    public var gym: GymRequest? = nil
     /// Training stage, from age and training age.
     public var stage: TrainingStage { TrainingStage.of(age: age, experience: experience) }
 
@@ -366,6 +368,10 @@ public struct SessionDecision: Sendable, Equatable, Codable {
     public var upperPattern: String?
     /// The athlete's training stage (nil: a decision from before stages existed).
     public var stage: TrainingStage? = nil
+    /// A gym session the athlete shaped: what it trains (nil: the engine's own mix).
+    public var gymFocus: GymFocus? = nil
+    /// Why that focus, in one sentence ("Legs today: upper body yesterday …").
+    public var gymNote: String? = nil
 
     public func avoids(_ avoid: AvoidToday) -> Bool { avoidToday.contains(avoid) }
 }
@@ -565,11 +571,14 @@ public enum SessionPlanner {
         if legBudget <= 1 { avoid.insert(.highVolumeLowerBody) }
         if legBudget <= 1, day.practice != nil { add(.lowerBodyTrainedRecently) }
 
-        // 3. How long.
-        let duration = durationTarget(type: type, day: day, add: add)
+        // 3. How long. A gym session the athlete shaped takes the time they chose.
+        let gym = type == .gymDevelopment ? day.gym : nil
+        var duration = durationTarget(type: type, day: day, add: add)
+        if let gym { duration = gym.length.minutes }
 
         // 4. What for.
         var (primary, maintain) = targets(type: type, day: day, legBudget: legBudget, avoid: avoid)
+        if let gym { (primary, maintain) = gymTargets(gym.focus, day: day, legBudget: legBudget, avoid: avoid) }
         if !day.goals.isEmpty, primary.contains(where: day.goals.contains) || maintain.contains(where: day.goals.contains) { add(.developmentGoal) }
         if day.twin.contains(.strengthNotSpeed), primary.contains(where: { [.power, .acceleration, .speed].contains($0) }) { add(.twinSpeedFocus) }
 
@@ -583,6 +592,15 @@ public enum SessionPlanner {
             conditioning = conditioningType(day, avoid: avoid)
             conditioningMinutes = min(max(remaining, 20), duration - 8)
             add(.conditioningGap)
+        case .gymDevelopment where gym?.length == .full:
+            // The full session ends with a finisher on a bike or rower — easy
+            // when today calls for it (research rule: strength first, then cardio).
+            let kind = avoid.contains(.hardConditioning) || day.readiness < .normal ? ConditioningType.aerobicBase : conditioningType(day, avoid: avoid)
+            conditioning = kind
+            conditioningMinutes = kind == .aerobicBase ? 20 : (day.age < 16 ? 12 : 15)
+            add(.conditioningGap)
+        case .gymDevelopment where gym?.length == .quick:
+            break
         case .gymDevelopment where remaining >= 10 && duration >= 50:
             let kind = conditioningType(day, avoid: avoid)
             if !(avoid.contains(.hardConditioning) && kind != .aerobicBase && kind != .recovery) {
@@ -615,6 +633,11 @@ public enum SessionPlanner {
         // 6. Which patterns (alternate through the week).
         let lower = day.recent.lastLowerPattern == "squat" ? "hinge" : "squat"
         let upper = day.recent.lastUpperPattern == "push" ? "pull" : "push"
+        // Legs asked for on a day they need to stay fresh: lighter leg work, said plainly.
+        var gymNote: String? = gym?.note
+        if let gym, gym.focus == .lower, legBudget < 2 {
+            gymNote = avoid.contains(.heavyLowerBody) ? "Legs today, kept light: they need to stay fresh." : "Legs today, kept light: practice already loads them."
+        }
 
         primary = Array(primary.prefix(3))
         return SessionDecision(
@@ -625,7 +648,9 @@ public enum SessionPlanner {
             conditioning: conditioning, conditioningMinutes: conditioningMinutes, legBudget: legBudget,
             lowerPattern: [.gymDevelopment, .afterPractice, .travel].contains(type) ? lower : nil,
             upperPattern: [.gymDevelopment, .afterPractice, .primer, .travel].contains(type) ? upper : nil,
-            stage: day.stage
+            stage: day.stage,
+            gymFocus: gym?.focus,
+            gymNote: gymNote
         )
     }
 
@@ -718,6 +743,21 @@ public enum SessionPlanner {
         candidates.sorted { lhs, rhs in
             let l = priority(lhs, day: day), r = priority(rhs, day: day)
             return l != r ? l > r : lhs.rawValue < rhs.rawValue
+        }
+    }
+
+    /// What a gym session with a focus develops.
+    static func gymTargets(_ focus: GymFocus, day: TrainingDay, legBudget: Int, avoid: Set<AvoidToday>) -> (primary: [Capacity], maintain: [Capacity]) {
+        let fast = day.readiness >= .normal && !avoid.contains(.highImpact) ? ranked([.power, .acceleration], day: day).first : nil
+        switch focus {
+        case .upper: return ([.upperStrength, .trunk], [.resilience, .mobility])
+        case .core: return ([.trunk, .resilience], [.balance, .mobility])
+        case .lower:
+            return legBudget >= 2 ? ([.strength] + (fast.map { [$0] } ?? []), [.resilience, .trunk]) : ([.resilience, .trunk], [.mobility])
+        case .full, .auto:
+            var primary: [Capacity] = legBudget >= 2 ? [.strength, .upperStrength] : [.upperStrength]
+            if let fast { primary.append(fast) }
+            return (primary, [.trunk, .resilience])
         }
     }
 

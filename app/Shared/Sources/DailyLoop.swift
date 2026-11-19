@@ -270,6 +270,18 @@ public struct MorningAnswers: Sendable, Equatable {
     }
 }
 
+/// Sleep a watch (or Health) measured: last night and the last three nights.
+public struct MeasuredSleep: Sendable, Equatable {
+    public var lastNight: Double?
+    /// Average of the last three measured nights (nil: fewer than two).
+    public var average: Double?
+
+    public init(lastNight: Double?, average: Double?) {
+        self.lastNight = lastNight
+        self.average = average
+    }
+}
+
 /// Last night's reflection, as far as tomorrow's plan cares.
 public struct EveningSignal: Sendable, Equatable {
     /// 1 easy … 4 very hard.
@@ -290,7 +302,7 @@ public enum DailyLoop {
     /// yesterday was.
     public static func readiness(
         answers: MorningAnswers?, personalBand: ReadinessBand?, pain: PainReport?, yesterday: EveningSignal?,
-        painFollowUp: PainReport? = nil, wearable: String? = nil
+        painFollowUp: PainReport? = nil, wearable: String? = nil, measuredSleep: MeasuredSleep? = nil
     ) -> (level: TodayReadiness, reason: String)? {
         var candidates: [(TodayReadiness, String)] = []
         if let pain {
@@ -303,10 +315,18 @@ public enum DailyLoop {
         if let wearable {
             candidates.append((.reduced, wearable))
         }
+        // Sleep a watch measured counts for more than a guess (owner, 2026-11-19):
+        // a really short night lightens the day on its own, and several short
+        // nights in a row count as one more signal.
+        if let measuredSleep, let hours = measuredSleep.lastNight, hours < 5 {
+            candidates.append((.reduced, "Your watch measured \(SleepMath.label(hours)) of sleep, so today is a bit lighter."))
+        }
         if let answers {
             var named: [String] = []
+            let hours = measuredSleep?.lastNight ?? answers.sleepHours
             // A long but restless night is poor sleep, not short sleep.
-            if (answers.sleepHours ?? 8) < 6 { named.append("short sleep") } else if answers.sleepQuality <= 1 { named.append("poor sleep") }
+            if (hours ?? 8) < 6 { named.append("short sleep") } else if answers.sleepQuality <= 1 { named.append("poor sleep") }
+            let shortNights = (measuredSleep?.average ?? 9) < 6.5
             if answers.energy <= 1 { named.append("low energy") }
             if answers.soreness >= 5 { named.append("heavy soreness") }
             if answers.stress >= 5 { named.append("a lot of stress") }
@@ -316,10 +336,12 @@ public enum DailyLoop {
                 let list = named.count == 2 ? named.joined(separator: " and ")
                     : named.dropLast().joined(separator: ", ") + " and " + (named.last ?? "")
                 candidates.append((.recovery, list.prefix(1).uppercased() + list.dropFirst() + " together: a recovery day helps you bounce back."))
-            } else if flags == 1 || answers.soreness >= 4 || answers.energy <= 2 {
+            } else if flags == 1 || answers.soreness >= 4 || answers.energy <= 2 || shortNights {
                 let reason = answers.soreness >= 4 ? "You're more sore than usual, so today is a bit lighter."
                     : (answers.energy <= 2 ? "Your energy is low, so today is a bit lighter."
-                       : ((answers.sleepHours ?? 8) < 6 ? "Short sleep, so today is a bit lighter." : "You're feeling the load, so today is a bit lighter."))
+                       : ((hours ?? 8) < 6 ? "Short sleep, so today is a bit lighter."
+                          : shortNights ? "Your watch shows several short nights, so today is a bit lighter."
+                          : "You're feeling the load, so today is a bit lighter."))
                 candidates.append((.reduced, reason))
             } else {
                 candidates.append((.normal, "You're feeling good — train as planned."))

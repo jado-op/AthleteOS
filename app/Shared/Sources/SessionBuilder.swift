@@ -67,7 +67,8 @@ public enum SessionBuilder {
     public static func build(_ decision: SessionDecision, day: TrainingDay, kit: AthleteKit) -> GeneratedSession {
         var state = BuildState(decision: decision, day: day, kit: kit)
         switch decision.sessionType {
-        case .gymDevelopment: state.gymDay()
+        case .gymDevelopment:
+            if let focus = decision.gymFocus, let gym = day.gym { state.focusedGym(focus, gym) } else { state.gymDay() }
         case .afterPractice: state.afterPractice()
         case .primer: state.primer()
         case .conditioning: state.conditioningSession()
@@ -323,6 +324,128 @@ private struct BuildState {
         let odd = (Calendar.current.ordinality(of: .day, in: .era, for: day.date) ?? 0) % 2 == 1
         if pattern == "pull" { return odd ? ["pull-horizontal", "pull-vertical"] : ["pull-vertical", "pull-horizontal"] }
         return odd ? ["push-vertical", "push-horizontal", "push-incline"] : ["push-horizontal", "push-vertical", "push-incline"]
+    }
+
+    // MARK: The athlete's own gym session (focus + length)
+
+    /// Picks the anchor for a slot: the same lift for the whole four-week block
+    /// (its own seed, and yesterday's penalty ignored), unless it stalled —
+    /// then the next lift of the same family, a new angle on the same job.
+    @discardableResult
+    mutating func pickAnchor(_ slot: GymSlots.Slot, seed: String, stalled: Set<String>) -> Bool {
+        for group in slot.groups {
+            var matching: [Candidate] = []
+            for candidate in pool where candidate.profile.group == group && !used.contains(candidate.item.slug) {
+                if candidate.item.variant?.tempo == "explosive" { continue }
+                if Self.landings(candidate.item, candidate.profile, sets: 3) > 0 { continue }
+                matching.append(candidate)
+            }
+            guard !matching.isEmpty else { continue }
+            // Stable order: relevance without the "trained yesterday" penalty.
+            matching.sort { lhs, rhs in
+                let l = lhs.score + (kit.avoidSlugs.contains(lhs.item.slug) ? 0.6 : 0)
+                let r = rhs.score + (kit.avoidSlugs.contains(rhs.item.slug) ? 0.6 : 0)
+                return l != r ? l > r : lhs.item.slug < rhs.item.slug
+            }
+            var choices = Array(matching.prefix(2))
+            if choices.count > 1, choices.contains(where: { stalled.contains($0.item.slug) }) {
+                choices.removeAll { stalled.contains($0.item.slug) }
+            }
+            var anchorRng = SeededGenerator(seed: "\(seed)|\(group)")
+            let item = choices[Int(anchorRng.next() % UInt64(choices.count))].item
+            let replaced = matching.prefix(2).contains { stalled.contains($0.item.slug) } && !stalled.contains(item.slug)
+            let why = replaced ? slot.why + " New variation: the last one stopped going up." : slot.why
+            let quality = item.qualities.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? ""
+            picks.append((item, slot.block, why, quality))
+            used.insert(item.slug)
+            return true
+        }
+        return false
+    }
+
+    /// One rotating accessory from the families, never last session's when
+    /// there's another choice.
+    @discardableResult
+    mutating func pickAccessory(_ groups: [String], avoid: Set<String>, why: String) -> Bool {
+        if pick(.accessory, why: why, pool: 4, { item, profile in groups.contains(profile.group) && !avoid.contains(item.slug) }) { return true }
+        return pick(.accessory, why: why, pool: 4) { _, profile in groups.contains(profile.group) }
+    }
+
+    /// The athlete's own gym session: prep, (power), a drill of their sport,
+    /// the anchors of the focus, rotating accessories, and — in the full
+    /// version — a conditioning finisher and a cool-down.
+    mutating func focusedGym(_ focus: GymFocus, _ gym: GymRequest) {
+        let length = gym.length
+        let lowerHeavy = (focus == .lower || focus == .full) && decision.legBudget >= 2
+        prep(count: length == .quick ? 2 : length == .standard ? 3 : 4, upperFocus: focus == .upper || focus == .core || !lowerHeavy,
+             fast: lowerHeavy && length != .quick)
+        // Power before strength, while fresh: legs and full body get a jump or
+        // sprint; upper body a throw (no landings).
+        if length != .quick, day.readiness >= .normal {
+            if lowerHeavy, !decision.primaryTargets.filter({ [.power, .acceleration, .speed].contains($0) }).isEmpty {
+                powerBlock(count: length == .full ? 2 : 1)
+            } else if focus == .upper {
+                pickGroup(.power, ["throw-chest", "throw-overhead", "throw-rotational", "push-vertical-power"], why: "Explosive upper-body work first, while you're fresh.")
+            }
+        }
+        skillBlock(why: "A drill of your sport while you're fresh: skill and strength in one session.")
+        // Anchors: quick keeps the first two (core: all three), longer sessions all of them.
+        let slots = GymSlots.anchors(focus, legBudget: decision.legBudget)
+        let anchorCount = length == .quick && focus != .core ? min(2, slots.count) : slots.count
+        let seed = "\(gym.anchorSeed)|\(focus.rawValue)"
+        for slot in slots.prefix(anchorCount) { pickAnchor(slot, seed: seed, stalled: gym.stalledAnchors) }
+        // Accessories: fresh every session, from the focus's families.
+        let accessoryCount: Int
+        switch length {
+        case .quick: accessoryCount = focus == .core ? 1 : 0
+        case .standard: accessoryCount = 2
+        case .full: accessoryCount = 4
+        }
+        let families = GymSlots.accessories(focus)
+        let offset = Int(rng.next() % UInt64(max(families.count, 1)))
+        var added = 0
+        for step in 0..<families.count where added < accessoryCount {
+            let groups = families[(offset + step) % families.count]
+            if groups.allSatisfy({ group in ["hamstring-eccentric", "single-leg-lateral", "calf-ankle", "hip-adductor", "knee-isometric", "knee-eccentric", "hinge-hip-extension", "single-leg-hip"].contains(group) }),
+               decision.legBudget < 1 { continue }
+            if pickAccessory(groups, avoid: gym.lastAccessories, why: accessoryWhy(groups.first ?? "")) { added += 1 }
+        }
+        // Every session that isn't core-only still carries one trunk exercise and the sport's injury staple.
+        if focus != .core {
+            if length != .quick || focus == .full {
+                pickGroup(.accessory, ["anti-rotation", "anti-extension", "anti-lateral", "carry"], role: "trunk",
+                          why: "A trunk that resists movement passes force from legs to arms.")
+            }
+            if length != .quick { _ = injuryStaple(rotate: 0) }
+        }
+        if focus == .upper || focus == .full { balancePulling() }
+        if length == .full {
+            conditioningBlock()
+            pickGroup(.cooldown, ["mobility-hip", "mobility-thoracic", "breathing"], why: "A few easy minutes to start recovering.")
+        }
+    }
+
+    func accessoryWhy(_ group: String) -> String {
+        switch group {
+        case "hamstring-eccentric": "Strong hamstrings when they lengthen — the best-proven way to prevent hamstring strains."
+        case "single-leg-lateral": "Sideways strength for cutting and changing direction."
+        case "calf-ankle": "Calves and ankles that soak up every landing."
+        case "hip-adductor": "Inner-thigh strength protects the groin."
+        case "knee-isometric", "knee-eccentric": "Knee strength that keeps tendons healthy."
+        case "hinge-hip-extension", "single-leg-hip": "Glutes and hamstrings, the engine of sprinting."
+        case "push-incline", "push-vertical": "A second pressing angle, so the shoulders get strong all round."
+        case "shoulder-health": "Small shoulder muscles that keep throwing and contact safe."
+        case "arm-isolation": "Arms: a little extra for elbows that hold up to the work."
+        case "pull-horizontal", "pull-vertical": "More pulling: the upper back holds your posture under load."
+        case "grip": "Grip strength for holding on, catching and lifting more."
+        case "neck": "Neck strength lowers the risk from hits and falls."
+        case "rotation": "Rotation with control: throwing, swinging and striking."
+        case "carry": "Carries: the whole trunk working while you walk."
+        case "back-extension": "The lower back's own strength, so it holds up."
+        case "anti-rotation", "anti-lateral": "Trunk from another direction."
+        case "balance": "Control on one leg."
+        default: "Rotates every session, so the work stays fresh."
+        }
     }
 
     mutating func gymDay() {
@@ -707,6 +830,17 @@ private struct BuildState {
         let target = decision.durationTarget
         func short(_ margin: Int) -> Bool { minutes(planned()) < target - margin }
         switch decision.sessionType {
+        case .gymDevelopment where decision.gymFocus != nil:
+            // The athlete's own focus: more good sets of the anchors, then one
+            // more accessory of the same focus — never another body part.
+            if short(8) { extraSets[.primaryStrength] = 1 }
+            if short(8) { extraSets[.secondaryStrength] = 1 }
+            if short(8), let focus = decision.gymFocus {
+                for groups in GymSlots.accessories(focus) where short(8) {
+                    pickAccessory(groups, avoid: day.gym?.lastAccessories ?? [], why: accessoryWhy(groups.first ?? ""))
+                }
+            }
+            if short(5) { pickGroup(.cooldown, ["mobility-hip", "mobility-thoracic"], role: "mobility", why: "A couple of minutes of easy range to finish.") }
         case .gymDevelopment:
             // More good sets of the main work first, then more exercises.
             if short(8) { extraSets[.primaryStrength] = 1 }
@@ -746,6 +880,9 @@ private struct BuildState {
         switch decision.sessionType {
         case .mobility: title = decision.mobilityPurpose?.title ?? "Mobility"
         case .conditioning: title = decision.conditioning?.title ?? "Conditioning"
+        case .gymDevelopment where decision.gymFocus != nil:
+            let focus = decision.gymFocus ?? .full
+            title = focus == .lower && decision.legBudget < 2 ? "Legs, kept light" : focus.title
         case .gymDevelopment:
             let focus = decision.primaryTargets.first.map { $0 == .strength ? "Strength" : $0 == .upperStrength ? "Upper-body strength" : $0.title.capitalized } ?? "Development"
             title = "\(focus) day"

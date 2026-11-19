@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// The Academy tab holds the athlete's twin and their progress (owner,
-/// 2026-11-18: Campus and Progress are no longer tabs). One quiet switch at
-/// the top — Twin | Progress — and Campus's short lessons one row away in
-/// the twin's library. Anything that used to open the Campus or Progress
-/// tab lands here (MainTabView).
+/// The Academy tab: three pages under one quiet switch (owner, 2026-11-19) —
+/// Twin (the athlete as widgets), Campus (questions that form a picture of
+/// them, the lessons and long reads) and Progress (the calendar). Anything
+/// that used to open the Campus or Progress tab lands here (MainTabView).
 enum AcademyPage: String, CaseIterable, Sendable {
-    case twin, progress
+    case twin, campus, progress
 
     var title: String {
         switch self {
         case .twin: "Twin"
+        case .campus: "Campus"
         case .progress: "Progress"
         }
     }
@@ -20,7 +20,7 @@ enum AcademyPage: String, CaseIterable, Sendable {
 final class AcademyNavigation: ObservableObject {
     static let shared = AcademyNavigation()
     @Published var page: AcademyPage = .twin
-    /// Campus's short lessons, opened over the Academy.
+    /// Set to open the Campus page (e.g. a lesson picked in a briefing).
     @Published var showingLessons = false
     /// A briefing to open (Home's "Next step · read").
     @Published var pendingBriefingID: String?
@@ -28,7 +28,7 @@ final class AcademyNavigation: ObservableObject {
     @Published var pendingInterview = false
 }
 
-/// The top of both pages: the profile button and the Twin | Progress switch.
+/// The top of every page: the profile button and the Twin · Campus · Progress switch.
 struct AcademyPageSwitcher: View {
     let name: String?
     @ObservedObject private var navigation = AcademyNavigation.shared
@@ -45,7 +45,9 @@ struct AcademyPageSwitcher: View {
                         Text(page.title)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(navigation.page == page ? Color(rgb: 0x0B0B14) : AppTheme.ink.opacity(0.8))
-                            .padding(.horizontal, 16)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 12)
                             .frame(height: 32)
                             .background(Capsule().fill(navigation.page == page ? AppTheme.starlight : .clear))
                             .frame(minHeight: 44)
@@ -74,26 +76,18 @@ struct AcademyTabView: View {
         Group {
             switch navigation.page {
             case .twin: AcademyHomeView(athlete: athlete)
+            case .campus: CampusPage(athlete: athlete)
             case .progress: ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: onPlanInputsChanged)
             }
         }
-        .sheet(isPresented: $navigation.showingLessons) {
-            CampusView(athlete: athlete)
-                .overlay(alignment: .topTrailing) {
-                    Button { navigation.showingLessons = false } label: {
-                        Image(systemName: "xmark")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .frame(width: 36, height: 36)
-                            .glassCapsule()
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 14)
-                    .padding(.trailing, 20)
-                    .accessibilityLabel("Close lessons")
-                }
-        }
+        .onAppear(perform: openLessonsIfAsked)
+        .onChange(of: navigation.showingLessons) { openLessonsIfAsked() }
+    }
+
+    /// Old routes asked for the lessons sheet: they open the Campus page now.
+    private func openLessonsIfAsked() {
+        guard navigation.showingLessons else { return }
+        navigation.showingLessons = false
+        withAnimation(.easeInOut(duration: 0.2)) { navigation.page = .campus }
     }
 }

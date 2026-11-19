@@ -62,7 +62,7 @@ Reading files, CI logs or the GitHub API needs no lock.
   performance coach (no "unlock your potential"); never guilt about streaks or rest.
 - Six areas (owner, 2026-11-17 — was five; a deliberate exception): Home, Campus
   (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`), **Academy**, Workout,
-  Progress, Me. The Academy is its own area, not part of Campus (never move Campus lessons in).
+  Progress, Me. Since 2026-11-19 (owner) Campus is a page inside the Academy (see Navigation).
 - Academy = the **Digital Twin as an analysis of the athlete** (owner, 2026-11-18 — not a
   quiz, not scores, no figure): `TwinAnalysis.swift` reads their own check-ins, games, logged
   sets, tests, reflections and an intake interview (about mindset, never right/wrong) and
@@ -70,13 +70,19 @@ Reading files, CI logs or the GitHub API needs no lock.
   **briefing** for each insight: long reads (~10 min, chapters, the athlete's own chart, an
   example, one protocol) for ambitious athletes — quality over quick. The twin also holds
   **performances** (PRs from logged sets and tests, plus anything the athlete adds). Content:
-  `content/src/academy/` (briefings, intake, validator). Editorial look: reading serif, big type,
-  real charts, restrained violet.
+  `content/src/academy/` (briefings, intake, validator). Look: V8 widgets (owner, 2026-11-19 —
+  "the twin isn't really a twin"): the Twin page answers three questions with the athlete's own
+  data — how are you performing (lift strength trend, performances, tests), how are you changing
+  (body map trained/fresh, training minutes per week, sleep and readiness words), how is your
+  mind evolving (calm and how training felt, week by week) — each with its insights and the
+  coach's briefing (`TwinWidgets.swift`). Never a score.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
-  Campus and Progress are no longer tabs: the Academy has a Twin | Progress switch at the top
-  (`AcademyTabView`, `AcademyNavigation`) — Progress is the old Progress screen — and Campus's
-  ~100 short lessons open from one "Short lessons" row in the Academy (sheet). Routes to
-  `AppTab.campus` / `.progress` / `.me` are redirected in `MainTabView` (Me = profile-button sheet).
+  The Academy has a **Twin · Campus · Progress** switch at the top (owner, 2026-11-19;
+  `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
+  questions one at a time ("Campus asks", answers in `AcademyStore`), shows what it knows about
+  the athlete, and holds the ~100 short lessons, the long reads (briefings), mental skills and the
+  sport guide. Progress is the calendar page. Routes to `AppTab.campus` / `.progress` / `.me`
+  are redirected in `MainTabView` (Me = profile-button sheet).
 - Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
   parents, scouts or other users; backed up only to their own account, encrypted on the
   phone; "Delete twin" deletes the server backup for real (not an overwrite). Done (2026-11-18):

@@ -118,14 +118,11 @@ public struct MainTabView: View {
         }
     }
 
-    /// Where an old Campus or Progress route lands in the Academy (Campus also
-    /// opens the short lessons over it).
+    /// Where an old Campus or Progress route lands in the Academy.
     private func academyRoute(_ tab: AppTab) -> AcademyPage? {
         switch tab {
         case .progress: return .progress
-        case .campus:
-            AcademyNavigation.shared.showingLessons = true
-            return .twin
+        case .campus: return .campus
         default: return nil
         }
     }

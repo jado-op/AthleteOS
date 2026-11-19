@@ -55,6 +55,12 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             else if r.contains(.belowNormalReadiness) { summary += " Your check-in was below your normal, so there's less volume today." }
             else if r.contains(.returnAfterIllness) { summary += " You're coming back from being sick, so it's lighter than usual." }
             else if r.contains(.inSeason) { summary += " In season the aim is to keep strength, so sets are lower." }
+            // The athlete's own gym session: its focus and why, first.
+            if let focus = decision.gymFocus {
+                let note = decision.gymNote ?? "\(focus.title) today, your choice."
+                summary = note + " The anchor lifts stay the same for four weeks so you can see them go up; the rest changes every session."
+                    + (decision.conditioning != nil && decision.conditioningMinutes > 0 ? " It ends with \(decision.conditioningMinutes) minutes of conditioning on a bike or rower." : "")
+            }
         case .primer:
             summary = r.contains(.choseGym)
                 ? "You said gym, and you compete tomorrow — so it's a short, sharp session instead of a full one. You'll feel quick, not tired."

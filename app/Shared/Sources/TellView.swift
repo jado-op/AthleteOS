@@ -14,6 +14,8 @@ struct TellView: View {
     @State private var text = ""
     @State private var skipped: Set<Int> = []
     @State private var applied: [String]?
+    /// Remind the evening before and each morning of days away (on by default: the athlete asked).
+    @State private var remind = true
     /// What the on-device language model read (nil: the rules' reading shows).
     @State private var modelResult: TellParser.Result?
     @State private var reading = false
@@ -68,10 +70,10 @@ struct TellView: View {
     private var editor: some View {
         // V8: calm — one big question, then a big, quiet place to write.
         VStack(alignment: .leading, spacing: 14) {
-            Headline([.strong("What's going on?"), .soft(" Games, pain, exams, goals — in your words. The app adjusts.")], size: 30)
+            Headline([.strong("What's going on?"), .soft(" Games, holidays, no gym, pain, exams, goals — in your words. The app adjusts.")], size: 30)
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text("e.g. Match on Saturday at 4pm against Central. My knee hurts a bit. Exams next week. I want to get faster.")
+                    Text("e.g. Friday until Monday I'm on holiday, no real gym. Match on Saturday at 4pm. My knee hurts a bit.")
                         .font(.title3)
                         .foregroundStyle(AppTheme.mutedText)
                         .padding(.top, 2)
@@ -97,50 +99,77 @@ struct TellView: View {
         }
     }
 
+    /// The proposals, a span ("holiday Friday until Monday") as one row per
+    /// day so any single day can be unticked.
+    private func changes(_ proposals: [TellParser.Proposal]) -> [TellParser.Proposal] {
+        let calendar = Calendar.current
+        func days(_ from: Date, _ count: Int) -> [Date] {
+            (0..<count).compactMap { calendar.date(byAdding: .day, value: $0, to: calendar.startOfDay(for: from)) }
+        }
+        var out: [TellParser.Proposal] = []
+        for proposal in proposals {
+            switch proposal {
+            case .dayStatus(let status, let from, let count) where count > 1 && count <= 14:
+                out += days(from, count).map { TellParser.Proposal.dayStatus(status, from: $0, days: 1) }
+            case .noGym(let from, let count) where count > 1 && count <= 14:
+                out += days(from, count).map { TellParser.Proposal.noGym(from: $0, days: 1) }
+            case .practice(let from, let count, let happening) where count > 1 && count <= 14:
+                out += days(from, count).map { TellParser.Proposal.practice(from: $0, days: 1, happening: happening) }
+            default:
+                out.append(proposal)
+            }
+        }
+        return out
+    }
+
     @ViewBuilder
     private var proposals: some View {
         let parsed = result
+        let all = changes(parsed.proposals)
+        let chosen = all.enumerated().filter { !skipped.contains($0.offset) }.map(\.element)
         if let safety = parsed.safety {
             Label(safety, systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.danger)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        if !parsed.proposals.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                SpaceSection(1, "What changes") { Text("\(parsed.proposals.count - skipped.count) of \(parsed.proposals.count)") }
-                ForEach(Array(parsed.proposals.enumerated()), id: \.offset) { index, proposal in
-                    let on = !skipped.contains(index)
-                    Button {
-                        if on { skipped.insert(index) } else { skipped.remove(index) }
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-                                .foregroundStyle(on ? AppTheme.brightRed : AppTheme.mutedText)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(title(proposal))
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(AppTheme.ink)
-                                    .multilineTextAlignment(.leading)
-                                Text(detail(proposal))
-                                    .font(.footnote)
-                                    .foregroundStyle(AppTheme.secondaryText)
-                                    .multilineTextAlignment(.leading)
-                            }
-                            Spacer(minLength: 0)
+        if !all.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                // V8: the whole change in one sentence, then a row per day or thing.
+                Headline(summary(chosen.isEmpty ? all : chosen), size: 28)
+                    .padding(.top, 6)
+                SectionLabel("What changes") { Text("\(chosen.count) of \(all.count)") }
+                VStack(spacing: 0) {
+                    ForEach(Array(all.enumerated()), id: \.offset) { index, proposal in
+                        changeRow(proposal, on: !skipped.contains(index)) {
+                            if skipped.contains(index) { skipped.remove(index) } else { skipped.insert(index) }
                         }
-                        .padding(14)
-                        .glassSurface(cornerRadius: 16)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(on ? .isSelected : [])
                 }
-                Button { apply(parsed.proposals) } label: {
-                    HeroCTALabel("Apply \(parsed.proposals.count - skipped.count)")
+                if chosen.contains(where: { awayKind($0) != nil }) {
+                    Toggle(isOn: $remind) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Remind me")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                            Text("The evening before and each morning: today's bodyweight workout, if you feel like it.")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .tint(AuraTone.training.mark)
+                    .padding(.vertical, 6)
+                }
+                Button { apply(chosen) } label: {
+                    HeroCTALabel(chosen.count == 1 ? "Apply" : "Apply \(chosen.count) changes")
                 }
                 .buttonStyle(.primary)
-                .disabled(parsed.proposals.count == skipped.count)
+                .disabled(chosen.isEmpty)
+                Text("Nothing is forced: workouts stay optional, and you can change any day later.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         if !parsed.unread.isEmpty && !reading {
@@ -154,7 +183,7 @@ struct TellView: View {
                         .foregroundStyle(AppTheme.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Tell works with days and what happens on them: games, the season, pain, exams, being sick or away, and what you want to get better at.")
+                Text("Tell works with days and what happens on them: games, practice, the season, pain, exams, being sick, away or without a gym, and what you want to get better at.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -162,11 +191,97 @@ struct TellView: View {
         }
     }
 
+    /// One change: its colour mark, what changes, what that day looks like, a tick.
+    private func changeRow(_ proposal: TellParser.Proposal, on: Bool, toggle: @escaping () -> Void) -> some View {
+        Button(action: toggle) {
+            HStack(alignment: .center, spacing: 14) {
+                Capsule()
+                    .fill(color(proposal).opacity(on ? 1 : 0.3))
+                    .frame(width: 4, height: 38)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title(proposal))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(on ? AppTheme.ink : AppTheme.mutedText)
+                        .multilineTextAlignment(.leading)
+                    Text(detail(proposal))
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(on ? AppTheme.ink : AppTheme.mutedText)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// The activity colour of a change (V8).
+    private func color(_ proposal: TellParser.Proposal) -> Color {
+        switch proposal {
+        case .competition: AuraTone.game.mark
+        case .pain, .headKnock: AppTheme.danger
+        case .examWeek: AuraTone.mind.mark
+        case .dayStatus(let status, _, _): status == "sick" ? AuraTone.calm.mark : AuraTone.training.mark
+        case .noGym, .goals: AuraTone.training.mark
+        case .practice, .season: AuraTone.body.mark
+        }
+    }
+
+    /// "holiday", "travel" or "noGym" for a day that gets a bodyweight workout (and a reminder).
+    private func awayKind(_ proposal: TellParser.Proposal) -> String? {
+        switch proposal {
+        case .dayStatus(let status, _, _) where status == "holiday" || status == "travel": return status
+        case .noGym: return "noGym"
+        default: return nil
+        }
+    }
+
+    /// The headline: the main change in white, what it means dimmed.
+    private func summary(_ chosen: [TellParser.Proposal]) -> [Headline.Part] {
+        let calendar = Calendar.current
+        func span(_ days: [Date]) -> String {
+            guard let first = days.min(), let last = days.max() else { return "" }
+            let f = first.formatted(.dateTime.weekday(.abbreviated))
+            return calendar.isDate(first, inSameDayAs: last) ? f : "\(f)–\(last.formatted(.dateTime.weekday(.abbreviated)))"
+        }
+        var away: [Date] = []
+        var awayName = ""
+        var sick: [Date] = []
+        var noGym: [Date] = []
+        for proposal in chosen {
+            switch proposal {
+            case .dayStatus(let status, let from, let days):
+                let all = (0..<max(1, days)).compactMap { calendar.date(byAdding: .day, value: $0, to: from) }
+                if status == "sick" { sick += all } else { away += all; awayName = status == "travel" ? "Away" : "Holiday" }
+            case .noGym(let from, let days):
+                noGym += (0..<max(1, days)).compactMap { calendar.date(byAdding: .day, value: $0, to: from) }
+            default: break
+            }
+        }
+        let others = chosen.count - chosen.filter { if case .dayStatus = $0 { true } else if case .noGym = $0 { true } else { false } }.count
+        let more: Headline.Part = .soft(others > 0 ? " Plus \(others) more." : "")
+        if !away.isEmpty {
+            return [.strong("\(awayName) \(span(away))."), .soft(" A quick bodyweight workout each day — all optional."), more]
+        }
+        if !noGym.isEmpty {
+            return [.strong("No gym \(span(noGym))."), .soft(" Your workouts switch to bodyweight."), more]
+        }
+        if !sick.isEmpty {
+            return [.strong("Rest \(span(sick))."), .soft(" No training while you're sick."), more]
+        }
+        guard let first = chosen.first else { return [.soft("Nothing ticked.")] }
+        return [.strong(title(first) + "."), .soft(chosen.count > 1 ? " Plus \(chosen.count - 1) more." : "")]
+    }
+
     private func done(_ lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Done")
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(AppTheme.ink)
+            Headline([.strong("Done. "), .soft("The app follows it from now on.")], size: 34)
             ForEach(lines, id: \.self) { line in
                 Label(line, systemImage: "checkmark")
                     .font(.body)
@@ -205,8 +320,15 @@ struct TellView: View {
         case .examWeek(let date):
             return "Exam week from \(day(ScheduleStore.weekStart(of: date), time: false))"
         case .dayStatus(let status, let from, let days):
-            let name = DayStatus(rawValue: status)?.title ?? status
-            return "\(name) from \(day(from, time: false))\(days > 1 ? " for \(days) days" : "")"
+            let name = status == "travel" ? "Away" : DayStatus(rawValue: status)?.title ?? status
+            if days == 1 { return "\(day(from, time: false)) · \(status == "sick" ? "Sick" : name)" }
+            return "\(name) from \(day(from, time: false)) for \(days) days"
+        case .noGym(let from, let days):
+            if days == 1 { return "\(day(from, time: false)) · No gym" }
+            return "No gym from \(day(from, time: false)) for \(days) days"
+        case .practice(let from, let days, let happening):
+            let what = happening ? "Team practice" : "No team practice"
+            return days == 1 ? "\(day(from, time: false)) · \(what)" : "\(what) from \(day(from, time: false)) for \(days) days"
         case .goals(let goals):
             return "Goals: " + goals.compactMap { Struggle(rawValue: $0)?.title }.joined(separator: ", ")
         case .season(let part, let from):
@@ -224,7 +346,12 @@ struct TellView: View {
         case .pain: "Today's training leaves it alone. Sharp or getting worse: stop and get it checked."
         case .headKnock: "No training until a doctor clears you. Tell a parent or coach today."
         case .examWeek: "Fewer, shorter sessions that week — time and sleep for studying."
-        case .dayStatus: "Your plan adjusts while it lasts; rest days never count against you."
+        case .dayStatus(let status, _, _):
+            status == "sick" ? "No training. Rest and recover — it never counts against you."
+                : "Bodyweight workout, about 20 min — only if you feel like it."
+        case .noGym: "Your planned workout with bodyweight exercises only. Skip it or do more — your call."
+        case .practice(_, _, let happening):
+            happening ? "Counted as practice; the gym part that day gets lighter." : "Your plan uses the free day — or rest, your call."
         case .goals: "Your training leans towards them (up to three)."
         case .season(let part, _):
             part == "pre" ? "Strength and speed for the season ahead from then; until then you build in the off-season."
@@ -237,10 +364,14 @@ struct TellView: View {
 
     private func apply(_ proposals: [TellParser.Proposal]) {
         var lines: [String] = []
+        let calendar = Calendar.current
+        var statusDays: [(DayStatus, Date)] = []
+        var awayDays: [(day: Date, kind: String)] = []
         // A head knock goes last, so no other status can replace the pause;
         // and nothing typed here lifts a pause that is already on.
         let paused = DayStatusStore.status() == .concussion
-        let chosen = proposals.enumerated().filter { !skipped.contains($0.offset) }.map(\.element)
+        // `proposals` are already the ticked changes.
+        let chosen = proposals
         let isKnock: (TellParser.Proposal) -> Bool = { if case .headKnock = $0 { true } else { false } }
         // Pre-season before the season start, so a season day told together wins.
         let isPre: (TellParser.Proposal) -> Bool = { if case .season("pre", _) = $0 { true } else { false } }
@@ -277,14 +408,27 @@ struct TellView: View {
                     lines.append("Training stays paused until a doctor clears you")
                     continue
                 }
-                if let status = DayStatus(rawValue: status) { DayStatusStore.set(status, days: days, now: from) }
+                guard let kind = DayStatus(rawValue: status) else { continue }
+                for offset in 0..<max(1, min(days, 31)) {
+                    if let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) { statusDays.append((kind, day)) }
+                }
+            case .noGym(let from, let days):
+                NoGymDays.add(from: from, days: days)
+                for offset in 0..<max(1, min(days, 31)) {
+                    if let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) { awayDays.append((day: day, kind: "noGym")) }
+                }
+            case .practice(let from, let days, let happening):
+                for offset in 0..<max(1, min(days, 31)) {
+                    if let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) {
+                        PracticeOverride.set(happening, on: DayKey.of(day, calendar: calendar))
+                    }
+                }
             case .goals(let goals):
                 var merged = goals.compactMap(Struggle.init(rawValue:))
                 for goal in Struggles.selected where !merged.contains(goal) { merged.append(goal) }
                 Struggles.selected = Array(merged.prefix(Struggles.maximum))
             case .season(let part, let from):
                 guard let sport = athlete.activeSport else { continue }
-                let calendar = Calendar.current
                 func weeks(_ n: Int, _ date: Date) -> Date { calendar.date(byAdding: .day, value: 7 * n, to: date) ?? date }
                 switch part {
                 case "pre":
@@ -305,6 +449,33 @@ struct TellView: View {
             }
             lines.append(title(proposal))
         }
+        // Day statuses: consecutive days of one kind become one span (today's starts now, later ones wait).
+        // A head knock told now keeps training paused: no other status replaces it.
+        let sortedDays = chosen.contains(where: isKnock) ? [] : statusDays.sorted { $0.1 < $1.1 }
+        var index = 0
+        while index < sortedDays.count {
+            let (status, start) = sortedDays[index]
+            var count = 1
+            while index + count < sortedDays.count, sortedDays[index + count].0 == status,
+                  let next = calendar.date(byAdding: .day, value: count, to: start),
+                  calendar.isDate(sortedDays[index + count].1, inSameDayAs: next) {
+                count += 1
+            }
+            DayStatusStore.schedule(status, from: start, days: count)
+            if status == .travel || status == .holiday {
+                for offset in 0..<count {
+                    if let day = calendar.date(byAdding: .day, value: offset, to: start) { awayDays.append((day: day, kind: status.rawValue)) }
+                }
+            }
+            index += count
+        }
+        #if canImport(UserNotifications)
+        if remind, !awayDays.isEmpty {
+            let days = awayDays
+            Task { await AwayReminders.schedule(days: days) }
+        }
+        #endif
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         onChanged()
         withAnimation { applied = lines }
     }
