@@ -2,7 +2,7 @@
  * Authoring kit for pose patterns (see ../poses.js for the pattern format and
  * ../rig3d.js for every angle convention). Pattern files import from here.
  */
-import { BONES, JOINTS as RIG_JOINTS, add, apply, len, norm, skeleton, sub } from '../rig3d.js';
+import { BONES, JOINTS as RIG_JOINTS, add, apply, len, norm, scale, skeleton, sub } from '../rig3d.js';
 
 export const JOINTS = RIG_JOINTS;
 
@@ -109,6 +109,40 @@ export function solve(p, joint, f, lo, hi, iterations = 40) {
     prevV = v; prevF = fv;
   }
   return { ...p, [joint]: best };
+}
+
+/**
+ * Keeps planted feet where they were: with the knee bent, hip rotation swings
+ * the foot sideways, so a squat's "knees out" would otherwise pull the feet
+ * together. Sets each side's hip rotation so its ankle sits as far to the
+ * side of the pelvis as it does in `ref` (e.g. the standing keyframe).
+ */
+export function keepStance(p, ref, sides = ['L', 'R']) {
+  const lat = (sk, s) => { const l = apply(sk.root, [0, 0, 1]); return (sk[s].ankle[0] - sk.pelvis[0]) * l[0] + (sk[s].ankle[2] - sk.pelvis[2]) * l[2]; };
+  const r = skeleton(ref);
+  let q = { ...p };
+  for (const s of sides) q = solve(q, `hipRot${s}`, (sk) => (lat(sk, s) - lat(r, s)) * (s === 'L' ? 1 : -1), -45, 60);
+  return q;
+}
+
+/** Side `s`'s hip rotation set so the feet are as far apart sideways as in `ref` (a lateral lunge). */
+export function keepWidth(p, ref, s) {
+  const gap = (sk) => { const l = apply(sk.root, [0, 0, 1]); return (sk.L.ankle[0] - sk.R.ankle[0]) * l[0] + (sk.L.ankle[2] - sk.R.ankle[2]) * l[2]; };
+  const g = gap(skeleton(ref));
+  return solve(p, `hipRot${s}`, (sk) => (gap(sk) - g) * (s === 'L' ? 1 : -1), -45, 60);
+}
+
+/**
+ * Keeps both planted feet where they were in `ref` while the body above them
+ * moves (a weight shift, a turn): the legs are re-solved so the ankles sit
+ * the same distance and direction apart as in `ref`, around where they are now.
+ */
+export function plantFeet(p, ref) {
+  const r = skeleton(settle(ref, 'feet')), sk = skeleton(p);
+  const mid = scale(add(sk.L.ankle, sk.R.ankle), 0.5);
+  const half = scale(sub(r.L.ankle, r.R.ankle), 0.5);
+  const L = [mid[0] + half[0], mid[1], mid[2] + half[2]], R = [mid[0] - half[0], mid[1], mid[2] - half[2]];
+  return reachLeg(reachLeg(p, 'L', () => L), 'R', () => R);
 }
 
 /** Sets side `s`'s ankle so its toe tip rests on the same level as the other foot's sole. */

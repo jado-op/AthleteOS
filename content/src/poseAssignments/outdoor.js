@@ -5,7 +5,7 @@ export const OUTDOOR_POSES = {
   'snowboarding-heel-toe-stance-holds': 'surf-stance-balance',
   'snowboarding-lateral-carve-bounds': 'skater-bound',
   'snowboarding-stance-180-jumps': 'jump-180',
-  'snowboarding-box-drop-stick-landings': 'jump-stick-landing',
+  'snowboarding-box-drop-stick-landings': 'drop-landing',
   'snowboarding-roller-pump-squats': 'squat-bodyweight',
   'snowboarding-start-gate-pulls': 'start-gate-pull',
   'snowboarding-safe-falling-practice': 'ultimate-layout-knees',

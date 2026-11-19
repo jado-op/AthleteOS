@@ -4,7 +4,7 @@
  * with their real shapes (toe touch, herkie, pike), cheer motions, stunts
  * with a flyer, leaps, pirouettes and développés.
  */
-import { P, both, flatHands, ground, kf, library, mirror, reachBoth, side } from './kit.js';
+import { P, both, flatHands, ground, kf, library, mirror, plantFeet, reachBoth, side } from './kit.js';
 
 const lib = library();
 const def = lib.def;
@@ -293,11 +293,12 @@ def('developpe', 'Développé extensions', {
   ],
 });
 /** Sautés in first: jump, land toe-ball-heel into a deep quiet plié. */
-const first = both({ hipRot: 40, hipAbd: 10 });
+const first = both({ hipRot: -40, hipAbd: 10 });
 def('saute-plie', 'Sautés landing in plié', {
   view: 'front', loop: true, thumb: 1,
   keyframes: [
-    kf(P(first, both({ hip: 40, knee: 60, ankle: 26, shoulder: 30, shoulderAbd: 40, elbow: 30 })), 'feet', { hold: 0.2, move: 0.18 }),
+    // The plié opens the knees out over the toes; the heels stay where the landing put them.
+    kf(plantFeet(P(first, both({ hip: 40, knee: 60, ankle: 26, shoulder: 30, shoulderAbd: 40, elbow: 30 })), P(first)), 'feet', { hold: 0.2, move: 0.18 }),
     kf(P(first, both({ ankle: -40, shoulder: 30, shoulderAbd: 40, elbow: 30 }), { lift: 16 }), 'air', { move: 0.18 }),
     kf(P(first, both({ ankle: -30, shoulder: 30, shoulderAbd: 40, elbow: 30 })), 'Ltoe+Rtoe', { move: 0.14 }),
   ],

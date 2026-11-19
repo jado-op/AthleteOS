@@ -5,7 +5,7 @@
  * on the ice.
  */
 import { add, apply, implementHead, keyframeAt, norm, placeKeyframes, rotY, scale, sub } from '../rig3d.js';
-import { P, both, kf, library, mirror, reachBoth } from './kit.js';
+import { P, both, kf, library, mirror, plantFeet, reachBoth } from './kit.js';
 
 const lib = library();
 const def = lib.def;
@@ -83,10 +83,12 @@ def('hockey-crossover-start', 'Crossover start from the dot', {
   ],
 });
 def('hockey-mohawk', 'Mohawk turn, forward to backward', {
-  view: 'three-quarter', thumb: 2,
+  view: 'three-quarter', thumb: 3,
   keyframes: [
     kf(stride[1], 'air', { move: 0.4 }),
-    kf(P({ spine: 20, neck: -10, hipL: 30, kneeL: 40, ankleL: 20, hipRotL: -50, hipR: 30, kneeR: 40, ankleR: 20, hipRotR: -50, hipAbdL: 18, hipAbdR: 18, ...skateArms(40, 40) }), 'feet', { hold: 0.25, move: 0.5 }),
+    kf(P({ spine: 20, neck: -10, hipL: 30, kneeL: 40, ankleL: 20, hipRotL: -50, hipR: 30, kneeR: 40, ankleR: 20, hipRotR: -50, hipAbdL: 18, hipAbdR: 18, ...skateArms(40, 40) }), 'feet', { hold: 0.25, move: 0.25 }),
+    // Weight on the left skate as the hips open; the right foot lifts and comes down facing back.
+    kf(P({ turn: 90, spine: 22, neck: -12, hipL: 40, kneeL: 50, ankleL: 22, hipAbdL: 14, hipR: 30, kneeR: 60, ankleR: 10, hipAbdR: 26, ...skateArms(40, 40) }), 'L', { move: 0.25 }),
     kf(P({ turn: 180, spine: 24, neck: -12, ...both({ hip: 50, knee: 60, ankle: 26, hipAbd: 14 }), ...skateArms(40, 40) }), 'feet', { hold: 0.2, move: 0.4 }),
     kf(P({ turn: 180, spine: 26, neck: -12, hipL: 60, kneeL: 70, ankleL: 28, hipR: 50, kneeR: 40, hipAbdR: 30, hipRotR: 20, ...skateArms(40, 40) }), 'air', { hold: 0.2 }),
   ],
@@ -163,12 +165,13 @@ def('hockey-snap-shot', 'Snap shot', {
 
 // Wrist shot: the blade stays on the ice, sweeping the puck from behind the
 // back foot forward while the weight moves back to front, then a low-to-high finish.
+const wristLoad = P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 });
 def('hockey-wrist-shot', 'Wrist shot', {
   view: 'front', thumb: 1, implement: stick(), ball: PUCK,
   keyframes: [
     kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.3, move: 0.3, ball: 'head' }),
-    kf(holdStick(P(shotStance, { twist: 8, hipL: 44, kneeL: 54, hipR: 28, kneeR: 32 }), ice(24, 64), air(8, 10, 6)), 'feet', { move: 0.18, ball: 'head' }),
-    kf(holdStick(P(shotStance, { twist: 34, turn: 12, hipL: 44, kneeL: 50, hipR: 18, kneeR: 24 }), air(40, 30, 100), air(10, 18, 16)), 'feet', { hold: 0.4, move: 0.5, ball: shotAway(30) }),
+    kf(holdStick(plantFeet(P(shotStance, { twist: 8, hipL: 44, kneeL: 54, hipR: 28, kneeR: 32 }), wristLoad), ice(24, 64), air(8, 10, 6)), 'feet', { move: 0.18, ball: 'head' }),
+    kf(holdStick(plantFeet(P(shotStance, { twist: 34, turn: 12, hipL: 44, kneeL: 50, hipR: 18, kneeR: 24 }), wristLoad), air(40, 30, 100), air(10, 18, 16)), 'feet', { hold: 0.4, move: 0.5, ball: shotAway(30) }),
     kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.1, ball: 'none' }),
   ],
 });

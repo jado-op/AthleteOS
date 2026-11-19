@@ -5,7 +5,7 @@
  */
 import { skeleton } from '../rig3d.js';
 import { STRENGTH } from './strength.js';
-import { P, air, both, ground, kf, levelFeet, library, mirror, reachBoth, side } from './kit.js';
+import { P, air, both, flatHands, ground, handsToFloor, kf, levelFeet, library, mirror, reachBoth, side } from './kit.js';
 
 const lib = library();
 const def = lib.def;
@@ -38,20 +38,24 @@ const sprawl = (() => {
   for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (handsBelowHips(mid) > 0) lo = mid; else hi = mid; }
   return at((lo + hi) / 2);
 })();
+/** On the way down and back up: hands on the mat, hips high, on the toes (the legs shoot back from here). */
+const sprawlPike = (turn = 0) => flatHands(handsToFloor(flatHands(handsToFloor(P(both({ shoulder: 76, elbow: 4, shoulderAbd: 0, wrist: -85, hip: 62, knee: 34, ankle: 30, hipAbd: 18 }), { neck: -16, turn }), 20, 130)), 20, 130));
 const sprawlFrames = [
-  kf(stance(), 'feet', { hold: 0.4, move: 0.16 }),
-  kf(sprawl, 'hands+front', { hold: 0.4, move: 0.3, travel: [-30, 0] }),
-  kf(P(sprawl, { turn: 40 }), 'hands+front', { move: 0.3 }),
-  kf(stance(), 'feet', { hold: 0.2, travel: [20, 0] }),
+  kf(stance(), 'feet', { hold: 0.4, move: 0.1 }),
+  kf(sprawlPike(), 'hands+Ltoe+Rtoe', { move: 0.12 }),
+  kf(sprawl, 'hands+front', { hold: 0.4, move: 0.3 }),
+  kf(P(sprawl, { turn: 40 }), 'hands+front', { move: 0.22 }),
+  kf(sprawlPike(40), 'hands+Ltoe+Rtoe', { move: 0.26 }),
+  kf(stance(), 'feet', { hold: 0.2 }),
 ];
 def('wrestling-sprawl', 'Sprawl', {
-  view: 'three-quarter', thumb: 1,
-  cast: [{ pattern: 'wrestling-pen-step', at: [150, 0], facing: 180, phase: 0.9 }],
+  view: 'three-quarter', thumb: 2,
+  cast: [{ pattern: 'wrestling-pen-step', at: [150, 0], facing: 180, phase: 0.22 }],
   keyframes: sprawlFrames,
 });
 def('wrestling-sprawl-and-shoot', 'Sprawl, then shoot', {
-  view: 'three-quarter', thumb: 1,
-  keyframes: [...sprawlFrames.slice(0, 3), ...penStep.slice(0, 4), kf(stance(), 'feet', { hold: 0.2, travel: [20, 0] })],
+  view: 'three-quarter', thumb: 2,
+  keyframes: [...sprawlFrames.slice(0, 5), ...penStep.slice(0, 4), kf(stance(), 'feet', { hold: 0.2, travel: [20, 0] })],
 });
 def('wrestling-motion', 'Stance and motion', {
   view: 'three-quarter', thumb: 0,
@@ -99,7 +103,8 @@ def('wrestling-bridge-turn', 'Bridge and turn', {
   ],
 });
 /** Hip heist: from hands and feet, thread one leg under and kick it through to face the other way. */
-const bear = P({ spine: 88, neck: -20, ...both({ hip: 100, knee: 90, ankle: 0, shoulder: 90, elbow: 0 }) });
+/** On hands and toes, knees off the floor: the trunk tilted until flat palms and toes share the floor. */
+const bear = flatHands(handsToFloor(flatHands(handsToFloor(P({ neck: -20, ...both({ hip: 100, knee: 90, ankle: 30, shoulder: 90, elbow: 0, wrist: -85 }) }), 40, 130)), 40, 130));
 def('hip-heist', 'Hip heist series', {
   view: 'three-quarter', thumb: 1,
   keyframes: [

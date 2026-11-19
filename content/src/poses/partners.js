@@ -35,6 +35,10 @@ const find = (slug) => lib.patterns.find((p) => p.slug === slug) ?? ALL.find((p)
 const base = (slug) => { const { slug: _s, name: _n, ...spec } = find(slug); return spec; };
 
 /** Cycle position (0–1) where keyframe i's hold starts. */
+function cycleOf(p) {
+  const n = p.keyframes.length, moves = p.loop ? n : n - 1;
+  return p.keyframes.reduce((a, k, i) => a + (k.hold ?? 0) + (i < moves ? k.move ?? 0.6 : 0), 0);
+}
 function timeOf(p, i) {
   const n = p.keyframes.length, moves = p.loop ? n : n - 1;
   let at = 0, total = 0;
@@ -56,7 +60,9 @@ function withPartners(slug, baseSlug, members, { balls = {}, arcs = {}, extra = 
   const spec = { ...base(baseSlug), ...extra };
   const cast = [...(spec.cast ?? []), ...members.map(({ pattern, at, facing = 180, sync, phase = 0, follow, tether }) => {
     const them = find(pattern);
-    const ph = sync ? (((timeOf(them, sync[1]) - timeOf(spec, sync[0])) % 1) + 1) % 1 : phase;
+    // sync[2] 'afterHold': line their keyframe up with the end of my keyframe's hold (when I start to move).
+    const mine = sync ? timeOf(spec, sync[0]) + (sync[2] === 'afterHold' ? (spec.keyframes[sync[0]].hold ?? 0) / cycleOf(spec) : 0) : 0;
+    const ph = sync ? (((timeOf(them, sync[1]) - mine) % 1) + 1) % 1 : phase;
     return { pattern, at, facing, phase: ph, ...(follow ? { follow } : {}), ...(tether ? { tether } : {}) };
   })];
   const keyframes = spec.keyframes.map((k, i) => ({
@@ -174,7 +180,11 @@ withPartners('hockey-walk-to-position-called', 'hockey-walk-to-position', [{ pat
 withPartners('hockey-board-battle-pair', 'hockey-board-battle', [{ pattern: 'hockey-board-battle', at: [0, -40], facing: 0, phase: 0.5 }],
   { extra: { ball: { r: 3.4, shape: 'puck', color: 'black' } }, balls: { 0: { floor: 'L', dx: 40, dl: -20 }, 1: { floor: 'L', dx: 40, dl: -20 } } });
 withPartners('goalie-t-push-shooter', 'goalie-t-push', [{ pattern: 'hockey-stickhandling-walk', at: [420, 0] }], { extra: { view: 'three-quarter' } });
-withPartners('fh-gk-block-get-up-shooter', 'fh-gk-block-get-up', [{ pattern: 'fh-hit', at: [420, 0] }], { extra: { view: 'three-quarter' } });
+// The shot comes in low; the block smothers it and it stays by the pads while the keeper gets up.
+withPartners('fh-gk-block-get-up-shooter', 'fh-gk-block-get-up', [{ pattern: 'fh-hit', at: [420, 0], sync: [0, 2, 'afterHold'] }], {
+  extra: { view: 'three-quarter', ball: { r: 3.6, color: 'white' } },
+  balls: { 0: 'c0:head', 1: { floor: 'L', dx: 26, dl: -60 }, 2: { floor: 'L', dx: 30, dl: -70 }, 3: { floor: 'L', dx: 30, dl: -70 }, 4: 'none' },
+});
 withPartners('fh-gk-angle-walk-shooter', 'fh-gk-angle-walk', [{ pattern: 'fh-dribble-walk', at: [420, 0] }]);
 withPartners('lax-ground-ball-fed', 'lax-ground-ball', [{ pattern: 'ball-roll-feed', at: [140, -150], facing: 135, sync: [0, 1] }], { balls: { 0: 'c0:R' } });
 withPartners('goalball-sound-tracking-partner', 'goalball-sound-tracking', [{ pattern: 'goalball-throw-partner', at: [360, 0] }]);

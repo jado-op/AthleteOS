@@ -430,7 +430,7 @@ def('fh-gk-low-block', 'Low block slide', {
   cast: [{ pattern: 'fh-push-pass-partner', at: [320, -40], facing: 180, phase: 0.05 }],
   keyframes: [
     kf(gkReady, 'feet', { hold: 0.4, move: 0.3, ball: 'c0:head' }),
-    kf(P(gkReady, { bend: -30, hipAbdR: 40, kneeR: 20, hipR: 20 }), 'L', { move: 0.18, ball: { floor: 'L', dx: 60, dl: -60 } }),
+    kf(P(gkReady, { bend: -30, hipAbdR: 40, kneeR: 20, hipR: 20, shoulderR: 56 }), 'L', { move: 0.18, ball: { floor: 'L', dx: 60, dl: -60 } }),
     kf(blockDown, 'air', { hold: 0.6, move: 0.4, ball: { floor: 'L', dx: 26, dl: -60 }, travel: [0, -50] }),
     kf(P(both({ hip: 0, knee: 90, ankle: -60 }), gkArms, { spine: 10 }), 'knees', { move: 0.3, ball: { floor: 'L', dx: 30, dl: -70 } }),
     kf(gkReady, 'feet', { hold: 0.3, ball: { floor: 'L', dx: 30, dl: -70 } }),

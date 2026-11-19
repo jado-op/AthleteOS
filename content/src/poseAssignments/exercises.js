@@ -73,7 +73,7 @@ Object.assign(EXERCISE_POSES, {
   'dead-bug': 'dead-bug', 'bird-dog': 'bird-dog', 'side-plank': 'side-plank', 'hollow-hold': 'hollow-hold', 'ab-wheel-rollout': 'ab-rollout',
   'half-kneeling-chop': 'half-kneeling-lift', 'hanging-knee-raise': 'hanging-knee-raise', 'stir-the-pot': 'plank', 'back-extension': 'back-extension',
   'superman-hold': 'superman', 'copenhagen-plank': 'copenhagen-plank', 'adductor-squeeze': 'adductor-squeeze', 'tibialis-raise': 'tibialis-raise',
-  'standing-calf-raise': 'calf-raise-step-straight', 'bent-knee-calf-raise': 'seated-calf-raise', 'ankle-alphabet': 'breathing-seated', 'short-foot-drill': 'single-leg-balance',
+  'standing-calf-raise': 'calf-raise-step-straight', 'bent-knee-calf-raise': 'seated-calf-raise-dumbbells', 'ankle-alphabet': 'breathing-seated', 'short-foot-drill': 'single-leg-balance',
   'towel-toe-curls': 'breathing-seated', 'single-leg-balance-eyes-closed': 'single-leg-balance', 'star-excursion-reach': 'star-excursion',
   'lateral-band-walk': 'lateral-band-walk', 'clamshell': 'clamshell', 'reverse-nordic': 'reverse-nordic', 'neck-isometrics': 'neck-isometric',
   'band-neck-extension': 'neck-isometric', 'chin-tuck': 'chin-tuck', 'worlds-greatest-stretch': 'worlds-greatest-stretch', 'couch-stretch': 'couch-stretch',

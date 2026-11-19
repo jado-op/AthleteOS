@@ -3,7 +3,7 @@
  * hitters: the hitting arm is R (the far arm), so most attacks use the
  * three-quarter camera where the swing reads clearly.
  */
-import { P, both, clear, kf, library, mirror, reach, reachBoth, solve, toeDown } from './kit.js';
+import { P, both, clear, flatHands, handsToFloor, kf, library, mirror, reach, reachBoth, solve, toeDown } from './kit.js';
 
 const lib = library();
 const def = lib.def;
@@ -124,7 +124,9 @@ def('vb-dive', 'Sprawl and dig', {
   keyframes: [
     kf(platform(P(both({ hip: 50, knee: 60, ankle: 26, hipAbd: 16 }), { spine: 30 }), 30, 10), 'feet', { hold: 0.2, move: 0.24, ball: at(140, 20) }),
     kf(platform(P({ spine: 60, hipL: 80, kneeL: 90, ankleL: 30, hipR: -10, kneeR: 20, ankleR: -30 }), 44, -10), 'L+Rtoe', { move: 0.2, travel: [30, 0], ball: at(58, -10) }),
-    kf(P({ spine: 88, neck: -24, ...both({ shoulder: 120, elbow: 80, hip: 0, knee: 20, ankle: -60 }) }), 'front', { hold: 0.2, move: 0.4, travel: [50, 0], ball: at(60, 160) }),
+    kf(P({ spine: 88, neck: -24, ...both({ shoulder: 165, elbow: 15, hip: 0, knee: 20, ankle: -60 }) }), 'front', { hold: 0.2, move: 0.3, travel: [50, 0], ball: at(60, 160) }),
+    // Push back up: hands under the shoulders, feet under the hips, then stand.
+    kf(flatHands(handsToFloor(flatHands(handsToFloor(P(both({ shoulder: 80, elbow: 6, wrist: -85, hip: 96, knee: 100, ankle: 30, hipAbd: 14 }), { neck: -16 }), 20, 130)), 20, 130)), 'hands+Ltoe+Rtoe', { move: 0.3, ball: 'none' }),
     kf(P(both({ hip: 44, knee: 54, ankle: 24, hipAbd: 16, shoulder: 40, elbow: 60 }), { spine: 26 }), 'feet', { hold: 0.2, ball: 'none' }),
   ],
 });

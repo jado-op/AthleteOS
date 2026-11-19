@@ -20,7 +20,7 @@
  * floor, hands where they should be, and joints inside human range.
  */
 import { apply, implementHead, keyframeAt, lerpPose, placeKeyframes, rotY } from './rig3d.js';
-import { JOINTS } from './poses/kit.js';
+import { JOINTS, plantFeet, settle } from './poses/kit.js';
 import { STRENGTH } from './poses/strength.js';
 import { TEAM_SPORTS } from './poses/teamSports.js';
 import { INDIVIDUAL_SPORTS } from './poses/individualSports.js';
@@ -100,6 +100,24 @@ function autoStep(p) {
   return { ...p, thumb, keyframes: out };
 }
 for (let i = 0; i < PATTERNS.length; i++) if (STEPPED.has(PATTERNS[i].slug)) PATTERNS[i] = autoStep(PATTERNS[i]);
+
+/**
+ * Patterns whose feet stay planted (both flat) while the body above them
+ * shifts, turns or bends: each such keyframe's legs are re-solved so the feet
+ * stay exactly where the keyframe before put them (otherwise the stance
+ * narrows, widens or swivels and the feet skate across the floor).
+ */
+const PLANTED = new Set(['tennis-serve', 'rifle-standing-hold', 'rifle-mount', 'lateral-lunge', 'goblet-lateral-squat', 'disc-putt-straddle',
+  'lax-wall-ball', 'lax-passing-triangle', 'lax-cradle-protect', 'tt-backhand-flick-fed']);
+for (let i = 0; i < PATTERNS.length; i++) {
+  const p = PATTERNS[i];
+  if (!PLANTED.has(p.slug)) continue;
+  const frames = p.keyframes.map((k) => ({ ...k }));
+  for (let j = 1; j < frames.length; j++) {
+    if (frames[j].contact === 'feet' && frames[j - 1].contact === 'feet' && !frames[j].travel) frames[j].pose = settle(plantFeet(frames[j].pose, frames[j - 1].pose), 'feet');
+  }
+  PATTERNS[i] = { ...p, keyframes: frames };
+}
 
 /**
  * A ball waiting on the ground to be struck stays exactly where the stick
