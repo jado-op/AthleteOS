@@ -804,25 +804,28 @@ struct CheckInHistoryView: View {
                             .foregroundStyle(AppTheme.secondaryText)
                             .cardStyle()
                     }
+                    // V8: each morning in words, not a grid of numbers.
                     ForEach(sorted) { checkIn in
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .firstTextBaseline) {
                                 Text(checkIn.date.formatted(.dateTime.weekday(.wide).month().day()))
                                     .font(.headline)
                                     .foregroundStyle(AppTheme.ink)
                                 Spacer()
                                 if let band = checkIn.readinessBand {
-                                    Tag(band.rawValue.capitalized, color: AppTheme.color(for: band))
+                                    Text(Self.word(band))
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(AuraTone.body.mark)
                                 }
                             }
-                            HStack(spacing: 8) {
-                                metric("Sleep", checkIn.sleepQuality, AppTheme.purple)
-                                metric("Sore", checkIn.soreness, AppTheme.orange)
-                                metric("Energy", checkIn.energy, AppTheme.amber)
-                                metric("Stress", checkIn.stress, AppTheme.blue)
-                            }
+                            Text(Self.summary(checkIn))
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .cardStyle(padding: 16)
+                        .padding(.vertical, 12)
+                        .accessibilityElement(children: .combine)
+                        Divider().overlay(AppTheme.hairline)
                     }
                 }
                 .padding(20)
@@ -834,17 +837,22 @@ struct CheckInHistoryView: View {
         }
     }
 
-    private func metric(_ label: String, _ value: Int, _ color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)")
-                .font(.headline)
-                .foregroundStyle(AppTheme.ink)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(AppTheme.secondaryText)
+    /// Readiness as a word, never a score.
+    static func word(_ band: ReadinessBand) -> String {
+        switch band {
+        case .green: "Ready"
+        case .amber: "Go easier"
+        case .red: "Recover"
         }
-        .frame(maxWidth: .infinity, minHeight: 50)
-        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// "Slept well · a little sore · good energy · calm" (answers are 1…5).
+    static func summary(_ checkIn: CheckIn) -> String {
+        let sleep = checkIn.sleepQuality >= 4 ? "Slept well" : (checkIn.sleepQuality <= 2 ? "Slept badly" : "Slept okay")
+        let sore = checkIn.soreness >= 4 ? "very sore" : (checkIn.soreness == 3 ? "sore" : (checkIn.soreness == 2 ? "a little sore" : "not sore"))
+        let energy = checkIn.energy >= 4 ? "good energy" : (checkIn.energy <= 2 ? "low energy" : "okay energy")
+        let stress = checkIn.stress >= 4 ? "stressed" : (checkIn.stress == 1 ? "calm" : "okay mood")
+        return [sleep, sore, energy, stress].joined(separator: " · ")
     }
 }
 

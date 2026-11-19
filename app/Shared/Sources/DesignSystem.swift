@@ -822,6 +822,8 @@ public struct ListRow<Trailing: View>: View {
             Spacer(minLength: 8)
             trailing
         }
+        // Room above and below, so two-line rows never touch the next one.
+        .padding(.vertical, 6)
         .frame(minHeight: 56)
         .contentShape(Rectangle())
     }

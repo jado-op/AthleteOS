@@ -308,9 +308,8 @@ struct AppSearchSheet: View {
 
     private func group<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.caption.weight(.bold))
-                .tracking(0.8)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.secondaryText)
             VStack(spacing: 0) { content() }
                 .cardStyle(padding: 12)
