@@ -122,6 +122,15 @@ Reading files, CI logs or the GitHub API needs no lock.
 - Owner's inspiration: Dribbble "Veri Mobile – Smart Health Tracking" (aura cards,
   tiles) and "Time Tracking & Productivity" (big sentence greeting, orange cards,
   ring timer). Don't copy; make it more useful.
+- **V8 only** (owner, 2026-11-19: "I only want the new one"): no violet, no monospaced
+  telemetry face, no numbered sections or hairline section rules, no grey number boxes, no
+  starfield. The old component names now render V8 (`SpaceSection`/`SectionHeader` = big
+  plain labels, `Font.telemetry` = regular face with monospaced digits, `GlassMetric` = big
+  light number without a box); old colour tokens carry V8 colours (`brand`/`brightRed`/`red`
+  = training ember #FB7A35, `purple` = mind magenta, `orange` = practice in body blue).
+  Activity colours: gym ember, practice blue, after-practice yellow, mobility cyan, game green.
+  The V7 and V5 sections below are history: where they name violet, telemetry or starfield,
+  V8 wins.
 
 ## Design (V7, owner 2026-11-18: "space", done smart — superseded by V8)
 - Deep space, not decoration: `AppBackground` is a quiet seeded starfield (`Starfield`) with two

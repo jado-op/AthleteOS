@@ -168,22 +168,22 @@ struct GlassMetric: View {
     var accent: Color?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Spacer(minLength: 0)
+        // V8: no grey box — a big light number with its label.
+        VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.telemetry(24, weight: .medium))
+                .font(.system(size: 34, weight: .light))
+                .monospacedDigit()
+                .tracking(-0.8)
                 .foregroundStyle(AppTheme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(label)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(accent ?? AppTheme.mutedText)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(accent ?? AppTheme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .bottomLeading)
-        .glassSurface(cornerRadius: 20, tint: accent)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -425,7 +425,6 @@ struct NextStepEyebrow: View {
             Circle()
                 .fill(accent)
                 .frame(width: 7, height: 7)
-                .shadow(color: accent.opacity(0.9), radius: 6)
                 .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline.weight(.semibold))

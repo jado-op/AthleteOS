@@ -107,7 +107,7 @@ private enum WidgetInk {
     static let ink = Color.primary
     static let muted = Color.secondary
     static let orange = Color.primary
-    static let red = Color(red: 0.545, green: 0.361, blue: 0.965)
+    static let red = Color(red: 0.984, green: 0.478, blue: 0.208)
 }
 
 private struct WidgetRing: View {

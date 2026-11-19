@@ -36,10 +36,10 @@ struct RigPalette {
         scheme == .dark
             ? RigPalette(skinNear: "#D9A47A", skinFar: "#A9764F", shirtNear: "#5C6272", shirtFar: "#3E4250", shortsNear: "#707688", shortsFar: "#4E5363",
                          shoe: "#E8E8EC", hair: "#2A1D15", ground: "#3A3A40", steel: "#B8BBC4", plate: "#D6D7DC", wood: "#C99A6A", pad: "#6A6E7A",
-                         water: "#3F6E99", glow: "#A78BFA", red: "#FF4D4F", shadow: .black.opacity(0.35))
+                         water: "#3F6E99", glow: "#FB7A35", red: "#FF4D4F", shadow: .black.opacity(0.35))
             : RigPalette(skinNear: "#D9A47A", skinFar: "#A9764F", shirtNear: "#2B2D33", shirtFar: "#17181C", shortsNear: "#434957", shortsFar: "#272B33",
                          shoe: "#15161A", hair: "#2A1D15", ground: "#E3E3E8", steel: "#8E9199", plate: "#26272C", wood: "#B98A5A", pad: "#3A3D46",
-                         water: "#9CC7F0", glow: "#8B5CF6", red: "#E5383B", shadow: .black.opacity(0.12))
+                         water: "#9CC7F0", glow: "#D9480F", red: "#E5383B", shadow: .black.opacity(0.12))
     }
 }
 

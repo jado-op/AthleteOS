@@ -28,13 +28,16 @@ public enum AppTheme {
     public static let hairline = Color.white.opacity(0.08)
 
     // The signature violet, as light (the names are from the red era).
-    public static let brand = Color(rgb: 0x8B5CF6)
-    public static let brightRed = Color(rgb: 0xA78BFA)
-    public static let crimson = Color(rgb: 0x6D28D9)
-    public static let atmosphere = Color(rgb: 0x1E1238)
-    /// The second accent (rings, highlights): a soft lavender.
-    public static let coral = Color(hex: "#C4B5FD")
-    public static let orange = Color(hex: "#FF8A3D")
+    // V8 (owner, 2026-11-19: "only the new design language"): no violet left.
+    // The old names now carry the V8 colours: the accent is training ember.
+    public static let brand = Color(rgb: 0xFB7A35)
+    public static let brightRed = Color(rgb: 0xFB7A35)
+    public static let crimson = Color(rgb: 0xD9480F)
+    public static let atmosphere = Color(rgb: 0x111114)
+    /// The second accent (rings, highlights): a light ember.
+    public static let coral = Color(rgb: 0xFDBA8C)
+    /// Team practice in the activity colours: the body blue (gym is ember).
+    public static let orange = Color(rgb: 0x6E9BFF)
     public static let yellow = Color(hex: "#FACC15")
     public static let cyan = Color(hex: "#22D3EE")
     /// Was the old cobalt blue; a light grey mark on the dark canvas.
@@ -45,11 +48,11 @@ public enum AppTheme {
     /// A solid dark surface with white on it.
     public static let solid = Color(rgb: 0x1A1B1F)
     /// Mind, sleep and reflection: indigo, so it never reads as the brand violet.
-    public static let purple = Color(hex: "#818CF8")
+    public static let purple = Color(rgb: 0xE879C0)
     public static let green = Color(hex: "#22C55E")
     public static let amber = Color(hex: "#F59E0B")
     /// Gym in the activity colours, and the brand mark on data.
-    public static let red = Color(hex: "#8B5CF6")
+    public static let red = Color(rgb: 0xFB7A35)
     /// Real warnings only: pain, head injury, emergency, stop.
     public static let danger = Color(hex: "#EF4444")
 
@@ -272,7 +275,9 @@ enum Starfield {
 /// Mission-control type: telemetry lines and numbers in the monospaced face.
 public extension Font {
     static func telemetry(_ size: CGFloat = 12, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+        // V8: no monospaced "instrument" face any more — the regular face
+        // with digits that don't jump.
+        .system(size: size, weight: weight).monospacedDigit()
     }
 }
 
@@ -318,22 +323,19 @@ public struct SpaceSection<Trailing: View>: View {
     }
 
     public var body: some View {
-        VStack(spacing: 14) {
-            Rectangle().fill(AppTheme.hairline).frame(height: 1)
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(String(format: "%02d", number))
-                    .font(.telemetry(11))
-                    .foregroundStyle(AppTheme.mutedText)
-                Text(title)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 8)
-                trailing
-                    .font(.telemetry(11.5))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
+        // V8: a plain big label — the number and the hairline are gone.
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title)
+                .font(.system(size: 24, weight: .bold))
+                .tracking(-0.4)
+                .foregroundStyle(AppTheme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            trailing
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
         }
+        .padding(.top, 6)
     }
 }
 
@@ -453,7 +455,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
                 .frame(maxWidth: .infinity, minHeight: 54)
                 .background(Capsule().fill(Color.white))
                 .overlay { Capsule().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5) }
-                .shadow(color: Color(rgb: 0xC4B5FD).opacity(isEnabled ? 0.22 : 0), radius: 16, x: 0, y: 4)
+                .shadow(color: Color.white.opacity(isEnabled ? 0.12 : 0), radius: 14, x: 0, y: 4)
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
                 .scaleEffect(configuration.isPressed ? 0.97 : 1)
                 .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
@@ -1032,7 +1034,8 @@ public struct ScreenTitle: View {
             // V3 type scale: page 32 bold, section 22 semibold, card 18–20,
             // body 15–17, secondary 14–15.
             Text(title)
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 34, weight: .bold))
+                .tracking(-0.7)
                 .foregroundStyle(AppTheme.ink)
             if let subtitle {
                 Text(subtitle)
@@ -1063,11 +1066,11 @@ public struct SectionHeader<Trailing: View>: View {
         // Space: each section starts on a hairline, the title calm, the
         // subtitle a quiet line — the content carries the screen.
         VStack(alignment: .leading, spacing: 12) {
-            Rectangle().fill(AppTheme.hairline).frame(height: 1)
             HStack(alignment: .lastTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 19, weight: .semibold))
+                        .font(.system(size: 22, weight: .bold))
+                        .tracking(-0.3)
                         .foregroundStyle(AppTheme.ink)
                         .accessibilityAddTraits(.isHeader)
                     if let subtitle {
