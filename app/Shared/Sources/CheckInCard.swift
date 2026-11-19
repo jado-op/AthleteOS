@@ -28,7 +28,7 @@ extension DailyLoop {
 }
 
 /// The morning check-in (V3): about thirty seconds, one question at a time,
-/// one tap each — sleep, energy, soreness, pain, mood, today's schedule —
+/// one tap each — what's on today, sleep, energy, soreness, pain, mood —
 /// then today's readiness in words. Checking in again the same day edits
 /// the day's answers (one check-in per day).
 struct CheckInSheet: View {
@@ -37,7 +37,7 @@ struct CheckInSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case loading, summary, sleepHours, sleepQuality, energy, soreness, pain, painDetail, illness, mood, schedule, result }
+    enum Step: Hashable { case loading, summary, today, sleepHours, sleepQuality, energy, soreness, pain, painDetail, illness, mood, result }
 
     @State private var step: Step = .loading
     @State private var sleepHours: CheckInOption?
@@ -50,7 +50,8 @@ struct CheckInSheet: View {
     @State private var mood: CheckInOption?
     /// Ill or under a new restriction (yes / no / not sure).
     @State private var illness: IllnessAnswer? = IllnessStore.answer()
-    @State private var practiceToday = PracticeSchedule.hasPractice(on: .now)
+    /// "What's on today?": the athlete decides; starts from what the schedule says.
+    @State private var dayAnswer: DayAnswer
     /// Hours slept from Apple Health, when connected: pre-selects the answer.
     @State private var healthHours: Double?
     /// Recovery signals from a watch or band, against the athlete's normal.
@@ -78,10 +79,13 @@ struct CheckInSheet: View {
         _hasPain = State(initialValue: existing == nil && pain == nil ? nil : pain != nil)
         _painAreas = State(initialValue: Set(pain?.areas ?? []))
         _painLevel = State(initialValue: pain?.level)
+        _dayAnswer = State(initialValue: DayChoicePicker.startingAnswer(
+            practiceToday: PracticeSchedule.hasPractice(on: .now),
+            gameToday: athlete.competitions.contains { Calendar.current.isDateInToday($0.date) }))
     }
 
     private var steps: [Step] {
-        [.sleepHours, .sleepQuality, .energy, .soreness, .pain] + (hasPain == true ? [.painDetail] : []) + [.illness, .mood, .schedule]
+        [.today, .sleepHours, .sleepQuality, .energy, .soreness, .pain] + (hasPain == true ? [.painDetail] : []) + [.illness, .mood]
     }
 
     private var progress: Double {
@@ -102,7 +106,7 @@ struct CheckInSheet: View {
             // With a watch or band's data: one screen to confirm or edit.
             let fromWatch = healthHours != nil || energyFromWatch
             hasSummary = fromWatch
-            withAnimation(.easeInOut(duration: 0.2)) { step = fromWatch ? .summary : .sleepHours }
+            withAnimation(.easeInOut(duration: 0.2)) { step = fromWatch ? .summary : .today }
         }
         .sheet(isPresented: $showingSafety) { SafetyCenterView() }
     }
@@ -116,6 +120,12 @@ struct CheckInSheet: View {
                 .appScreen()
         case .summary:
             summaryPage
+        case .today:
+            QuestionPage(progress: progress, question: "What's on today?", hint: todayHint,
+                         buttonTitle: "Next", buttonEnabled: !dayAnswer.choices.isEmpty,
+                         onClose: { dismiss() }, onBack: todayBack, onButton: { next(from: .today) }, tone: .body) {
+                DayChoicePicker(answer: $dayAnswer, gameWord: gameWord)
+            }
         case .sleepHours:
             question("How long did you sleep?", hint: healthHours.map { "Apple Health: \(SleepMath.label($0))" },
                      options: CheckInOptions.sleepHours, selection: $sleepHours) {
@@ -186,27 +196,25 @@ struct CheckInSheet: View {
             }
         case .mood:
             question("How do you feel today?", hint: "Mood and stress — school, home, anything.", options: CheckInOptions.mood, selection: $mood)
-        case .schedule:
-            QuestionPage(progress: progress, question: "Today's schedule", hint: "Is this right? Your plan is built around it.",
-                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }, tone: .body) {
-                if let game = athlete.competitions.first(where: { Calendar.current.isDateInToday($0.date) }) {
-                    ListRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: game.kind == .tournament ? "Tournament" : (AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"),
-                            detail: game.date.formatted(date: .omitted, time: .shortened)) { EmptyView() }
-                        .cardStyle(padding: 12)
-                }
-                ChoiceGrid([true, false], title: { (practice: Bool) -> String in practice ? practiceLabel : "No practice today" },
-                           isSelected: { (practice: Bool) -> Bool in practice == practiceToday }) { (practice: Bool) in
-                    practiceToday = practice
-                }
-            }
         case .result:
             resultPage
         }
     }
 
-    private var practiceLabel: String {
-        if let time = PracticeSchedule.time(on: .now) { return "Practice · \(time.label)" }
-        return "Team practice today"
+    private var gameWord: String {
+        AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
+    }
+
+    private var todayHint: String {
+        DayChoicePicker.scheduleHint(practiceToday: PracticeSchedule.hasPractice(on: .now), practiceTime: PracticeSchedule.time(on: .now),
+                                     game: athlete.competitions.first(where: { Calendar.current.isDateInToday($0.date) })?.date,
+                                     gameWord: gameWord)
+    }
+
+    /// The first question goes back to the summary when there is one.
+    private var todayBack: (() -> Void)? {
+        guard hasSummary else { return nil }
+        return { back() }
     }
 
     private func question(
@@ -220,8 +228,8 @@ struct CheckInSheet: View {
         @ViewBuilder extra: () -> Extra
     ) -> some View {
         let current = step
-        let backAction: (() -> Void)? = current == .sleepHours && !hasSummary ? nil : { back() }
-        let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
+        let backAction: (() -> Void)? = { back() }
+        let buttonTitle: String? = selection.wrappedValue == nil ? nil : (current == steps.last ? "Save" : "Next")
         return QuestionPage(progress: progress, question: text, hint: hint, buttonTitle: buttonTitle,
                             onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }, tone: .body) {
             ChoiceGrid(options, title: { (option: CheckInOption) -> String in option.title },
@@ -257,7 +265,7 @@ struct CheckInSheet: View {
     }
 
     private func back() {
-        if hasSummary, step == .sleepHours || (saveAfterPain && step == .painDetail) {
+        if hasSummary, step == .today || step == .sleepHours || (saveAfterPain && step == .painDetail) {
             saveAfterPain = false
             withAnimation(.easeInOut(duration: 0.2)) { step = .summary }
             return
@@ -309,7 +317,8 @@ struct CheckInSheet: View {
     private var summaryPage: some View {
         QuestionPage(progress: 0, question: "Your morning",
                      hint: "Filled in from Apple Health. Confirm, or change anything.",
-                     buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil,
+                     buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil
+                        && !dayAnswer.choices.isEmpty,
                      onClose: { dismiss() }, onButton: { confirm() }, tone: .body) {
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
@@ -351,17 +360,27 @@ struct CheckInSheet: View {
             }
             compactRow("Mood", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.mood, selection: $mood)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Today").font(.headline).foregroundStyle(AppTheme.ink)
+                Text("What's on today?").font(.headline).foregroundStyle(AppTheme.ink)
                 WrapLayout(spacing: 8) {
-                    ForEach([true, false], id: \.self) { practice in
-                        Button { practiceToday = practice } label: {
-                            Chip(practice ? practiceLabel : "No practice", isSelected: practiceToday == practice)
+                    ForEach(DayChoice.order) { choice in
+                        Button { dayAnswer = dayAnswer.toggling(choice) } label: {
+                            Chip(choice == .game ? gameWord : choice.title, isSelected: dayAnswer.choices.contains(choice))
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                if dayAnswer.choices.contains(.practice) {
+                    WrapLayout(spacing: 8) {
+                        ForEach(PracticeIntensity.choices, id: \.self) { level in
+                            Button { dayAnswer = DayAnswer(choices: dayAnswer.choices, practice: level) } label: {
+                                Chip("Practice: \(level.choiceTitle.lowercased())", isSelected: dayAnswer.practice == level)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
-            Button("Edit step by step") { edit(from: .sleepHours) }
+            Button("Edit step by step") { edit(from: .today) }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -412,11 +431,9 @@ struct CheckInSheet: View {
         guard let sleepQuality, let energy, let soreness, let mood else { return }
         ReminderScheduler.markDone(checkIn: true)
         let day = DayKey.of(.now)
-        // Only a day that differs from the schedule is remembered.
-        PracticeOverride.set(nil, on: day)
-        if practiceToday != PracticeSchedule.hasPractice(on: .now) {
-            PracticeOverride.set(practiceToday, on: day)
-        }
+        // The athlete's word on today wins over the schedule (and sets the
+        // day's practice override only when it differs from it).
+        DayChoiceStore.set(dayAnswer)
         // The exact hours from Apple Health when the answer agrees with them.
         let hours = healthHours.flatMap { CheckInOptions.nearest($0, in: CheckInOptions.sleepHours) == sleepHours ? $0 : nil }
             ?? sleepHours.flatMap { $0.value > 0 ? $0.value : nil }

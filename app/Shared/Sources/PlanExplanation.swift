@@ -38,15 +38,22 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             summary += decision.legBudget >= 2
                 ? "This short session adds \(targets) with only a little leg work, so you still recover."
                 : "This short session focuses on \(targets) without adding unnecessary leg fatigue."
+            if r.contains(.choseGym) { summary += " You said gym too: after a full practice, this is the gym part — more would only add fatigue." }
         case .gymDevelopment:
-            summary = "No practice today, so this is your main development session: \(targets)."
-            if r.contains(.gameWithin48h) { summary += " Leg volume is lower because you compete in two days." }
+            summary = r.contains(.choseGym)
+                ? (day.practice != nil ? "You said gym after a short, easy practice, so this is a full development session: \(targets)."
+                    : "You said gym today, so this is your main development session: \(targets).")
+                : "No practice today, so this is your main development session: \(targets)."
+            if r.contains(.gameYesterday) { summary += " You played yesterday, so the legs get less and the upper body more." }
+            else if r.contains(.gameWithin48h) { summary += " Leg volume is lower because you compete in two days." }
             else if r.contains(.lowerBodyTrainedRecently) { summary += " Your legs worked hard recently, so lower-body lifting is lighter." }
             else if r.contains(.belowNormalReadiness) { summary += " Your check-in was below your normal, so there's less volume today." }
             else if r.contains(.returnAfterIllness) { summary += " You're coming back from being sick, so it's lighter than usual." }
             else if r.contains(.inSeason) { summary += " In season the aim is to keep strength, so sets are lower." }
         case .primer:
-            summary = "You compete tomorrow. A short, sharp session keeps you feeling quick without adding fatigue."
+            summary = r.contains(.choseGym)
+                ? "You said gym, and you compete tomorrow — so it's a short, sharp session instead of a full one. You'll feel quick, not tired."
+                : "You compete tomorrow. A short, sharp session keeps you feeling quick without adding fatigue."
         case .conditioning:
             summary = "Your sport isn't giving you enough \((decision.conditioning ?? .aerobicBase).title.lowercased()) right now, so this is a programmed conditioning session."
         case .recovery:
@@ -56,6 +63,7 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             else if r.contains(.manyDaysInARow) { summary = "You've trained many days in a row. Today is easy, so the hard days keep working." }
             else if r.contains(.returnAfterIllness) { summary = "You're just back from being sick. Easy movement first; training builds back up over the next days." }
             else { summary = "Today is easy movement. Recovery is part of the plan." }
+            if r.contains(.choseGymMadeLighter) { summary = "You said gym, but your body needs an easy day first. " + summary }
         case .mobility:
             switch decision.mobilityPurpose ?? .targeted {
             case .preTraining: summary = r.contains(.gameToday) ? "Game day: a short movement prep, then save everything for the game." : "Movement prep: raise your temperature and get the joints moving before you train."
@@ -63,19 +71,41 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
             case .recovery: summary = practiceCovered.map { "\($0) Easy movement now helps you feel fresher tomorrow." } ?? "Easy movement to feel fresher. It isn't training."
             case .eveningDownshift: summary = "A calm few minutes before bed: slower movement and slower breathing."
             }
+            if r.contains(.choseLight) { summary = "You said something light today. " + summary }
+            else if r.contains(.choseGymMadeLighter) { summary = (r.contains(.gameToday) ? "You said gym, but the game is today's training. " : "You said gym, but your body needs an easy day first. ") + summary }
         case .travel:
             summary = "Away from home: strength with no equipment, so the week stays on track."
         case .rest:
+            if r.contains(.choseRest) { summary = "You chose a rest day. Rest is part of the plan — it never costs you anything."; break }
             summary = r.contains(.manyDaysInARow) ? "You've trained many days in a row. Rest today is part of the plan."
                 : r.contains(.gameTomorrow) ? "You compete tomorrow. Resting today is the best preparation."
                 : "Rest is part of the plan today. Doing nothing is the right thing to do."
         }
 
         // 1. Why train today?
-        add("Why train today?", decision.sessionType == .rest ? "Today is a planned rest day: fitness is built in the recovery between sessions."
-            : decision.sessionType == .recovery ? "Easy movement helps you recover faster than lying still. It isn't meant to make you tired."
-            : day.practice != nil ? "Practice trains your sport. A short supplement fills what practice doesn't train."
-            : "There's no practice today, which makes it the best day for development work.")
+        // What the athlete told AthleteOS about today: their word wins over the schedule.
+        let said = DayChoice.order.filter { day.said.contains($0) && $0 != .auto }
+        if !said.isEmpty {
+            var answer = "You said: \(list(said.map(\.shortTitle))) today. Your word wins over the schedule."
+            if r.contains(.choseGymMadeLighter) { answer += " Safety still comes first, so the session is lighter than a full gym day." }
+            add("What did you tell AthleteOS?", answer)
+        }
+        let whyToday: String
+        if decision.sessionType == .rest {
+            whyToday = r.contains(.choseRest) ? "You chose a rest day: fitness is built in the recovery between sessions."
+                : "Today is a planned rest day: fitness is built in the recovery between sessions."
+        } else if decision.sessionType == .recovery {
+            whyToday = "Easy movement helps you recover faster than lying still. It isn't meant to make you tired."
+        } else if r.contains(.choseLight) {
+            whyToday = "You asked for something light. Easy movement keeps you loose without adding fatigue."
+        } else if r.contains(.choseGym) && decision.sessionType == .gymDevelopment {
+            whyToday = "You chose the gym today — a good day to build strength and power."
+        } else if day.practice != nil {
+            whyToday = "Practice trains your sport. A short supplement fills what practice doesn't train."
+        } else {
+            whyToday = "There's no practice today, which makes it the best day for development work."
+        }
+        add("Why train today?", whyToday)
         // 2. Why this session type?
         if !day.painAreas.isEmpty {
             let areas = day.painAreas.map { $0.title.lowercased() }.sorted().joined(separator: ", ")

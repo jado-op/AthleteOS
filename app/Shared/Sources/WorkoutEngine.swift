@@ -127,6 +127,12 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case pullBalancesPush = "PULL_BALANCES_PUSH"
     /// Jump landings held to what this stage can absorb (§3).
     case landingsCapped = "LANDINGS_CAPPED"
+    /// The athlete said what today holds ("What's on today?"): their word wins over the schedule.
+    case choseGym = "ATHLETE_CHOSE_GYM"
+    case choseLight = "ATHLETE_CHOSE_LIGHT"
+    case choseRest = "ATHLETE_CHOSE_REST"
+    /// Asked for the gym, but safety (recovery, a game tomorrow or today) made it a lighter session.
+    case choseGymMadeLighter = "ATHLETE_CHOSE_GYM_MADE_LIGHTER"
 }
 
 /// Where an athlete is in their development (docs/TRAINING-RESEARCH.md §1:
@@ -295,6 +301,10 @@ public struct TrainingDay: Sendable {
     public var evening: Bool
     /// What the twin has found that changes training.
     public var twin: Set<TwinSteer> = []
+    /// What the athlete said today holds (empty: "let AthleteOS decide").
+    /// Practice and a game are already in `practice` / `gameToday`; gym,
+    /// something light and rest steer the session type here.
+    public var said: Set<DayChoice> = []
     /// Training stage, from age and training age.
     public var stage: TrainingStage { TrainingStage.of(age: age, experience: experience) }
 
@@ -304,8 +314,10 @@ public struct TrainingDay: Sendable {
                 soreLegs: Bool = false, painAreas: Set<PainArea> = [], illnessReturnDay: Int? = nil,
                 examOrLongDay: Bool = false, daysTrainedInARow: Int = 0, availableMinutes: Int? = nil,
                 recent: RecentLoad = RecentLoad(), reflection: ReflectionSignal? = nil, plannedGymDay: Bool = true,
-                travelling: Bool = false, beforeSession: Bool = false, evening: Bool = false, twin: Set<TwinSteer> = []) {
+                travelling: Bool = false, beforeSession: Bool = false, evening: Bool = false, twin: Set<TwinSteer> = [],
+                said: Set<DayChoice> = []) {
         self.twin = twin
+        self.said = said
         self.beforeSession = beforeSession
         self.evening = evening
         self.date = date
@@ -421,6 +433,10 @@ public enum SessionPlanner {
 
         let mustRecover = day.readiness == .low || (day.reflection?.somethingHurt ?? false) || day.daysTrainedInARow >= 7
             || (day.illnessReturnDay.map { $0 <= 2 } ?? false)
+        // What the athlete said today holds. Gym wins over "something light" when both.
+        let saidGym = day.said.contains(.gym)
+        let saidLight = day.said.contains(.light) && !saidGym
+        let saidRest = day.said.contains(.rest) && day.practice == nil && !day.gameToday
 
         // 1. What kind of session.
         var type: SessionType
@@ -431,6 +447,26 @@ public enum SessionPlanner {
             if day.travelling { add(.travelling) }
             type = .mobility
             purpose = day.beforeSession ? .preTraining : (day.evening ? .eveningDownshift : .recovery)
+            if saidGym { add(.choseGym); add(.choseGymMadeLighter) }
+        } else if saidRest {
+            // The athlete's rest day: nothing to do, and nothing lost.
+            add(.choseRest)
+            type = .rest
+        } else if saidLight {
+            // Something light: mobility and easy movement, whatever else the day holds.
+            add(.choseLight)
+            if let practice = day.practice {
+                add(.practiceToday)
+                if practice == .hard { add(.hardTeamPractice) }
+                if practice == .light { add(.lightTeamPractice) }
+                avoid.formUnion([.hardConditioning, .maxSprinting, .highImpact])
+            }
+            if day.travelling { add(.travelling) }
+            type = .mobility
+            if day.beforeSession, day.practice != nil { purpose = .preTraining }
+            else if day.evening { purpose = .eveningDownshift }
+            else if day.practice != nil || mustRecover || day.daysSinceLastGame == 1 { purpose = .recovery }
+            else { purpose = .targeted }
         } else if day.travelling {
             add(.travelling)
             // Travelling never overrides a body that needs to recover.
@@ -442,8 +478,27 @@ public enum SessionPlanner {
             if practice == .light { add(.lightTeamPractice) }
             type = mustRecover ? .mobility : .afterPractice
             if mustRecover { purpose = .recovery }
+            if saidGym {
+                // Practice and the gym: a full session only after a short, easy
+                // practice; otherwise the after-practice session is the gym part.
+                add(.choseGym)
+                if !mustRecover, practice == .light, day.daysToNextGame != 1 { type = .gymDevelopment } else { add(.choseGymMadeLighter) }
+            }
             // Practice already gave the conditioning and the running.
             avoid.formUnion([.hardConditioning, .maxSprinting, .highImpact])
+        } else if saidGym {
+            // The athlete's own gym session, on any day. Safety still decides how hard.
+            add(.noPracticeToday)
+            add(.choseGym)
+            if mustRecover {
+                type = .recovery
+                add(.choseGymMadeLighter)
+            } else if day.daysToNextGame == 1 {
+                type = .primer
+                add(.choseGymMadeLighter)
+            } else {
+                type = .gymDevelopment
+            }
         } else {
             add(.noPracticeToday)
             if mustRecover || day.daysSinceLastGame == 1 {
@@ -459,7 +514,10 @@ public enum SessionPlanner {
                 type = .rest
             }
         }
-        if let requested, requested != type {
+        // Home asks for "after practice" on every practice day; the athlete's
+        // own word (light, rest, a full gym session) stays.
+        let routineRequest = requested == .afterPractice && (saidLight || saidRest || (saidGym && type == .gymDevelopment))
+        if let requested, requested != type, !routineRequest {
             switch requested {
             case .mobility:
                 type = .mobility

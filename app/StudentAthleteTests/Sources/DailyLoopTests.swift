@@ -5,7 +5,7 @@ import XCTest
 /// tomorrow, and a practice confirmed in the check-in.
 final class DailyLoopTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
-    private let keys = ["safety.pain", "mindset.reflections", "schedule.dayOverrides"]
+    private let keys = ["safety.pain", "mindset.reflections", "schedule.dayOverrides", "schedule.dayChoices"]
 
     override func setUp() {
         super.setUp()
@@ -92,6 +92,25 @@ final class DailyLoopTests: XCTestCase {
         XCTAssertTrue(PracticeSchedule.hasPractice(on: morning, calendar: calendar))
         PracticeOverride.set(nil, on: day)
         XCTAssertNil(PracticeOverride.hasPractice(on: day))
+    }
+
+    func testWhatsOnTodayWinsOverTheSchedule() {
+        let scheduled = PracticeSchedule.hasPractice(on: morning, calendar: calendar)
+        XCTAssertNil(DayChoiceStore.answer(on: morning, calendar: calendar))
+        // Gym, no practice: the day's practice is off, whatever the schedule says.
+        DayChoiceStore.set(DayAnswer(choices: [.gym]), on: morning, calendar: calendar)
+        XCTAssertEqual(DayChoiceStore.answer(on: morning, calendar: calendar), DayAnswer(choices: [.gym]))
+        XCTAssertFalse(PracticeSchedule.hasPractice(on: morning, calendar: calendar))
+        XCTAssertEqual(DayChoiceStore.saysGame(on: morning, calendar: calendar), false)
+        // Practice and gym, a hard practice: practice is on.
+        DayChoiceStore.set(DayAnswer(choices: [.practice, .gym], practice: .hard), on: morning, calendar: calendar)
+        XCTAssertTrue(PracticeSchedule.hasPractice(on: morning, calendar: calendar))
+        XCTAssertEqual(DayChoiceStore.answer(on: morning, calendar: calendar)?.practice, .hard)
+        // "Let AthleteOS decide": nothing stored, the schedule decides again.
+        DayChoiceStore.set(DayAnswer(choices: [.auto]), on: morning, calendar: calendar)
+        XCTAssertNil(DayChoiceStore.answer(on: morning, calendar: calendar))
+        XCTAssertNil(DayChoiceStore.saysGame(on: morning, calendar: calendar))
+        XCTAssertEqual(PracticeSchedule.hasPractice(on: morning, calendar: calendar), scheduled)
     }
 
     func testTheEveningReflectionFeedsTomorrow() {

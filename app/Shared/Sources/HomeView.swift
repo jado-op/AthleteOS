@@ -63,12 +63,14 @@ struct HomeView: View {
     @State private var announcement = TeamAnnouncements.current
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
+    /// "Sick, travelling or on holiday?" tapped in the Today sheet: the day-status sheet opens once it has closed.
+    @State private var openDayStatusNext = false
     #if os(iOS)
     #endif
     /// The widget being held while arranging, and where the board is in reordering it.
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, dayStatus, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
+        case quickActions, checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -122,7 +124,13 @@ struct HomeView: View {
         case .travel, .holiday:
             return engine(.travel).map { (mode: WorkoutMode.travel, session: $0) }
         case .active:
-            if gameToday != nil { return nil }
+            // The athlete's word on today ("What's on today?") wins over the schedule.
+            let said = TodayEngine.said(on: .now)
+            if TodayEngine.gameOn(athlete, date: .now) { return nil }
+            if said?.choices.contains(.rest) == true { return nil }
+            if let said, said.choices.contains(.light), !said.choices.contains(.gym) {
+                return engine(.mobility).map { (mode: WorkoutMode.mobility, session: $0) }
+            }
             if practiceToday {
                 return engine(.afterPractice).map { (mode: WorkoutMode.afterPractice, session: $0) }
             }
@@ -360,6 +368,10 @@ struct HomeView: View {
             .sheet(item: $activeSheet, onDismiss: {
                 status = DayStatusStore.status()
                 revision += 1
+                if openDayStatusNext {
+                    openDayStatusNext = false
+                    activeSheet = .dayStatus
+                }
                 refreshTwinBriefing()
                 runPendingAction()
                 runPendingSearch()
@@ -385,6 +397,15 @@ struct HomeView: View {
                         activeSheet = nil
                         onPlanInputsChanged()
                     }
+                case .todayPlan:
+                    TodayChoiceSheet(initial: todayAnswer, gameWord: gameWord, hint: todayHint, onSave: { answer in
+                        DayChoiceStore.set(answer)
+                        activeSheet = nil
+                        onPlanInputsChanged()
+                    }, onOtherKindOfDay: {
+                        openDayStatusNext = true
+                        activeSheet = nil
+                    })
                 case .tournament:
                     TournamentModeView(onHotelWorkout: { selectedTab = .workout })
                 case .seasonReview:
@@ -580,11 +601,13 @@ struct HomeView: View {
     private var topBar: some View {
         HStack(spacing: 8) {
             ProfileButton(name: athlete.displayName)
-            Button { activeSheet = .dayStatus } label: {
+            // A normal day: what's on today (the athlete's word), changeable
+            // any time. Sick, travel or holiday: that status, as before.
+            Button { activeSheet = status == .active ? .todayPlan : .dayStatus } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: status.systemImage)
+                    Image(systemName: dayChipImage)
                         .foregroundStyle(status == .active ? AppTheme.secondaryText : phase.red)
-                    Text(status.title)
+                    Text(dayChipTitle)
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
                         .font(.caption2.weight(.bold))
@@ -600,7 +623,7 @@ struct HomeView: View {
             .fixedSize()
             .layoutPriority(1)
             Spacer(minLength: 4)
-            .accessibilityLabel("Today is: \(status.title). Change what kind of day it is.")
+            .accessibilityLabel("Today is: \(dayChipTitle). Change what's on today.")
             searchButton
             Button { activeSheet = .quickActions } label: {
                 Image(systemName: "plus")
@@ -612,6 +635,35 @@ struct HomeView: View {
             .buttonStyle(.pressable)
             .accessibilityLabel("Add: log a workout or add a game")
         }
+    }
+
+    /// The athlete's answer to "What's on today?" (nil: left to AthleteOS).
+    private var saidToday: DayAnswer? {
+        _ = revision
+        return TodayEngine.said(on: .now)
+    }
+
+    private var dayChipTitle: String {
+        guard status == .active, let said = saidToday else { return status.title }
+        return "Today: \(said.label)"
+    }
+
+    private var dayChipImage: String {
+        guard status == .active, let first = saidToday?.ordered.first else { return status.systemImage }
+        return first.systemImage
+    }
+
+    private var gameWord: String {
+        AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
+    }
+
+    private var todayAnswer: DayAnswer {
+        DayChoicePicker.startingAnswer(practiceToday: practiceToday, gameToday: gameToday != nil)
+    }
+
+    private var todayHint: String {
+        DayChoicePicker.scheduleHint(practiceToday: practiceToday, practiceTime: PracticeSchedule.time(on: .now),
+                                     game: gameToday?.date, gameWord: gameWord)
     }
 
     /// Two ways in: tell the app what's going on in your own words, and the

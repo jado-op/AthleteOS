@@ -284,4 +284,116 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertLessThanOrEqual(session.estimatedMinutes, 24, "about 20 minutes, not 30")
         XCTAssertTrue(session.items.contains { $0.block == .primaryStrength }, "still a real strength session")
     }
+
+    // MARK: - "What's on today?": the athlete decides, safety still shapes the session
+
+    private func said(_ choices: Set<DayChoice>, _ base: TrainingDay) -> TrainingDay {
+        var day = base
+        day.said = choices
+        return day
+    }
+
+    func testARestDayTheAthleteChoseHasNoSession() {
+        // Even on a planned gym day: their word wins, and rest costs nothing.
+        let decision = SessionPlanner.decide(said([.rest], day("soccer", position: "midfielder", phase: .inSeason, gymDay: true)))
+        XCTAssertEqual(decision.sessionType, .rest)
+        XCTAssertTrue(decision.reasons.contains(.choseRest))
+        let (_, session) = build(said([.rest], day("soccer", position: "midfielder", phase: .inSeason)), sport: "soccer", position: "midfielder")
+        XCTAssertTrue(session.items.isEmpty)
+        XCTAssertTrue(session.explanation?.summary.contains("You chose a rest day") ?? false)
+    }
+
+    func testGymOnADayWithoutAPlannedGymSessionIsAFullGymSession() {
+        let auto = SessionPlanner.decide(day("basketball", position: "guard", phase: .offSeason, gymDay: false))
+        XCTAssertNotEqual(auto.sessionType, .gymDevelopment, "without the athlete's word, not a gym day")
+        let (decision, session) = build(said([.gym], day("basketball", position: "guard", phase: .offSeason, gymDay: false)),
+                                        sport: "basketball", position: "guard")
+        XCTAssertEqual(decision.sessionType, .gymDevelopment)
+        XCTAssertTrue(decision.reasons.contains(.choseGym))
+        XCTAssertTrue(session.items.contains { $0.block == .primaryStrength })
+        XCTAssertTrue(session.explanation?.summary.hasPrefix("You said gym today") ?? false)
+        XCTAssertTrue(session.explanation?.parts.contains { $0.question == "What did you tell AthleteOS?" } ?? false)
+    }
+
+    func testSomethingLightIsMobilityNotTraining() {
+        let (decision, session) = build(said([.light], day("soccer", position: "midfielder", phase: .inSeason, gymDay: true)),
+                                        sport: "soccer", position: "midfielder")
+        XCTAssertEqual(decision.sessionType, .mobility)
+        XCTAssertTrue(decision.reasons.contains(.choseLight))
+        XCTAssertFalse(session.items.contains { $0.block == .primaryStrength || $0.block == .power || $0.block == .conditioning })
+        // Home asks for "after practice" on a practice day; "something light" stays light.
+        let afterPractice = SessionPlanner.decide(said([.practice, .light], day("soccer", position: "midfielder", phase: .inSeason, practice: .normal)),
+                                                  requested: .afterPractice)
+        XCTAssertEqual(afterPractice.sessionType, .mobility)
+        XCTAssertEqual(afterPractice.mobilityPurpose, .recovery)
+    }
+
+    func testTheChoiceOverridesTheSchedule() {
+        // TodayEngine turns "gym, no practice" on a practice weekday into practice: nil; the planner follows.
+        let gym = SessionPlanner.decide(said([.gym], day("soccer", position: "midfielder", phase: .inSeason, practice: nil, nextGame: 4, gymDay: false)))
+        XCTAssertEqual(gym.sessionType, .gymDevelopment)
+        // Practice and gym after an easy practice: a full session; after a hard one, the short after-practice session.
+        let easy = SessionPlanner.decide(said([.practice, .gym], day("soccer", position: "midfielder", phase: .inSeason, practice: .light, nextGame: 4)),
+                                         requested: .afterPractice)
+        XCTAssertEqual(easy.sessionType, .gymDevelopment)
+        let hard = SessionPlanner.decide(said([.practice, .gym], day("soccer", position: "midfielder", phase: .inSeason, practice: .hard, nextGame: 4)))
+        XCTAssertEqual(hard.sessionType, .afterPractice)
+        XCTAssertTrue(hard.reasons.contains(.choseGymMadeLighter))
+        // "Let AthleteOS decide" is today's behaviour exactly.
+        let base = day("basketball", position: "guard", phase: .offSeason)
+        XCTAssertEqual(SessionPlanner.decide(said([], base)), SessionPlanner.decide(base))
+    }
+
+    func testSafetyStillWinsOverTheGym() {
+        // Something hurt last night: easy movement, explained.
+        var hurt = said([.gym], day("soccer", position: "midfielder", phase: .inSeason, gymDay: false))
+        hurt.reflection = ReflectionSignal(dayFelt: 2, bodyFelt: 4)
+        let hurtDecision = SessionPlanner.decide(hurt)
+        XCTAssertEqual(hurtDecision.sessionType, .recovery)
+        XCTAssertTrue(hurtDecision.reasons.contains(.choseGymMadeLighter))
+        // Just back from being sick.
+        var sick = said([.gym], day("soccer", position: "midfielder", phase: .inSeason, gymDay: false))
+        sick.illnessReturnDay = 1
+        XCTAssertEqual(SessionPlanner.decide(sick).sessionType, .recovery)
+        // Low readiness.
+        XCTAssertEqual(SessionPlanner.decide(said([.gym], day("soccer", phase: .inSeason, readiness: .low, gymDay: false))).sessionType, .recovery)
+        // A game tomorrow: a short primer, not a full gym day.
+        let eve = SessionPlanner.decide(said([.gym], day("soccer", position: "midfielder", phase: .inSeason, nextGame: 1, gymDay: false)))
+        XCTAssertEqual(eve.sessionType, .primer)
+        XCTAssertTrue(eve.reasons.contains(.choseGymMadeLighter))
+        // A game today: the game is the training.
+        var gameDay = said([.gym, .game], day("soccer", position: "midfielder", phase: .inSeason, gymDay: false))
+        gameDay.gameToday = true
+        XCTAssertEqual(SessionPlanner.decide(gameDay).sessionType, .mobility)
+        // Pain: a gym session, but nothing that loads the sore area.
+        var knee = said([.gym], day("basketball", position: "guard", phase: .offSeason, gymDay: false))
+        knee.painAreas = [.knee]
+        let (kneeDecision, kneeSession) = build(knee, sport: "basketball", position: "guard")
+        XCTAssertEqual(kneeDecision.sessionType, .gymDevelopment)
+        for item in kneeSession.items {
+            guard let catalogueItem = Self.catalogue.item(item.itemSlug) else { continue }
+            XCTAssertFalse(PainFilter.loads(catalogueItem, areas: [.knee]), "\(item.itemSlug) loads a sore knee")
+        }
+    }
+
+    func testDayAnswersCombineAndStandAlone() {
+        var answer = DayAnswer.suggested(practiceScheduled: true, gameScheduled: false)
+        XCTAssertEqual(answer.choices, [.practice])
+        XCTAssertEqual(answer.practice, .normal)
+        answer = answer.toggling(.gym)
+        XCTAssertEqual(answer.choices, [.practice, .gym])
+        XCTAssertEqual(answer.label, "practice + gym")
+        answer = answer.toggling(.rest)
+        XCTAssertEqual(answer.choices, [.rest], "rest stands alone")
+        XCTAssertNil(answer.practice)
+        answer = answer.toggling(.light)
+        XCTAssertEqual(answer.choices, [.light])
+        XCTAssertTrue(answer.toggling(.auto).isAuto)
+        XCTAssertEqual(DayAnswer.suggested(practiceScheduled: false, gameScheduled: false).choices, [.auto])
+        let stored = DayAnswer(choices: [.practice, .gym], practice: .hard)
+        XCTAssertEqual(DayAnswer(encoded: stored.encoded), stored)
+        XCTAssertEqual(DayAnswer(encoded: "gym"), DayAnswer(choices: [.gym]))
+        XCTAssertNil(DayAnswer(encoded: ""))
+        XCTAssertEqual(DayAnswer(choices: [.auto]).engineChoices, [])
+    }
 }

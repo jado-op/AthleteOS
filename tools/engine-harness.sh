@@ -15,7 +15,7 @@ H=${1:-/tmp/aos-engine-harness}
 rm -rf "$H"
 mkdir -p "$H/Sources/Engine" "$H/Tests/EngineTests"
 
-for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine ConditioningEngine SessionBuilder PlanExplanation \
+for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine DayChoice ConditioningEngine SessionBuilder PlanExplanation \
          PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight TodayPlan \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \

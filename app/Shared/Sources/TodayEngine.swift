@@ -34,13 +34,31 @@ enum TodayEngine {
     }
 
     static func practiceIntensity(on date: Date, calendar: Calendar = .current) -> PracticeIntensity? {
-        guard PracticeSchedule.hasPractice(on: date, calendar: calendar) else { return nil }
-        // That evening's reflection says how hard it was, when there is one.
+        // The athlete's own word on the day ("What's on today?") wins over the schedule.
+        let said = DayChoiceStore.answer(on: date, calendar: calendar).flatMap { $0.isAuto ? nil : $0 }
+        if let said {
+            guard said.choices.contains(.practice) else { return nil }
+        } else {
+            guard PracticeSchedule.hasPractice(on: date, calendar: calendar) else { return nil }
+        }
+        // That evening's reflection says how hard it was, when there is one;
+        // before it, how hard the athlete said it would be.
         switch MindsetStore.reflection(on: date, calendar: calendar)?.hardness {
         case 4?: return .hard
         case 1?: return .light
-        default: return .normal
+        default: return said?.practice ?? .normal
         }
+    }
+
+    /// The athlete's answer for that day, when they decided (nil: left to AthleteOS).
+    static func said(on date: Date, calendar: Calendar = .current) -> DayAnswer? {
+        DayChoiceStore.answer(on: date, calendar: calendar).flatMap { $0.isAuto ? nil : $0 }
+    }
+
+    /// A game that day: the athlete's word first, then the competitions.
+    static func gameOn(_ athlete: Athlete, date: Date, calendar: Calendar = .current) -> Bool {
+        if let answer = Self.said(on: date, calendar: calendar) { return answer.choices.contains(.game) }
+        return athlete.competitions.contains { calendar.isDate($0.date, inSameDayAs: date) }
     }
 
     /// What a logged session trained, from its exercises' profiles.
@@ -80,7 +98,7 @@ enum TodayEngine {
         for daysAgo in 1...7 {
             guard let day = calendar.date(byAdding: .day, value: -daysAgo, to: today) else { continue }
             var load = DayLoad(daysAgo: daysAgo, practice: practiceIntensity(on: day, calendar: calendar),
-                               game: athlete.competitions.contains { calendar.isDate($0.date, inSameDayAs: day) })
+                               game: gameOn(athlete, date: day, calendar: calendar))
             for session in sessions where calendar.isDate(session.startedAt, inSameDayAs: day) {
                 let logged = self.load(of: session, daysAgo: daysAgo, catalogue: catalogue)
                 load.capacities = Array(Set(load.capacities + logged.capacities)).sorted { $0.rawValue < $1.rawValue }
@@ -135,7 +153,9 @@ enum TodayEngine {
             if busy { inARow += 1 } else { break }
         }
         let status = isToday ? DayStatusStore.status() : .active
-        let moment = PrepMoment.at(date, gameToday: games.contains(day))
+        let said = Self.said(on: date, calendar: calendar)
+        let gameToday = said.map { $0.choices.contains(.game) } ?? games.contains(day)
+        let moment = PrepMoment.at(date, gameToday: gameToday)
         let custom = PlanCustomizationStore.load()
         return TrainingDay(
             date: date,
@@ -144,8 +164,8 @@ enum TodayEngine {
             experience: TrainingExperience.current,
             demands: SportDemandsTable.demands(sport: sport, position: active.positionSlug),
             goals: goals(),
-            practice: practiceIntensity(on: date, calendar: calendar).map { isToday ? $0 : .normal },
-            gameToday: games.contains(day),
+            practice: practiceIntensity(on: date, calendar: calendar).map { isToday || said != nil ? $0 : .normal },
+            gameToday: gameToday,
             daysToNextGame: next,
             daysSinceLastGame: last,
             readiness: readiness,
@@ -161,7 +181,8 @@ enum TodayEngine {
             travelling: status == .travel || status == .holiday,
             beforeSession: moment == .beforePractice,
             evening: moment == .evening,
-            twin: twinSteers(athlete, date: date, calendar: calendar)
+            twin: twinSteers(athlete, date: date, calendar: calendar),
+            said: said?.engineChoices ?? []
         )
     }
 
@@ -222,6 +243,7 @@ enum TodayEngine {
                 DayStatusStore.status().rawValue, "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
+                DayChoiceStore.answer(on: date, calendar: calendar)?.encoded ?? "auto",
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
                 athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
                 athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)",
@@ -278,8 +300,9 @@ enum TodayEngine {
     /// widgets, so every screen shows the same session. Nil: rest or no plan.
     static func todaysWorkout(athlete: Athlete, week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar = .current) -> GeneratedSession? {
         let status = DayStatusStore.status()
-        guard status != .sick, status != .concussion,
-              !athlete.competitions.contains(where: { calendar.isDateInToday($0.date) }) else { return nil }
+        let said = Self.said(on: .now, calendar: calendar)
+        guard status != .sick, status != .concussion, !gameOn(athlete, date: .now, calendar: calendar),
+              said?.choices.contains(.rest) != true else { return nil }
         // The same rules gate as Home (e.g. head pain: no added training on the Watch either).
         guard PlanningRules.today(athlete, sessions: athlete.sessions).decision.allowsAddedTraining else { return nil }
         let planned = week?.sessions.first { calendar.isDateInToday($0.date) }
@@ -288,6 +311,10 @@ enum TodayEngine {
             let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
             guard let band = DailyLoop.todayBand(athlete) else { return safe }
             return ReadinessApplier.apply(to: safe, band: band).session
+        }
+        // "Something light" (and no gym): mobility, whatever else the day holds.
+        if let said, said.choices.contains(.light), !said.choices.contains(.gym), isAvailable(catalogue) {
+            return session(.mobility, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
         }
         if status == .travel || status == .holiday {
             return session(.travel, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
