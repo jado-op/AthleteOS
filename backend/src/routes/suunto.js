@@ -2,7 +2,8 @@ import express from 'express';
 
 import { requireAuth } from '../lib/requireAuth.js';
 import {
-  authorizeUrl, exchangeCode, listWorkouts, open, refreshTokens, seal, signState, suuntoConfig, SuuntoError, tokenUser, verifyState,
+  authorizeUrl, deauthorize, exchangeCode, listSleep, listWorkouts, open, refreshTokens, seal, signState, suuntoConfig, SuuntoError,
+  tokenUser, verifyState,
 } from '../lib/suunto.js';
 
 const MAX_DAYS = 14;
@@ -10,13 +11,14 @@ const CACHE_MS = 30 * 60_000;
 
 /**
  * The athlete's Suunto account (Cloud API). Only tokens are stored; workouts
- * pass through to the phone and are cached in memory for 30 minutes, because
- * Suunto's developer tier allows very few calls a week.
+ * and sleep pass through to the phone and are cached in memory for 30
+ * minutes, because Suunto's developer tier allows very few calls a week.
  *
  *   GET    /suunto/status       → { available, connected }
  *   POST   /suunto/connect      → { url }  the Suunto sign-in page to open
  *   GET    /suunto/callback     Suunto sends the browser here; redirects to athleteos://suunto?connected=1 (or ?error=…)
  *   GET    /suunto/workouts?days=3 → { workouts: [{ start, end, activity, averageHeartRate }] }
+ *   GET    /suunto/sleep?days=7    → { nights: [{ start, end, hours }] }
  *   DELETE /suunto/connection   forget the Suunto account
  */
 export function suuntoRouter({ prisma, sessionSecret, config = suuntoConfig(), fetchImpl = fetch }) {
@@ -48,7 +50,7 @@ export function suuntoRouter({ prisma, sessionSecret, config = suuntoConfig(), f
     if (typeof req.query.code !== 'string' || !req.query.code) return back('error=denied');
     try {
       const tokens = await exchangeCode(config, req.query.code, fetchImpl);
-      const suuntoUser = tokenUser(tokens.accessToken) ?? 'unknown';
+      const suuntoUser = tokens.user ?? tokenUser(tokens.accessToken) ?? 'unknown';
       const data = {
         suuntoUser,
         accessToken: seal(tokens.accessToken, sessionSecret),
@@ -80,37 +82,49 @@ export function suuntoRouter({ prisma, sessionSecret, config = suuntoConfig(), f
     return tokens.accessToken;
   }
 
-  router.get('/workouts', auth, async (req, res) => {
-    if (!config) return unavailable(res);
-    const link = await prisma.suuntoLink.findUnique({ where: { athleteId: req.athleteId } });
-    if (!link) {
-      res.status(404).json({ error: 'not_connected' });
-      return;
-    }
-    const days = Math.min(MAX_DAYS, Math.max(1, Number.parseInt(req.query.days, 10) || 3));
-    const key = `${req.athleteId}|${days}`;
-    const hit = cache.get(key);
-    if (hit && Date.now() - hit.at < CACHE_MS) {
-      res.json({ workouts: hit.workouts });
-      return;
-    }
-    try {
-      const since = new Date(Date.now() - days * 86_400_000);
-      const workouts = await listWorkouts(config, await accessToken(link), since, fetchImpl);
-      cache.set(key, { at: Date.now(), workouts });
-      res.json({ workouts });
-    } catch (err) {
-      if (err instanceof SuuntoError && err.code === 'unauthorized') {
-        // Suunto no longer accepts the tokens (revoked in the Suunto app): connect again.
-        await prisma.suuntoLink.deleteMany({ where: { athleteId: req.athleteId } });
+  /** One cached pass-through read (workouts or sleep) for the signed-in athlete. */
+  function passThrough(kind, maxDays, defaultDays, read) {
+    return async (req, res) => {
+      if (!config) return unavailable(res);
+      const link = await prisma.suuntoLink.findUnique({ where: { athleteId: req.athleteId } });
+      if (!link) {
         res.status(404).json({ error: 'not_connected' });
         return;
       }
-      res.status(502).json({ error: 'suunto_unavailable' });
-    }
-  });
+      const days = Math.min(maxDays, Math.max(1, Number.parseInt(req.query.days, 10) || defaultDays));
+      const key = `${req.athleteId}|${kind}|${days}`;
+      const hit = cache.get(key);
+      if (hit && Date.now() - hit.at < CACHE_MS) {
+        res.json(hit.body);
+        return;
+      }
+      try {
+        const body = await read(await accessToken(link), new Date(Date.now() - days * 86_400_000), new Date());
+        cache.set(key, { at: Date.now(), body });
+        res.json(body);
+      } catch (err) {
+        if (err instanceof SuuntoError && err.code === 'unauthorized') {
+          // Suunto no longer accepts the tokens (revoked in the Suunto app): connect again.
+          await prisma.suuntoLink.deleteMany({ where: { athleteId: req.athleteId } });
+          res.status(404).json({ error: 'not_connected' });
+          return;
+        }
+        res.status(502).json({ error: 'suunto_unavailable' });
+      }
+    };
+  }
+
+  router.get('/workouts', auth, passThrough('workouts', MAX_DAYS, 3,
+    async (token, since) => ({ workouts: await listWorkouts(config, token, since, fetchImpl) })));
+  // Suunto allows at most 28 days per sleep request.
+  router.get('/sleep', auth, passThrough('sleep', 28, 7,
+    async (token, from, to) => ({ nights: await listSleep(config, token, from, to, fetchImpl) })));
 
   router.delete('/connection', auth, async (req, res) => {
+    const link = config ? await prisma.suuntoLink.findUnique({ where: { athleteId: req.athleteId } }) : null;
+    if (link) {
+      try { await deauthorize(config, await accessToken(link), fetchImpl); } catch { /* disconnect here anyway */ }
+    }
     await prisma.suuntoLink.deleteMany({ where: { athleteId: req.athleteId } });
     for (const key of cache.keys()) if (key.startsWith(`${req.athleteId}|`)) cache.delete(key);
     res.status(204).end();

@@ -26,7 +26,9 @@ struct SuuntoView: View {
                     usesCard
                     healthCard
                     if status?.available == true { accountCard }
-                    Text("Suunto doesn't share sleep with Apple Health, so the morning check-in still asks how you slept.")
+                    Text(status?.connected == true
+                         ? "Your Suunto sleep fills in the morning check-in and lightens the day after short nights."
+                         : "Suunto doesn't share sleep with Apple Health. Without a Suunto account connection, the morning check-in asks how you slept.")
                         .font(.footnote)
                         .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -119,8 +121,8 @@ struct SuuntoView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Suunto account").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
             Text(status?.connected == true
-                 ? "Connected. Workouts that didn't reach Apple Health come straight from Suunto."
-                 : "Connect your Suunto account so workouts arrive even when Apple Health sync is off.")
+                 ? "Connected. Your sleep, and any workout that didn't reach Apple Health, come straight from Suunto."
+                 : "Connect your Suunto account to bring in your sleep, and workouts even when Apple Health sync is off.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -144,7 +146,7 @@ struct SuuntoView: View {
                     .buttonStyle(.primary)
                     .disabled(working)
             }
-            Text("Our server keeps only the connection key, never your workouts. Disconnect any time.")
+            Text("Our server keeps only the connection key, never your workouts or sleep. Disconnect any time.")
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)
         }

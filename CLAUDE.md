@@ -282,11 +282,13 @@ Reading files, CI logs or the GitHub API needs no lock.
 - Suunto (owner, 2026-11-19): two ways in. (1) Apple Health: the Suunto app writes workouts + heart rate
   (not sleep or HRV) to Health; `ExternalWorkout.source`/`.device` names the brand ("Your Suunto saw…").
   (2) Suunto Cloud API via our server (`routes/suunto.js`, `lib/suunto.js`, `SuuntoLink`): OAuth tokens only,
-  sealed with a key derived from SESSION_SECRET; workouts pass through, never stored. Off until the owner gets
-  Suunto partner keys (`SUUNTO_CLIENT_ID/SECRET/SUBSCRIPTION_KEY` in `.env`, redirect URI
-  `https://api.lejacob.dev/fitness/suunto/callback`) and redeploys. Suunto's FAQ says the Cloud API has no sleep
-  yet; refresh request, `since` param and workout field names are undocumented (parsed tolerantly — check
-  against the apizone "Try it" page once keys exist). App: Me → Suunto (`SuuntoView`, `SuuntoCloud`).
+  sealed with a key derived from SESSION_SECRET; workouts (`/v3/workouts`, Workout API) and sleep
+  (`/247samples/sleep`, 247 Data API) pass through, never stored. Endpoints, params and field names are taken
+  from the apizone API pages (portal renders client-side: read it with Playwright, `/developer/apis/<id>/operations`).
+  Suunto sleep fills `MeasuredSleepStore` for nights Health lacks and pre-fills the check-in. Off until the owner
+  gets Suunto partner keys (Workout API + 247 Data API subscription; `SUUNTO_CLIENT_ID/SECRET/SUBSCRIPTION_KEY`
+  in `.env`, redirect URI `https://api.lejacob.dev/fitness/suunto/callback`) and redeploys. App: Me → Suunto
+  (`SuuntoView`, `SuuntoCloud`).
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their

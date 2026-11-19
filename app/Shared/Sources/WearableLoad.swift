@@ -84,6 +84,7 @@ public enum ExternalWorkoutStore {
         }
         workouts.sort { $0.start > $1.start }
         recent = workouts
+        await SuuntoCloud.storeNights()
         guard let sportSlug else { return }
         let age = PlanGenerator.ageInYears(birthDate: birthDate, now: now)
         for offset in [0, -1] {
