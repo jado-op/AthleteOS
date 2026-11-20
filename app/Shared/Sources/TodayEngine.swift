@@ -84,8 +84,21 @@ enum TodayEngine {
                 conditioningSeconds += session.sets.filter { $0.itemSlug == slug }.reduce(0) { $0 + ($1.seconds ?? 30) }
             }
         }
-        // A workout from Apple Health with no exercises (a run, a ride) is conditioning.
-        if slugs.isEmpty { conditioningSeconds = session.minutes * 60; capacities = [.aerobic] }
+        // A workout from Apple Health with no exercises: what the athlete said
+        // it trained. Strength regions count as strength (very hard legs =
+        // heavy legs); a run, a ride, or one not answered yet is conditioning.
+        if slugs.isEmpty {
+            let answer = HealthWorkoutInbox.answer(for: session)
+            let strength = answer.map { $0.bands.keys.contains(.lower) || $0.bands.keys.contains(.upper) } ?? false
+            if strength, let answer {
+                heavyLower = WorkoutTagging.trainedBands(answer)[.lower] == .veryHard && !answer.cardio
+                if answer.cardio { conditioningSeconds = session.minutes * 30; capacities = [.aerobic] }
+                return DayLoad(daysAgo: daysAgo, capacities: capacities, heavyLower: heavyLower,
+                               conditioningMinutes: conditioningSeconds / 60, sessionType: .gymDevelopment)
+            }
+            conditioningSeconds = session.minutes * 60
+            capacities = [.aerobic]
+        }
         return DayLoad(daysAgo: daysAgo, capacities: capacities, lowerPattern: lower, upperPattern: upper, heavyLower: heavyLower,
                        conditioningMinutes: conditioningSeconds / 60,
                        sessionType: slugs.count >= 6 ? .gymDevelopment : slugs.isEmpty ? .conditioning : .afterPractice)
@@ -273,7 +286,7 @@ enum TodayEngine {
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
                 athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
                 athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)",
-                GymChoiceStore.fingerprint(on: date, calendar: calendar), "\(MeasuredSleepStore.all().count)",
+                GymChoiceStore.fingerprint(on: date, calendar: calendar), "\(MeasuredSleepStore.all().count)", "\(HealthWorkoutInbox.revision)",
                 twinSteers(athlete, date: date, calendar: calendar).map(\.rawValue).sorted().joined()].joined(separator: "|")
     }
 

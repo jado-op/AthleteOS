@@ -28,9 +28,7 @@ struct WorkoutCheckSheet: View {
     @State private var confirmingRemove = false
 
     /// "Strength training · from your Apple Watch" → "Strength training".
-    private var activity: String {
-        (session.notes ?? "Workout").components(separatedBy: " · ").first ?? "Workout"
-    }
+    private var activity: String { HealthWorkoutInbox.activity(of: session) }
 
     private var device: String {
         let parts = (session.notes ?? "").components(separatedBy: " · from your ")

@@ -42,12 +42,44 @@ enum HealthWorkoutInbox {
         set { UserDefaults.standard.set(Array(newValue.suffix(200)), forKey: removedKey) }
     }
 
-    /// Changes whenever an answer does (for caches keyed on it).
-    static var revision: Int { UserDefaults.standard.data(forKey: answersKey)?.hashValue ?? 0 }
+    private static let revisionKey = "health.workoutRevision"
+
+    /// Goes up whenever an answer is saved or a workout imported or removed
+    /// (for caches keyed on it).
+    static var revision: Int { UserDefaults.standard.integer(forKey: revisionKey) }
+
+    private static func bump() { UserDefaults.standard.set(revision + 1, forKey: revisionKey) }
 
     static func isImported(_ session: Session) -> Bool { imported[session.clientId] != nil }
 
     static func answer(for session: Session) -> WorkoutTagging.Answer? { answers[session.clientId] }
+
+    /// "Strength training · from your Apple Watch" → "Strength training".
+    static func activity(of session: Session) -> String {
+        (session.notes ?? "Workout").components(separatedBy: " · ").first ?? "Workout"
+    }
+
+    /// What an imported workout did to the body map: the picked exercises
+    /// (each counted as a few sets, the effort the athlete gave its region),
+    /// plus every ticked region no exercise covered. Before an answer, the
+    /// activity's usual regions, counted light (a run lights the legs).
+    static func bodyMapSets(_ session: Session, catalogue: Catalogue) -> [MuscleTraining.LoggedSet] {
+        let activity = activity(of: session)
+        let answer = answers[session.clientId] ?? WorkoutTagging.guessedAnswer(activity: activity)
+        let bands = WorkoutTagging.trainedBands(answer)
+        var covered: Set<GymRegion> = []
+        var sets: [MuscleTraining.LoggedSet] = []
+        for slug in Set(session.sets.map(\.itemSlug)).sorted() {
+            guard let item = catalogue.item(slug) else { continue }
+            let regions = WorkoutCheckSheet.regions(of: item)
+            covered.formUnion(regions)
+            let band = regions.compactMap { bands[$0] }.max() ?? answer.rating.map(WorkoutTagging.band(forRating:)) ?? .solid
+            let set = MuscleTraining.LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles)
+            sets += Array(repeating: set, count: WorkoutTagging.bodyMapSets(band))
+        }
+        return sets + MuscleTraining.regionSets(date: session.startedAt, label: activity,
+                                                bands: bands.filter { !covered.contains($0.key) })
+    }
 
     // MARK: Import
 
@@ -83,6 +115,7 @@ enum HealthWorkoutInbox {
         }
         guard added > 0 else { return 0 }
         imported = map
+        bump()
         try? context.save()
         return added
     }
@@ -120,6 +153,7 @@ enum HealthWorkoutInbox {
         var all = answers
         all[session.clientId] = answer
         answers = all
+        bump()
         try? context.save()
     }
 
@@ -134,6 +168,7 @@ enum HealthWorkoutInbox {
         var map = imported
         map[session.clientId] = nil
         imported = map
+        bump()
         context.delete(session)
         try? context.save()
     }

@@ -81,4 +81,31 @@ final class WorkoutTaggingTests: XCTestCase {
         let hard = GymHistory(daysSince: [.lower: 1, .upper: 6], recoveryOverride: [.lower: 3])
         XCTAssertNotNil(GymAdvisor.advise(day: day, history: hard).notToday[.lower])
     }
+
+    func testARunLightsTheLegsBeforeAnyAnswer() {
+        let guess = WorkoutTagging.guessedAnswer(activity: "Run")
+        XCTAssertEqual(WorkoutTagging.trainedBands(guess), [.lower: .light])
+        XCTAssertEqual(WorkoutTagging.trainedBands(WorkoutTagging.guessedAnswer(activity: "Swim")), [.upper: .light, .lower: .light])
+        XCTAssertTrue(WorkoutTagging.trainedBands(WorkoutTagging.guessedAnswer(activity: "Strength training")).isEmpty,
+                      "a gym session stays dark until the athlete says what it trained")
+    }
+
+    func testARegionAnswerReachesTheBodyMap() {
+        let day = Date(timeIntervalSince1970: 1_790_000_000)
+        let sets = MuscleTraining.regionSets(date: day, label: "Strength training", bands: [.lower: .veryHard, .core: .light])
+        let report = MuscleTraining.report(sets, now: day.addingTimeInterval(3600))
+        let trained = Set(report.groups.filter { $0.sets > 0 }.map(\.group))
+        XCTAssertEqual(trained, [.glutes, .quads, .hamstrings, .calves, .core])
+        XCTAssertEqual(report.groups.first { $0.group == .quads }?.sets, Double(WorkoutTagging.bodyMapSets(.veryHard)))
+        XCTAssertGreaterThan(report.workouts, 0)
+        XCTAssertFalse(report.brightness.isEmpty)
+    }
+
+    func testTheTwinSaysWhenARegionIsReadyAgain() {
+        let history = GymHistory(daysSince: [.lower: 1, .upper: 1, .core: 1], recoveryOverride: [.lower: 3, .upper: 2])
+        let resting = history.stillRecovering
+        XCTAssertEqual(resting.map(\.region), [.lower, .upper])
+        XCTAssertEqual(resting.map(\.days), [2, 1])
+        XCTAssertTrue(GymHistory(daysSince: [.lower: 4]).stillRecovering.isEmpty)
+    }
 }

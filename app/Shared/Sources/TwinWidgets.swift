@@ -274,6 +274,8 @@ struct LiftTrendWidget: View {
 /// The body: what was trained this week glows, what's fresh is named.
 struct BodyStatusWidget: View {
     let report: MuscleTraining.Report?
+    /// Regions still resting after a hard session (gym or Health), days left.
+    var recovering: [(region: GymRegion, days: Int)] = []
 
     private var trained: [MuscleGroup] {
         (report?.groups ?? []).filter { ($0.daysSince ?? 99) <= 2 }.map(\.group)
@@ -294,6 +296,12 @@ struct BodyStatusWidget: View {
                 TrainingBodyView(brightness: report.brightness, showsLabels: false)
                     .frame(height: 210)
                     .frame(maxWidth: .infinity)
+                if let ready = Self.readyAgain(recovering) {
+                    Text(ready)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if !fresh.isEmpty {
                     Text("Fresh: " + fresh.prefix(4).map { $0.title.lowercased() }.joined(separator: ", "))
                         .font(.subheadline)
@@ -312,8 +320,26 @@ struct BodyStatusWidget: View {
         }
     }
 
+    /// "Ready for hard work again: legs Sunday, upper body tomorrow."
+    static func readyAgain(_ recovering: [(region: GymRegion, days: Int)], now: Date = .now,
+                           calendar: Calendar = .current) -> String? {
+        guard !recovering.isEmpty else { return nil }
+        let parts = recovering.map { entry -> String in
+            let when: String
+            if entry.days <= 1 {
+                when = "tomorrow"
+            } else {
+                let day = calendar.date(byAdding: .day, value: entry.days, to: calendar.startOfDay(for: now)) ?? now
+                when = day.formatted(.dateTime.weekday(.wide))
+            }
+            return "\(entry.region.title) \(when)"
+        }
+        return "Ready for hard work again: " + parts.joined(separator: ", ") + "."
+    }
+
     private var sentence: String {
-        if trained.isEmpty { return "Everything is fresh — a good day to train." }
+        if trained.isEmpty, recovering.isEmpty { return "Everything is fresh — a good day to train." }
+        if trained.isEmpty { return "Recently trained: " + recovering.map(\.region.title).joined(separator: ", ") + "." }
         let names = trained.prefix(3).map { $0.title.lowercased() }
         return "Recently trained: " + names.joined(separator: ", ") + "."
     }

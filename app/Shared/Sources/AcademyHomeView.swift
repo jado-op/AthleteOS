@@ -67,6 +67,7 @@ struct AcademyHomeView: View {
     @State private var feltWeeks: [TwinPoint] = []
     @State private var stressShift: Double?
     @State private var bodyReport: MuscleTraining.Report?
+    @State private var recovering: [(region: GymRegion, days: Int)] = []
     /// "More insights into your health": everything Apple Health holds.
     @StateObject private var health = HealthInsightsViewModel()
     @State private var showingAllHealth = false
@@ -167,8 +168,10 @@ struct AcademyHomeView: View {
         }
         .task { await health.load() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await health.load() } }
+            if phase == .active { reload(); Task { await health.load() } }
         }
+        // A workout from Health imported or answered while the twin is open.
+        .onChange(of: athlete.sessions.count) { reload() }
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
         .fullScreenCover(item: $reading, onDismiss: reload) { target in
@@ -236,6 +239,7 @@ struct AcademyHomeView: View {
         stressShift = TwinTrends.stressShift(input.mornings, now: now)
         bodyReport = catalogue.itemsBySlug.isEmpty ? nil
             : MuscleTraining.report(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
+        recovering = catalogue.itemsBySlug.isEmpty ? [] : GymHistoryBuilder.history(athlete, catalogue: catalogue, now: now).stillRecovering
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         readinessDays = (0..<7).reversed().compactMap { back -> (date: Date, band: ReadinessBand?)? in
@@ -275,7 +279,7 @@ struct AcademyHomeView: View {
     private var changing: some View {
         VStack(alignment: .leading, spacing: 14) {
             TwinQuestion(question: "How are you changing?", answer: nil)
-            BodyStatusWidget(report: bodyReport)
+            BodyStatusWidget(report: bodyReport, recovering: recovering)
             LoadWidget(weeks: weekLoads)
             // With sleep from Health, sleep and the week's mornings live in the health insights.
             if !health.widgets.contains(.sleep) {

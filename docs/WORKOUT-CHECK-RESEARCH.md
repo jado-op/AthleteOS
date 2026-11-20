@@ -56,3 +56,17 @@ never costs anything: the workout counts either way. No calories anywhere.
 Cardio counts as legs one band easier unless rated 7+. Over 90 minutes, or
 anything hurt: one band harder. The newest session of a region decides
 (`GymHistory.recoveryOverride`); logged gym sessions keep the usual 72 h / 48 h.
+
+## Where the answer goes (2026-11-20, owner: "write everything in the twin")
+- **Body map** (twin's "Your body" and the Workout tab): a region answer lights
+  every muscle of that region (light 2, solid 3, very hard 4 sets per muscle
+  group, `WorkoutTagging.bodyMapSets`); picked exercises count with their own
+  muscles at the same effort. Before an answer, the activity's usual regions
+  count light (a run lights the legs; a gym session stays dark until answered).
+- **"Ready for hard work again"** under the body map: each region still
+  resting after its last hard session, with the day it's ready
+  (`GymHistory.stillRecovering`).
+- **Training minutes and effort** (twin's weekly chart): the session's minutes
+  × the athlete's rating.
+- **Tomorrow's plan**: very hard legs count as heavy legs; a strength answer
+  is no longer read as a run (`TodayEngine.load`).

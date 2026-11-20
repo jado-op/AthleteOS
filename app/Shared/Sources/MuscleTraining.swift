@@ -40,6 +40,30 @@ public enum MuscleTraining {
         }
     }
 
+    /// The muscle groups a body region stands for, as the gym planner splits them.
+    public static func groups(of region: GymRegion) -> Set<MuscleGroup> {
+        switch region {
+        case .upper: [.chest, .shoulders, .upperBack, .arms]
+        case .lower: [.glutes, .quads, .hamstrings, .calves]
+        case .core: [.core]
+        }
+    }
+
+    /// A workout the athlete described by region ("legs, very hard" — from
+    /// Apple Health, with no exercises): sets on every drawable muscle of
+    /// that region, each a main mover, so the body map and the group
+    /// walkthrough show it. `WorkoutTagging.bodyMapSets` says how many.
+    public static func regionSets(date: Date, label: String, bands: [GymRegion: WorkoutTagging.Band]) -> [LoggedSet] {
+        bands.sorted { $0.key.rawValue < $1.key.rawValue }.flatMap { region, band -> [LoggedSet] in
+            let groups = groups(of: region)
+            let slugs = muscles.filter { info in info.drawable && MuscleGroup(region: info.region).map(groups.contains) == true }
+                .map(\.id)
+            guard !slugs.isEmpty else { return [] }
+            let set = LoggedSet(date: date, exercise: label, muscles: Dictionary(uniqueKeysWithValues: slugs.map { ($0, 1.0) }))
+            return Array(repeating: set, count: WorkoutTagging.bodyMapSets(band))
+        }
+    }
+
     /// An exercise and the weighted sets it gave a group.
     public struct ExerciseShare: Sendable, Equatable {
         public let name: String

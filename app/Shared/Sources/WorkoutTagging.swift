@@ -113,16 +113,43 @@ public enum WorkoutTagging {
         }
     }
 
-    /// The bands the planner uses: the athlete's per-region words, otherwise
-    /// the overall rating's band for every region they ticked; cardio means
-    /// legs one band easier unless the whole thing was very hard; long
-    /// sessions (over 90 min) and anything that hurt count one band harder.
-    public static func effectiveBands(_ answer: Answer, minutes: Int) -> [GymRegion: Band] {
+    /// What the workout trained and how hard, as the athlete said it: their
+    /// per-region words, cardio as legs one band easier unless very hard.
+    /// (The body map reads this; recovery adds length and pain on top.)
+    public static func trainedBands(_ answer: Answer) -> [GymRegion: Band] {
         let overall = answer.rating.map(band(forRating:)) ?? .solid
         var bands = answer.bands
         if answer.cardio, bands[.lower] == nil {
             bands[.lower] = (answer.rating ?? 0) >= 7 ? .veryHard : overall.easier
         }
+        return bands
+    }
+
+    /// Before the athlete answers: the regions the activity usually trains,
+    /// counted light (a run is legs, a swim upper body and legs). A gym
+    /// session says nothing until they answer.
+    public static func guessedAnswer(activity: String) -> Answer {
+        let cardio = kind(ofActivity: activity) == .cardio
+        let regions = guessedRegions(activity: activity).subtracting(cardio ? [.lower] : [])
+        return Answer(rating: cardio ? 3 : nil, regions: Dictionary(uniqueKeysWithValues: regions.map { ($0, .light) }), cardio: cardio)
+    }
+
+    /// The sets a region-only answer stands for on the body map, per muscle
+    /// group: an estimate, kept modest (a real gym session logs more).
+    public static func bodyMapSets(_ band: Band) -> Int {
+        switch band {
+        case .light: 2
+        case .solid: 3
+        case .veryHard: 4
+        }
+    }
+
+    /// The bands the planner uses: the athlete's per-region words, otherwise
+    /// the overall rating's band for every region they ticked; cardio means
+    /// legs one band easier unless the whole thing was very hard; long
+    /// sessions (over 90 min) and anything that hurt count one band harder.
+    public static func effectiveBands(_ answer: Answer, minutes: Int) -> [GymRegion: Band] {
+        var bands = trainedBands(answer)
         if minutes > 90 || answer.hurt == true {
             bands = bands.mapValues { $0.harder }
         }

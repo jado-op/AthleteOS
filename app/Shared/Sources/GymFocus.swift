@@ -147,6 +147,16 @@ public struct GymHistory: Sendable, Equatable {
     public func recoveryDays(_ region: GymRegion) -> Int {
         recoveryOverride[region] ?? region.recoveryDays
     }
+
+    /// Regions still recovering, with the days until they're ready for hard
+    /// work again (1 = tomorrow). Legs first, then upper body, then core.
+    public var stillRecovering: [(region: GymRegion, days: Int)] {
+        [GymRegion.lower, .upper, .core].compactMap { region in
+            guard let since = daysSince[region] else { return nil }
+            let left = recoveryDays(region) - since
+            return left > 0 ? (region, left) : nil
+        }
+    }
 }
 
 /// The athlete's gym choice for a session, resolved (never `.auto`).

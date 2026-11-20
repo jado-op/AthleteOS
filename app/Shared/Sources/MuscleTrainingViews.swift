@@ -7,8 +7,11 @@ extension MuscleTraining {
     /// can't be placed on the body and are left out.
     @MainActor
     static func loggedSets(_ sessions: [Session], catalogue: Catalogue) -> [LoggedSet] {
-        sessions.flatMap { session in
-            session.sets.compactMap { set -> LoggedSet? in
+        let imported = HealthWorkoutInbox.imported
+        return sessions.flatMap { session -> [LoggedSet] in
+            // A workout from Apple Health: what the athlete said it trained.
+            if imported[session.clientId] != nil { return HealthWorkoutInbox.bodyMapSets(session, catalogue: catalogue) }
+            return session.sets.compactMap { set -> LoggedSet? in
                 guard let item = catalogue.item(set.itemSlug) else { return nil }
                 return LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles)
             }
@@ -27,7 +30,7 @@ struct MuscleTrainingSection: View {
 
     /// Changes whenever a set is logged or the catalogue finishes loading.
     private var inputKey: String {
-        "\(catalogue.itemsBySlug.count)-\(athlete.sessions.count)-\(athlete.sessions.reduce(0) { $0 + $1.sets.count })"
+        "\(catalogue.itemsBySlug.count)-\(athlete.sessions.count)-\(athlete.sessions.reduce(0) { $0 + $1.sets.count })-\(HealthWorkoutInbox.revision)"
     }
 
     var body: some View {

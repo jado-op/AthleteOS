@@ -473,6 +473,8 @@ struct HomeView: View {
                     if let checkSession {
                         WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) {
                             revision += 1
+                            // The answer sets each region's rest: tomorrow's plan reads it.
+                            onPlanInputsChanged()
                         }
                         .interactiveDismissDisabled()
                     }
