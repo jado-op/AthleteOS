@@ -303,6 +303,10 @@ Reading files, CI logs or the GitHub API needs no lock.
   it trained (regions or exact exercises), per-region effort when several, anything hurt. Effort sets each region's
   recovery for the gym planner (`WorkoutTagging`, `GymHistory.recoveryOverride`). Evidence: `docs/WORKOUT-CHECK-RESEARCH.md`.
   Answers feed the twin too: body map (`HealthWorkoutInbox.bodyMapSets`), "Ready for hard work again", weekly minutes × effort.
+- "Your last 7 days" (owner, 2026-11-20): the twin page's card under the name opens `TwinWeekView` — the body figure
+  lit by this week's training, the week's numbers floating around it (sleep → head, heart → chest, steps → legs,
+  training → core), dashed lines to the body, tap a number for its 7-day chart, tap the body to turn it around. Rules in
+  `TwinWeek.swift` (harness). Screenshot: `-tab academy -sheet week`.
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their

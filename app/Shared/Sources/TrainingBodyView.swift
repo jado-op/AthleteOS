@@ -14,10 +14,17 @@ struct TrainingBodyView: View {
     /// Small labels under each figure.
     var showsLabels = true
 
+    /// One side only (the twin's week view turns the body around).
+    var facing: BodyAnatomy.Facing? = nil
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            figure(.front, label: "Front")
-            figure(.back, label: "Back")
+            if let facing {
+                figure(facing, label: facing == .front ? "Front" : "Back")
+            } else {
+                figure(.front, label: "Front")
+                figure(.back, label: "Back")
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)

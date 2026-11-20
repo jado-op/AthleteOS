@@ -68,6 +68,10 @@ struct AcademyHomeView: View {
     @State private var stressShift: Double?
     @State private var bodyReport: MuscleTraining.Report?
     @State private var recovering: [(region: GymRegion, days: Int)] = []
+    /// "Your last 7 days": the body lit by this week only, and one line about it.
+    @State private var weekBrightness: [String: Double] = [:]
+    @State private var weekSentence = "Your body and your week's numbers in one place."
+    @State private var showingWeek = false
     /// "More insights into your health": everything Apple Health holds.
     @StateObject private var health = HealthInsightsViewModel()
     @State private var showingAllHealth = false
@@ -113,6 +117,9 @@ struct AcademyHomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     topBar
                     identity.padding(.top, 26)
+                    // Owner, 2026-11-20: tap the twin, see the week on your body.
+                    TwinWeekCard(brightness: weekBrightness, sentence: weekSentence) { showingWeek = true }
+                        .padding(.top, 24)
                     if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
                     if let report { coachRead(report).padding(.top, 28) }
                     // Owner, 2026-11-19: Apple Health's data opens the twin
@@ -163,6 +170,8 @@ struct AcademyHomeView: View {
             AcademyEvent.log(.twinViewed)
             // Screenshots: `-tab academy -sheet intake` opens the interview.
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
+            // Screenshots: `-tab academy -sheet week` opens "Your last 7 days".
+            if DemoData.initialTab == .academy, DemoData.initialSheet == "week" { showingWeek = true }
             openPendingBriefing()
             openPendingInterview()
         }
@@ -174,6 +183,10 @@ struct AcademyHomeView: View {
         .onChange(of: athlete.sessions.count) { reload() }
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
+        .fullScreenCover(isPresented: $showingWeek) {
+            TwinWeekView(brightness: weekBrightness, sentence: weekSentence, readyLine: BodyStatusWidget.readyAgain(recovering),
+                         health: health, training: athlete.sessions.map { TwinWeek.Training(date: $0.startedAt, minutes: $0.minutes) })
+        }
         .fullScreenCover(item: $reading, onDismiss: reload) { target in
             BriefingReaderView(briefing: target.briefing, insight: target.insight, alreadyRead: state.read[target.briefing.id] != nil,
                                familyID: AcademyContent.familyID(forSport: sportSlug))
@@ -240,6 +253,14 @@ struct AcademyHomeView: View {
         bodyReport = catalogue.itemsBySlug.isEmpty ? nil
             : MuscleTraining.report(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
         recovering = catalogue.itemsBySlug.isEmpty ? [] : GymHistoryBuilder.history(athlete, catalogue: catalogue, now: now).stillRecovering
+        if !catalogue.itemsBySlug.isEmpty {
+            let weekStart = TwinWeek.days(now: now).first ?? now
+            let week = MuscleTraining.report(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue).filter { $0.date >= weekStart }, now: now)
+            weekBrightness = week.brightness
+            let top = week.groups.filter { $0.sets > 0 }.prefix(3).map(\.group.name)
+            weekSentence = top.isEmpty ? "No training logged this week yet. Your body and your week's numbers in one place."
+                : "Most trained this week: " + top.joined(separator: ", ") + "."
+        }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         readinessDays = (0..<7).reversed().compactMap { back -> (date: Date, band: ReadinessBand?)? in
