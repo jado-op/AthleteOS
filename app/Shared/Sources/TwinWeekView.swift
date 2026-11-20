@@ -275,7 +275,7 @@ struct TwinWeekView: View {
     private func anchorPoint(_ anchor: TwinWeek.Anchor, left: Bool, origin: CGPoint, width: CGFloat, height: CGFloat) -> CGPoint {
         let x: Double
         switch anchor {
-        case .arms: x = left ? 0.17 : 0.83
+        case .arms: x = left ? 0.25 : 0.75
         case .legs: x = left ? 0.4 : 0.6
         case .chest: x = left ? 0.42 : 0.58
         default: x = 0.5

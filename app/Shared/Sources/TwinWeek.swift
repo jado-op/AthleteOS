@@ -16,7 +16,7 @@ public enum TwinWeek {
             switch self {
             case .head: 0.07
             case .chest: 0.26
-            case .arms: 0.36
+            case .arms: 0.3
             case .core: 0.42
             case .legs: 0.68
             }
