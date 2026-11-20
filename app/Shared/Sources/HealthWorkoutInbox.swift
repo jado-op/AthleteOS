@@ -37,6 +37,14 @@ enum HealthWorkoutInbox {
         set { UserDefaults.standard.set(Array(newValue.suffix(200)), forKey: skippedKey) }
     }
 
+    private static let snoozedKey = "health.workoutSnoozed"     // session clientId → when "later" was tapped
+
+    /// "Later": not asked again for a few hours (the next app open after that asks).
+    private static var snoozed: [String: Date] {
+        get { (UserDefaults.standard.dictionary(forKey: snoozedKey) as? [String: Date]) ?? [:] }
+        set { UserDefaults.standard.set(newValue.filter { $0.value > Date.now.addingTimeInterval(-2 * 86_400) }, forKey: snoozedKey) }
+    }
+
     private static var removed: Set<String> {
         get { Set(UserDefaults.standard.stringArray(forKey: removedKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue.suffix(200)), forKey: removedKey) }
@@ -133,22 +141,30 @@ enum HealthWorkoutInbox {
     static func pending(_ sessions: [Session], now: Date = .now) -> Session? {
         let answered = answers
         let skip = skipped
+        let later = snoozed
         return sessions
             .filter { isImported($0) && answered[$0.clientId] == nil && !skip.contains($0.clientId) }
+            .filter { later[$0.clientId].map { now.timeIntervalSince($0) > 3 * 3600 } ?? true }
             .filter { WorkoutTagging.stillAskable(workoutEnd: $0.endedAt ?? $0.startedAt, now: now) }
             .max { $0.startedAt < $1.startedAt }
     }
 
     /// Saves the answer: effort onto the session, picked exercises as sets
     /// (so the body map and the gym planner see them), pain into today's report.
-    static func save(_ answer: WorkoutTagging.Answer, for session: Session, context: ModelContext) {
+    static func save(_ answer: WorkoutTagging.Answer, for session: Session, painAreas: [PainArea] = [], painLevel: PainLevel = .some,
+                     context: ModelContext) {
         if let rating = answer.rating { session.sessionRPE = max(1, rating) }
         for (index, slug) in answer.exercises.enumerated() where !session.sets.contains(where: { $0.itemSlug == slug }) {
             let set = SetLog(itemSlug: slug, setIndex: index, session: session)
             context.insert(set)
         }
-        if answer.hurt == true, PainStore.report(on: .now) == nil {
-            PainStore.set(PainReport(day: DayKey.of(.now), areas: [.other], level: .some))
+        if answer.hurt == true {
+            // Into today's pain report, joined with anything already reported.
+            let existing = PainStore.report(on: .now)
+            let areas = Array(Set((existing?.areas ?? []) + (painAreas.isEmpty ? [.other] : painAreas))).sorted { $0.rawValue < $1.rawValue }
+            let rank = { (level: PainLevel) in PainLevel.allCases.firstIndex(of: level) ?? 0 }
+            let level = existing.map { rank($0.level) > rank(painLevel) ? $0.level : painLevel } ?? painLevel
+            PainStore.set(PainReport(day: DayKey.of(.now), areas: areas, level: level))
         }
         var all = answers
         all[session.clientId] = answer
@@ -157,7 +173,15 @@ enum HealthWorkoutInbox {
         try? context.save()
     }
 
-    /// "Later": not asked again for this workout; it still counts.
+    /// "Ask me later": asked again on an app open a few hours from now (still
+    /// within the day after the workout); it counts either way.
+    static func later(_ session: Session) {
+        var all = snoozed
+        all[session.clientId] = .now
+        snoozed = all
+    }
+
+    /// Not asked again for this workout; it still counts.
     static func skip(_ session: Session) {
         skipped.insert(session.clientId)
     }

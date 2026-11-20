@@ -108,8 +108,7 @@ struct ReflectionSheet: View {
                 scale("How hard did today feel?", EveningOptions.hardness, selection: $hardness)
                 // Reflection is never forced (Backend Knowledge System §20).
                 Button("Skip today") { saveNothing() }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
+                    .buttonStyle(.quiet)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .padding(.bottom, 8)
                     .background(AppTheme.background)
@@ -136,8 +135,7 @@ struct ReflectionSheet: View {
                 scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
                 if restDay {
                     Button("Skip today") { saveNothing() }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .buttonStyle(.quiet)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .padding(.bottom, 8)
                         .background(AppTheme.background)

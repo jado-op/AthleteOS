@@ -108,4 +108,13 @@ final class WorkoutTaggingTests: XCTestCase {
         XCTAssertEqual(resting.map(\.days), [2, 1])
         XCTAssertTrue(GymHistory(daysSince: [.lower: 4]).stillRecovering.isEmpty)
     }
+
+    func testTheSummarySaysWhenEachPartIsReady() {
+        let answer = WorkoutTagging.Answer(rating: 8, regions: [.lower: .veryHard, .core: .light])
+        let ready = WorkoutTagging.readyAfter(answer, minutes: 50)
+        XCTAssertEqual(ready.map(\.region), [.lower, .core])
+        XCTAssertEqual(ready.map(\.days), [3, 0])
+        XCTAssertEqual(WorkoutTagging.feel(5), "Talking only in short phrases.")
+        XCTAssertEqual(WorkoutTagging.symbol(forActivity: "Run"), "figure.run")
+    }
 }

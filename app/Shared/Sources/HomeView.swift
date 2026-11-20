@@ -72,6 +72,7 @@ struct HomeView: View {
 
     /// The Health workout `WorkoutCheckSheet` asks about.
     @State private var checkSession: Session?
+    @State private var checkStartStep: WorkoutCheckSheet.Step = .effort
 
     enum HomeSheet: String, Identifiable {
         case quickActions, checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
@@ -276,6 +277,7 @@ struct HomeView: View {
     private func askAboutHealthWorkout() {
         guard activeSheet == nil, selectedTab == .today, let session = HealthWorkoutInbox.pending(allSessions) else { return }
         checkSession = session
+        checkStartStep = .effort
         activeSheet = .workoutCheck
     }
 
@@ -401,11 +403,12 @@ struct HomeView: View {
                 refreshTwinBriefing()
                 if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet {
                     // Screenshots: a gym session the watch recorded an hour ago (never saved).
-                    if name == HomeSheet.workoutCheck.rawValue {
-                        checkSession = Session(startedAt: .now.addingTimeInterval(-6000), endedAt: .now.addingTimeInterval(-3000), minutes: 52,
-                                               source: .watch, notes: "Strength training · from your Apple Watch")
+                    if name.hasPrefix(HomeSheet.workoutCheck.rawValue) {
+                        checkSession = Session(startedAt: .now.addingTimeInterval(-6000), endedAt: .now.addingTimeInterval(-3000), sessionRPE: 6,
+                                               minutes: 52, source: .watch, notes: "Strength training · from your Apple Watch")
+                        checkStartStep = name.hasSuffix("Done") ? .done : name.hasSuffix("Trained") ? .trained : .effort
                     }
-                    activeSheet = HomeSheet(rawValue: name)
+                    activeSheet = name.hasPrefix(HomeSheet.workoutCheck.rawValue) ? .workoutCheck : HomeSheet(rawValue: name)
                 }
                 loaded = true
                 askAboutHealthWorkout()
@@ -471,7 +474,8 @@ struct HomeView: View {
                     }
                 case .workoutCheck:
                     if let checkSession {
-                        WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) {
+                        WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete),
+                                          startStep: checkStartStep) {
                             revision += 1
                             // The answer sets each region's rest: tomorrow's plan reads it.
                             onPlanInputsChanged()

@@ -91,9 +91,7 @@ struct CampusAsksSection: View {
                         withAnimation(.easeInOut(duration: 0.2)) { _ = skipped.insert(question.id) }
                         text = ""
                     }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink.opacity(0.8))
-                    .frame(minWidth: 44, minHeight: 32)
+                    .buttonStyle(.quiet)
                 }
                 Text(family.fill(question.prompt))
                     .font(.system(size: 22, weight: .bold))

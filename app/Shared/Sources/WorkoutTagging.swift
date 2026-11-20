@@ -60,6 +60,52 @@ public enum WorkoutTagging {
         scale.filter { $0.value <= rating }.last { $0.word != nil }?.word ?? "Rest"
     }
 
+    /// What a rating feels like, by the talk test (helps a teen pick a number).
+    public static func feel(_ rating: Int) -> String {
+        switch rating {
+        case ...0: "No effort at all."
+        case 1: "You barely felt it."
+        case 2: "You could chat the whole time."
+        case 3: "Breathing up, still talking easily."
+        case 4: "Working, still talking in sentences."
+        case 5, 6: "Talking only in short phrases."
+        case 7, 8: "A few words at a time."
+        case 9: "Close to your limit."
+        default: "Nothing left at the end."
+        }
+    }
+
+    /// An SF Symbol for the activity Health named.
+    public static func symbol(forActivity activity: String) -> String {
+        switch activity {
+        case "Run": "figure.run"
+        case "Ride": "figure.outdoor.cycle"
+        case "Swim": "figure.pool.swim"
+        case "Row": "figure.rower"
+        case "Walk": "figure.walk"
+        case "Hike": "figure.hiking"
+        case "Yoga": "figure.yoga"
+        case "Pilates", "Mobility": "figure.flexibility"
+        case "HIIT": "figure.highintensity.intervaltraining"
+        case "Core": "figure.core.training"
+        case "Strength training", "Cross training": "figure.strengthtraining.traditional"
+        case "Climb": "figure.climbing"
+        case "Jump rope": "figure.jumprope"
+        case "Elliptical": "figure.elliptical"
+        case "Stairs": "figure.stair.stepper"
+        default: "figure.mixed.cardio"
+        }
+    }
+
+    /// For each region the answer trained: days from the workout's day until
+    /// it's ready for hard work again (0 = ready the same day).
+    public static func readyAfter(_ answer: Answer, minutes: Int) -> [(region: GymRegion, days: Int)] {
+        let bands = effectiveBands(answer, minutes: minutes)
+        return [GymRegion.lower, .upper, .core].compactMap { region in
+            bands[region].map { (region, recoveryDays(region, after: $0)) }
+        }
+    }
+
     /// How hard one part of the body worked, in three words.
     public enum Band: String, Codable, Sendable, CaseIterable, Comparable {
         case light, solid, veryHard

@@ -204,8 +204,7 @@ public struct LibraryView: View {
                 .foregroundStyle(AppTheme.ink)
             Spacer()
             Button("Clear") { self.region = nil }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
+                .buttonStyle(.quiet)
         }
         .cardStyle(padding: 14)
     }

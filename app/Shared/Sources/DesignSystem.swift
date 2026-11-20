@@ -496,6 +496,29 @@ public struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+/// A small action that still reads as a button (Skip, Not now, Clear,
+/// Hide): a compact capsule with a hairline, never bare grey text.
+public struct QuietButtonStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .foregroundStyle(AppTheme.ink.opacity(0.88))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 40)
+            .background(Color.white.opacity(configuration.isPressed ? 0.14 : 0.08), in: Capsule())
+            .overlay { Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1) }
+            .contentShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+    }
+}
+
+public extension ButtonStyle where Self == QuietButtonStyle {
+    static var quiet: QuietButtonStyle { QuietButtonStyle() }
+}
+
 /// A light tap felt when a primary button goes down (phone only).
 struct PressHaptic: ViewModifier {
     let pressed: Bool

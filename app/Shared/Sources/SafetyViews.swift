@@ -177,8 +177,7 @@ struct LowEnergyCard: View {
             }
             if let onHide {
                 Button("Hide for a week", action: onHide)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
+                    .buttonStyle(.quiet)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

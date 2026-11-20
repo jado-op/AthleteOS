@@ -135,8 +135,7 @@ struct AppTourView: View {
             HStack {
                 Spacer()
                 Button("Skip") { onFinish() }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
+                    .buttonStyle(.quiet)
                     .opacity(page < Self.pages.count - 1 ? 1 : 0)
             }
             .padding(.horizontal, 20)
@@ -474,9 +473,7 @@ struct ProFeatureSheet: View {
             Button("Upgrade") { showingPaywall = true }
                 .buttonStyle(.primary)
             Button("Not now") { dismiss() }
-                .font(.headline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .buttonStyle(.secondary)
         }
         .padding(24)
         .presentationDetents([.medium])
