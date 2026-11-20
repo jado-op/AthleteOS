@@ -92,7 +92,7 @@ enum GymHistoryBuilder {
     static func history(_ athlete: Athlete, catalogue: Catalogue, now: Date = .now, calendar: Calendar = .current) -> GymHistory {
         let today = calendar.startOfDay(for: now)
         // Today's own sessions count: a session finished this morning makes that region "trained today".
-        let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)"
+        let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)|\(HealthWorkoutInbox.revision)"
         if let cache, cache.key == key { return cache.history }
         let twoWeeks = calendar.date(byAdding: .day, value: -14, to: today) ?? today.addingTimeInterval(-14 * 86_400)
         let sixWeeks = calendar.date(byAdding: .day, value: -42, to: today) ?? today.addingTimeInterval(-42 * 86_400)
@@ -101,6 +101,9 @@ enum GymHistoryBuilder {
         // Best estimated strength per lift, per session, oldest first.
         var bests: [String: [Double]] = [:]
         var regionOf: [String: GymRegion] = [:]
+        // The days a region wants after its newest session: set by a Health
+        // workout the athlete rated, the usual rule after a logged one.
+        var recoveryOverride: [GymRegion: Int] = [:]
         let sessions = athlete.sessions.filter { $0.startedAt >= sixWeeks }.sorted { $0.startedAt < $1.startedAt }
         for session in sessions {
             let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: session.startedAt), to: today).day ?? 99
@@ -121,6 +124,10 @@ enum GymHistoryBuilder {
                 regionOf[set.itemSlug] = p.isLower ? .lower : .upper
             }
             for (slug, value) in perLift { bests[slug, default: []].append(value) }
+            // A workout from Health: the regions the athlete said it trained.
+            let rated = HealthWorkoutInbox.regions(of: session)
+            regions.formUnion(rated.keys)
+            for region in regions { recoveryOverride[region] = rated[region] }
             guard session.startedAt >= twoWeeks else { continue }
             for region in regions {
                 daysSince[region] = min(daysSince[region] ?? 99, days)
@@ -141,7 +148,8 @@ enum GymHistoryBuilder {
         let sleep = MeasuredSleepStore.recent(now: now, calendar: calendar)
         let history = GymHistory(daysSince: daysSince, weekCount: weekCount, stalledAnchors: stalled,
                                  stalledRegions: Set(stalled.compactMap { regionOf[$0] }), lastAccessories: lastAccessories,
-                                 measuredSleepHours: sleep?.lastNight, measuredSleepAverage: sleep?.average)
+                                 measuredSleepHours: sleep?.lastNight, measuredSleepAverage: sleep?.average,
+                                 recoveryOverride: recoveryOverride.compactMapValues { $0 })
         cache = (key, history)
         return history
     }

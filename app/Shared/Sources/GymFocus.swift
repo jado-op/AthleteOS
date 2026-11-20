@@ -125,10 +125,15 @@ public struct GymHistory: Sendable, Equatable {
     public var measuredSleepHours: Double?
     /// Average measured sleep over the last three nights (nil: fewer than two nights measured).
     public var measuredSleepAverage: Double?
+    /// When the region's last session was a workout from Health the athlete
+    /// rated: the days it wants after that effort (`WorkoutTagging.recoveryDays`).
+    public var recoveryOverride: [GymRegion: Int]
 
     public init(daysSince: [GymRegion: Int] = [:], weekCount: [GymRegion: Int] = [:], stalledAnchors: Set<String> = [],
                 stalledRegions: Set<GymRegion> = [], lastAccessories: [GymFocus: Set<String>] = [:],
-                measuredSleepHours: Double? = nil, measuredSleepAverage: Double? = nil) {
+                measuredSleepHours: Double? = nil, measuredSleepAverage: Double? = nil,
+                recoveryOverride: [GymRegion: Int] = [:]) {
+        self.recoveryOverride = recoveryOverride
         self.daysSince = daysSince
         self.weekCount = weekCount
         self.stalledAnchors = stalledAnchors
@@ -136,6 +141,11 @@ public struct GymHistory: Sendable, Equatable {
         self.lastAccessories = lastAccessories
         self.measuredSleepHours = measuredSleepHours
         self.measuredSleepAverage = measuredSleepAverage
+    }
+
+    /// Days the region wants between hard sessions, after its last one.
+    public func recoveryDays(_ region: GymRegion) -> Int {
+        recoveryOverride[region] ?? region.recoveryDays
     }
 }
 
@@ -189,8 +199,8 @@ public enum GymAdvisor {
         else if day.daysSinceLastGame == 1 { legsBlocked = "You played yesterday" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }
-        else if let since = history.daysSince[.lower], since < GymRegion.lower.recoveryDays {
-            legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday" : "Legs trained two days ago — 72 h to recover"
+        else if let since = history.daysSince[.lower], since < history.recoveryDays(.lower) {
+            legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday" : "Legs trained two days ago — one more day to recover"
         }
         else if let hours = history.measuredSleepHours, hours < 6 { legsBlocked = "Under 6 h of sleep — no heavy legs today" }
         else if let heavy = day.recent.daysSinceHeavyLower, heavy <= 1 { legsBlocked = "Legs trained yesterday" }
@@ -198,7 +208,7 @@ public enum GymAdvisor {
             notToday[.lower] = legsBlocked
             notToday[.full] = legsBlocked
         }
-        if let since = history.daysSince[.upper], since < GymRegion.upper.recoveryDays {
+        if let since = history.daysSince[.upper], since < history.recoveryDays(.upper) {
             let why = since == 0 ? "Upper body trained today" : "Upper body trained yesterday"
             notToday[.upper] = why
             if notToday[.full] == nil { notToday[.full] = why }
@@ -285,7 +295,7 @@ public enum GymAdvisor {
         // Legs blocked by recovery already says when they were trained: say it once.
         let legsNote = notToday[.lower].flatMap { focus != .lower && focus != .full ? $0 : nil }
         for region in others {
-            if region == .lower, legsNote != nil, (history.daysSince[.lower] ?? 99) < GymRegion.lower.recoveryDays { continue }
+            if region == .lower, legsNote != nil, (history.daysSince[.lower] ?? 99) < history.recoveryDays(.lower) { continue }
             if let days = history.daysSince[region], days <= 3 { parts.append("\(region.title) \(ago(days))") }
         }
         var sentence = "\(focus.title) today"

@@ -70,8 +70,13 @@ struct HomeView: View {
     #endif
     /// The widget being held while arranging, and where the board is in reordering it.
 
+    /// The Health workout `WorkoutCheckSheet` asks about.
+    @State private var checkSession: Session?
+
     enum HomeSheet: String, Identifiable {
         case quickActions, checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
+        /// "How hard was it, what did it train?" after a workout from Apple Health.
+        case workoutCheck
         var id: String { rawValue }
     }
 
@@ -266,6 +271,14 @@ struct HomeView: View {
         refreshTwinBriefing()
     }
 
+    /// A workout from Apple Health waiting for its few taps: ask once, when
+    /// nothing else is open (never over the check-in or another sheet).
+    private func askAboutHealthWorkout() {
+        guard activeSheet == nil, selectedTab == .today, let session = HealthWorkoutInbox.pending(allSessions) else { return }
+        checkSession = session
+        activeSheet = .workoutCheck
+    }
+
     private func refreshTwinBriefing() {
         let state = AcademyStore.load()
         briefingReadToday = state.read.values.contains { calendar.isDateInToday($0) }
@@ -354,6 +367,7 @@ struct HomeView: View {
                     case .reflection?: activeSheet = .reflection
                     default: break
                     }
+                    askAboutHealthWorkout()
                 }
             }
             // A push or the quiet check: the coach's new workout or note shows up now.
@@ -385,8 +399,16 @@ struct HomeView: View {
                                               ?? (evaluation.decision.allowsAddedTraining ? "No workout planned" : "No added workout"))
                 status = DayStatusStore.status()
                 refreshTwinBriefing()
-                if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
+                if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet {
+                    // Screenshots: a gym session the watch recorded an hour ago (never saved).
+                    if name == HomeSheet.workoutCheck.rawValue {
+                        checkSession = Session(startedAt: .now.addingTimeInterval(-6000), endedAt: .now.addingTimeInterval(-3000), minutes: 52,
+                                               source: .watch, notes: "Strength training · from your Apple Watch")
+                    }
+                    activeSheet = HomeSheet(rawValue: name)
+                }
                 loaded = true
+                askAboutHealthWorkout()
             }
             .sheet(item: $activeSheet, onDismiss: {
                 status = DayStatusStore.status()
@@ -446,6 +468,13 @@ struct HomeView: View {
                     AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
                         pendingSearch = target
                         activeSheet = nil
+                    }
+                case .workoutCheck:
+                    if let checkSession {
+                        WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) {
+                            revision += 1
+                        }
+                        .interactiveDismissDisabled()
                     }
                 case .schedule:
                     ScheduleSheet(athlete: athlete) {

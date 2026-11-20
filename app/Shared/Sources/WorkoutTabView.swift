@@ -95,6 +95,10 @@ struct WorkoutTabView: View {
         case .concussion: return (nil, "Training is paused until a doctor clears you.")
         case .travel, .holiday: return (.travel, "A short workout you can do anywhere, only if you feel like it.")
         case .active:
+            // Already trained today (logged here or recorded by a watch): no second workout.
+            if TodayEngine.workoutDone(athlete) {
+                return (.mobility, "Training's done for today. If you want more, keep it to a few easy minutes of mobility.")
+            }
             // The athlete's own word from the check-in wins over the schedule.
             if let said = TodayEngine.said(on: .now) {
                 if said.choices.contains(.rest) { return (nil, "You chose a rest day. Rest is part of the plan.") }
@@ -317,7 +321,8 @@ struct WorkoutTabView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.ink.opacity(0.8))
                 .accessibilityAddTraits(.isHeader)
-            Text(recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
+            Text(status == .active && TodayEngine.workoutDone(athlete) ? "Training done"
+                 : recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
                  : (rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
                 .font(.system(size: 38, weight: .semibold))
                 .tracking(-1)

@@ -217,7 +217,11 @@ public struct MainTabView: View {
                 case nil: break
                 }
                 StreakFreeze.protectTodayIfResting()
-                Task { await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate) }
+                Task {
+                    await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+                    // A workout from Health counts as today's training straight away.
+                    if !athlete.isDeleted, HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext) > 0 { regenerate() }
+                }
             }
             if phase == .active, !DemoData.isEnabled {
                 Task { await refreshAnimations() }
@@ -229,6 +233,7 @@ public struct MainTabView: View {
             StreakFreeze.protectTodayIfResting()
             if !DemoData.isEnabled {
                 await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+                HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext)
             }
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION

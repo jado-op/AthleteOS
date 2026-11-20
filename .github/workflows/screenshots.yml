@@ -152,7 +152,7 @@ jobs:
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-workout-${sheet}.png"
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
-              for sheet in checkIn quickActions addGame dayStatus schedule reflection search safety mentalSkills tests seasonReview; do
+              for sheet in checkIn quickActions addGame dayStatus schedule reflection search safety mentalSkills tests seasonReview workoutCheck; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab today -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"

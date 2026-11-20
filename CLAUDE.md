@@ -297,6 +297,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   your health insights") → `MoreHealthInsightsView` (sections, tiles, detail sheets, route maps). Me → Apple Health:
   `HealthConnectionView`. Never invent a value; demo data only under `-demoData` (`HealthDemo`). Screenshots:
   `-tab academy -sheet health|health2|healthAll`. Energy (kcal) and body weight stay low-key tiles, never goals.
+- Health workouts are training (owner, 2026-11-20): a counting workout from Health (strength/cardio/sport ≥ 15 min,
+  light ≥ 45, not during practice) is logged as a Session at once (`HealthWorkoutInbox`, never pushed to the server), so
+  Home and the Workout tab show "Training done". Next app open (within 24 h) `WorkoutCheckSheet` asks: CR-10 effort, what
+  it trained (regions or exact exercises), per-region effort when several, anything hurt. Effort sets each region's
+  recovery for the gym planner (`WorkoutTagging`, `GymHistory.recoveryOverride`). Evidence: `docs/WORKOUT-CHECK-RESEARCH.md`.
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their
