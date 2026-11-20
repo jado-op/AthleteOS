@@ -3,7 +3,5 @@
 Only one Claude session changes master at a time. Read CLAUDE.md, "Working
 together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
-- status: in-use
-- by: claude-b6226d62
-- since: 2026-11-20T03:58:57Z
-- task: Twin 7-day body view
+- status: free
+- since: 2026-11-20T04:03:21Z
