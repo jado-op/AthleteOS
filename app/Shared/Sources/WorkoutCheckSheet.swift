@@ -217,10 +217,12 @@ struct WorkoutCheckSheet: View {
     private var effortScale: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(rating.map(String.init) ?? "–")
-                    .font(.system(size: 64, weight: .light).monospacedDigit())
-                    .foregroundStyle(rating.map { Self.color($0) } ?? AppTheme.mutedText)
-                    .contentTransition(.numericText())
+                if let rating {
+                    Text("\(rating)")
+                        .font(.system(size: 64, weight: .light).monospacedDigit())
+                        .foregroundStyle(Self.color(rating))
+                        .contentTransition(.numericText())
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rating.map(WorkoutTagging.word) ?? "Pick a number")
                         .font(.title3.weight(.bold))
