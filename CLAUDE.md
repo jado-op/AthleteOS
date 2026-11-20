@@ -306,7 +306,9 @@ Reading files, CI logs or the GitHub API needs no lock.
 - "Your last 7 days" (owner, 2026-11-20): the twin page's card under the name opens `TwinWeekView` — the body figure
   lit by this week's training, the week's numbers floating around it (sleep → head, heart → chest, steps → legs,
   training → core), dashed lines to the body, tap a number for its 7-day chart, tap the body to turn it around. Rules in
-  `TwinWeek.swift` (harness). Screenshot: `-tab academy -sheet week`.
+  `TwinWeek.swift` (harness). Screenshot: `-tab academy -sheet week`. Muscles are coloured by how hard they worked
+  (owner: "by colour"): `MuscleTraining.week` (sets × effort, light/solid/very hard) on `HeatScale` (one warm hue,
+  rising lightness, never a rainbow). Tap a muscle for its week. Look rules: `docs/TWIN-WEEK-DESIGN.md`.
 - Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
   (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
   rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their

@@ -32,12 +32,79 @@ public enum MuscleTraining {
         public let exercise: String
         /// Muscle slug → weight, from the catalogue item.
         public let muscles: [String: Double]
+        /// How hard the session was (0–10; 5 when it wasn't rated).
+        public let effort: Double
 
-        public init(date: Date, exercise: String, muscles: [String: Double]) {
+        public init(date: Date, exercise: String, muscles: [String: Double], effort: Double = 5) {
             self.date = date
             self.exercise = exercise
             self.muscles = muscles
+            self.effort = effort
         }
+    }
+
+    // MARK: How hard each group worked this week (the twin's heat body)
+
+    /// One group's week: effort-weighted sets and what gave them.
+    public struct GroupWeek: Sendable, Equatable {
+        public let group: MuscleGroup
+        /// Σ credit × effort over the window.
+        public let load: Double
+        /// Σ credit (sets that really worked the group).
+        public let sets: Double
+        /// Days it was trained.
+        public let days: Int
+        /// Credit-weighted mean effort.
+        public let effort: Double
+        public let band: WorkoutTagging.Band
+        /// What worked it, newest first: exercise, day, sets, effort.
+        public let items: [Item]
+
+        public struct Item: Sendable, Equatable {
+            public let exercise: String
+            public let day: Date
+            public let sets: Double
+            public let effort: Double
+        }
+    }
+
+    /// The band a week's load stands for. Thresholds in sets × effort:
+    /// a few easy sets (3 × 4 = 12) is light; a real block (3–5 sets at
+    /// effort 5–7) solid; ~5+ hard sets at 7–8 (≥ 35) very hard.
+    public static func band(forLoad load: Double) -> WorkoutTagging.Band? {
+        if load <= 0 { return nil }
+        if load < 12 { return .light }
+        if load < 35 { return .solid }
+        return .veryHard
+    }
+
+    /// Every group trained in the last `days` days, hardest first.
+    public static func week(_ sets: [LoggedSet], now: Date, days: Int = 7, calendar: Calendar = .current) -> [GroupWeek] {
+        let start = calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: now)) ?? now
+        var load: [MuscleGroup: Double] = [:]
+        var credit: [MuscleGroup: Double] = [:]
+        var trainedDays: [MuscleGroup: Set<Date>] = [:]
+        var items: [MuscleGroup: [String: (day: Date, sets: Double, effortSum: Double)]] = [:]
+        for set in sets where set.date >= start && set.date <= now {
+            let day = calendar.startOfDay(for: set.date)
+            for (group, value) in groupCredits(set.muscles) where value > 0 {
+                load[group, default: 0] += value * set.effort
+                credit[group, default: 0] += value
+                trainedDays[group, default: []].insert(day)
+                let key = "\(set.exercise)|\(day.timeIntervalSince1970)"
+                let old = items[group]?[key]
+                items[group, default: [:]][key] = (day, (old?.sets ?? 0) + value, (old?.effortSum ?? 0) + value * set.effort)
+            }
+        }
+        return load.compactMap { group, value -> GroupWeek? in
+            guard let band = band(forLoad: value), let sets = credit[group], sets > 0 else { return nil }
+            let list = (items[group] ?? [:]).map { key, entry in
+                GroupWeek.Item(exercise: String(key.split(separator: "|").first ?? ""), day: entry.day, sets: entry.sets,
+                               effort: entry.effortSum / max(entry.sets, 0.0001))
+            }.sorted { $0.day != $1.day ? $0.day > $1.day : $0.sets > $1.sets }
+            return GroupWeek(group: group, load: value, sets: sets, days: trainedDays[group]?.count ?? 0, effort: value / sets,
+                             band: band, items: list)
+        }.sorted { $0.load != $1.load ? $0.load > $1.load : $0.group.order < $1.group.order }
     }
 
     /// The muscle groups a body region stands for, as the gym planner splits them.
@@ -54,12 +121,14 @@ public enum MuscleTraining {
     /// that region, each a main mover, so the body map and the group
     /// walkthrough show it. `WorkoutTagging.bodyMapSets` says how many.
     public static func regionSets(date: Date, label: String, bands: [GymRegion: WorkoutTagging.Band]) -> [LoggedSet] {
+        // Each region carries the effort its band stands for.
         bands.sorted { $0.key.rawValue < $1.key.rawValue }.flatMap { region, band -> [LoggedSet] in
             let groups = groups(of: region)
             let slugs = muscles.filter { info in info.drawable && MuscleGroup(region: info.region).map(groups.contains) == true }
                 .map(\.id)
             guard !slugs.isEmpty else { return [] }
-            let set = LoggedSet(date: date, exercise: label, muscles: Dictionary(uniqueKeysWithValues: slugs.map { ($0, 1.0) }))
+            let set = LoggedSet(date: date, exercise: label, muscles: Dictionary(uniqueKeysWithValues: slugs.map { ($0, 1.0) }),
+                                effort: WorkoutTagging.effort(of: band))
             return Array(repeating: set, count: WorkoutTagging.bodyMapSets(band))
         }
     }

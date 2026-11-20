@@ -13,7 +13,8 @@ extension MuscleTraining {
             if imported[session.clientId] != nil { return HealthWorkoutInbox.bodyMapSets(session, catalogue: catalogue) }
             return session.sets.compactMap { set -> LoggedSet? in
                 guard let item = catalogue.item(set.itemSlug) else { return nil }
-                return LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles)
+                return LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles,
+                                 effort: Double(session.sessionRPE ?? 5))
             }
         }
     }

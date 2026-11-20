@@ -54,4 +54,34 @@ final class TwinWeekTests: XCTestCase {
         XCTAssertEqual(columns.left.map(\.id), ["sleep", "training"])
         XCTAssertEqual(columns.right.map(\.id), ["heart", "steps"])
     }
+
+    func testEachGroupIsColouredByHowHardItWorkedThisWeek() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let squat = ["rectus-femoris": 1.0]
+        let quads = Array(repeating: MuscleTraining.LoggedSet(date: now.addingTimeInterval(-86_400), exercise: "Back squat",
+                                                              muscles: squat, effort: 8), count: 6)
+        let legs = MuscleTraining.regionSets(date: now.addingTimeInterval(-3600), label: "Run", bands: [.core: .light])
+        let old = MuscleTraining.LoggedSet(date: now.addingTimeInterval(-10 * 86_400), exercise: "Bench", muscles: ["pectoralis-major": 1],
+                                           effort: 9)
+        let week = MuscleTraining.week(quads + legs + [old], now: now, calendar: calendar)
+        XCTAssertEqual(MuscleTraining.band(forLoad: 0), nil)
+        XCTAssertEqual(MuscleTraining.band(forLoad: 10), .light)
+        XCTAssertEqual(MuscleTraining.band(forLoad: 20), .solid)
+        XCTAssertEqual(MuscleTraining.band(forLoad: 40), .veryHard)
+        XCTAssertNil(week.first { $0.group == .chest }, "older than a week")
+        if let quadsWeek = week.first(where: { $0.group == .quads }) {
+            XCTAssertEqual(quadsWeek.band, .veryHard)
+            XCTAssertEqual(quadsWeek.effort, 8, accuracy: 0.01)
+            XCTAssertEqual(quadsWeek.items.first?.exercise, "Back squat")
+        }
+        XCTAssertEqual(week.first { $0.group == .core }?.band, .light)
+    }
+
+    func testAVeryHardHealthAnswerShowsVeryHard() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let sets = MuscleTraining.regionSets(date: now.addingTimeInterval(-3600), label: "Strength training", bands: [.lower: .veryHard, .upper: .solid])
+        let week = MuscleTraining.week(sets, now: now, calendar: calendar)
+        XCTAssertEqual(week.first { $0.group == .quads }?.band, .veryHard)
+        XCTAssertEqual(week.first { $0.group == .chest }?.band, .solid)
+    }
 }

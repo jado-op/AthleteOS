@@ -186,7 +186,16 @@ public enum WorkoutTagging {
         switch band {
         case .light: 2
         case .solid: 3
-        case .veryHard: 4
+        case .veryHard: 5
+        }
+    }
+
+    /// The effort a band stands for on the 0–10 scale (its middle).
+    public static func effort(of band: Band) -> Double {
+        switch band {
+        case .light: 3
+        case .solid: 5
+        case .veryHard: 8
         }
     }
 

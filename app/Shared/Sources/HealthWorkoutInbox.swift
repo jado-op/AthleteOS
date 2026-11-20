@@ -82,7 +82,8 @@ enum HealthWorkoutInbox {
             let regions = WorkoutCheckSheet.regions(of: item)
             covered.formUnion(regions)
             let band = regions.compactMap { bands[$0] }.max() ?? answer.rating.map(WorkoutTagging.band(forRating:)) ?? .solid
-            let set = MuscleTraining.LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles)
+            let set = MuscleTraining.LoggedSet(date: session.startedAt, exercise: item.name, muscles: item.muscles,
+                                               effort: WorkoutTagging.effort(of: band))
             sets += Array(repeating: set, count: WorkoutTagging.bodyMapSets(band))
         }
         return sets + MuscleTraining.regionSets(date: session.startedAt, label: activity,
