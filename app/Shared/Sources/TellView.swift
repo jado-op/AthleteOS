@@ -380,8 +380,12 @@ struct TellView: View {
                 .map { $0 == .lowRunning ? "little running" : (level >= 3 ? "a lot of \($0.title)" : $0.title) }
             let load = level >= 3 ? "Hard practice" : level <= 1 ? "Light practice" : "Practice"
             return parts.isEmpty ? "\(load) · \(relative(date))" : "\(load): \(PlanExplanation.list(parts)) · \(relative(date))"
-        case .workout(let date, _, _, let names, let level):
-            return "\(level >= 3 ? "Hard workout" : "Your workout"): \(PlanExplanation.list(names)) · \(relative(date))"
+        case .workout(let date, _, _, let names, let level, let minutes):
+            var facts: [String] = []
+            if level >= 3 { facts.append("hard") } else if level <= 1 { facts.append("easy") }
+            if let minutes { facts.append(minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes) min") }
+            let what = names.isEmpty ? "Your workout" : "Your workout: \(PlanExplanation.list(names))"
+            return ([what] + facts + [relative(date)]).joined(separator: " · ")
         case .equipment(let from, let days, let tags):
             let names = equipmentNames(tags)
             let when = days == 1 ? day(from, time: false) : "\(day(from, time: false)) – \(day(Calendar.current.date(byAdding: .day, value: days - 1, to: from) ?? from, time: false))"
@@ -533,10 +537,10 @@ struct TellView: View {
                                                 level: level, practice: true)
                 AthleteContextStore.add(event)
                 exposures[calendar.startOfDay(for: date)] = event.id
-            case .workout(let date, let patterns, let qualities, _, let level):
+            case .workout(let date, let patterns, let qualities, _, let level, let minutes):
                 AthleteContextStore.add(AthleteContextEvent(from: calendar.startOfDay(for: date), kind: .exposure, source: .tellAthleteOS,
                                                             reported: [title(proposal)], qualities: qualities.compactMap(ContextQuality.init(rawValue:)),
-                                                            level: level, patterns: patterns))
+                                                            level: level, patterns: patterns, minutes: minutes))
             case .fatigue:
                 // After the exposures, so tired legs link to the practice that tired them.
                 fatigues.append(proposal)

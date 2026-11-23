@@ -32,8 +32,9 @@ public enum TellParser {
         case fatigue(day: Date, regions: [String], level: Int)
         /// What practice (or a game) gave on a day (ContextQuality raw values): 1 light, 2 normal, 3 a lot.
         case training(day: Date, qualities: [String], level: Int)
-        /// The athlete's own workout on a day: movement patterns and qualities, and the words they used.
-        case workout(day: Date, patterns: [String], qualities: [String], names: [String], level: Int)
+        /// The athlete's own workout on a day: movement patterns and qualities, the words they used,
+        /// how hard (1 easy, 2 solid, 3 hard) and how long when they said it.
+        case workout(day: Date, patterns: [String], qualities: [String], names: [String], level: Int, minutes: Int?)
         /// Only this equipment (`equipmentLevelByTag` keys) on these days.
         case equipment(from: Date, days: Int, tags: [String])
         /// Minutes available on a day.
@@ -64,6 +65,9 @@ public enum TellParser {
         var goals: [String] = []
         var unread: [String] = []
         var lastSeason: String?
+        // A workout told over several sentences ("Had a workout today. Chest,
+        // upper back and core. A bit of arms. Solid, 1 hour."): one report.
+        var session: WorkoutDraft?
 
         for sentence in sentences {
             let words = tokens(sentence)
@@ -149,9 +153,24 @@ public enum TellParser {
             if report, let (qualities, level) = trainingReport(words, sentence) {
                 proposals.append(.training(day: past ?? today, qualities: qualities, level: level))
             }
-            if let workout = ownWorkout(words, sentence) {
-                proposals.append(.workout(day: past ?? today, patterns: workout.patterns, qualities: workout.qualities, names: workout.names,
-                                          level: workout.level))
+            let startsWorkout = startsOwnWorkout(words, sentence)
+            if startsWorkout, let open = session, open.day != (past ?? open.day) {
+                // Another day's workout: the first one is complete.
+                proposals.append(open.proposal)
+                session = nil
+            }
+            if startsWorkout || session != nil {
+                let parts = workoutParts(sentence)
+                let effort = workoutEffort(words, sentence)
+                let minutes = sessionMinutes(sentence, words)
+                if startsWorkout || !parts.names.isEmpty || effort != nil || minutes != nil {
+                    var draft = session ?? WorkoutDraft(day: past ?? today)
+                    draft.add(parts)
+                    if let effort { draft.level = max(draft.level ?? effort, effort) }
+                    if let minutes { draft.minutes = minutes }
+                    session = draft
+                    understood = true
+                }
             }
             let tags = equipmentTags(words, sentence)
             if !tags.isEmpty, !report, containsAny(words, sentence, availabilityWords) {
@@ -203,6 +222,7 @@ public enum TellParser {
                 unread.append(sentence.trimmingCharacters(in: .whitespaces))
             }
         }
+        if let session { proposals.append(session.proposal) }
         if !goals.isEmpty { proposals.append(.goals(Array(goals.prefix(3)))) }
         return Result(proposals: dedupe(proposals), safety: safety, unread: unread)
     }
@@ -383,8 +403,8 @@ public enum TellParser {
     /// What practice gave: "tons of sprints", "mostly conditioning", "barely ran, mostly shooting", "practice was brutal".
     static func trainingReport(_ words: [String], _ sentence: String) -> (qualities: [String], level: Int)? {
         // The athlete's own gym workout is read by `ownWorkout`.
-        guard !containsAny(words, sentence, ["gym", "lifted", "lifting", "leg day", "upper day"]) || containsAny(words, sentence, ["practice", "training", "game", "match", "spiel"]) else { return nil }
-        let lots = ["lots of", "lot of", "tons of", "ton of", "loads of", "so many", "a bunch of", "many", "endless", "nonstop", "non-stop",
+        guard !containsAny(words, sentence, ["gym", "lifted", "lifting", "leg day", "upper day", "workout"]) || containsAny(words, sentence, ["practice", "training", "game", "match", "spiel"]) else { return nil }
+        let lots = ["lots of", "lot of", "tons of", "ton of", "a ton", "a lot", "so much", "loads of", "so many", "a bunch of", "many", "endless", "nonstop", "non-stop",
                     "all practice", "the whole practice", "mostly", "brutal", "insane", "crazy", "killer", "viele", "sehr viel", "nur", "brutal"]
         let hard = ["brutal", "hard", "tough", "killer", "intense", "insane", "crazy", "rough", "heavy", "two hours", "2 hours",
                     "hart", "anstrengend", "heftig", "brutal"]
@@ -400,7 +420,7 @@ public enum TellParser {
                                          "scrimmage", "scrimmaging", "shuttles", "accelerations"]) {
             qualities.append("sprinting")
         }
-        if containsAny(words, sentence, ["conditioning", "running", "ran a lot", "laps", "suicides", "fitness", "kondition", "läufe", "ausdauer",
+        if containsAny(words, sentence, ["conditioning", "running", "ran a lot", "ran a ton", "ran so much", "laps", "suicides", "fitness", "kondition", "läufe", "ausdauer",
                                          "full-court", "full court", "intervals"]) && !qualities.contains("lowRunning") {
             qualities.append("conditioning")
         }
@@ -465,6 +485,112 @@ public enum TellParser {
            containsAny(words, sentence, ["my back", "back is", "back feels"]) { return nil }
         let level = containsAny(words, sentence, ["heavy", "hard", "brutal", "max", "intense", "schwer", "hart"]) ? 3 : 2
         return (patterns, qualities, names, level)
+    }
+
+    /// A workout being told over one or more sentences.
+    struct WorkoutDraft {
+        var day: Date
+        var patterns: [String] = []
+        var qualities: [String] = []
+        var names: [String] = []
+        var level: Int?
+        var minutes: Int?
+
+        mutating func add(_ parts: (patterns: [String], qualities: [String], names: [String])) {
+            for p in parts.patterns where !patterns.contains(p) { patterns.append(p) }
+            for q in parts.qualities where !qualities.contains(q) { qualities.append(q) }
+            for n in parts.names where !names.contains(n) { names.append(n) }
+        }
+
+        var proposal: Proposal {
+            .workout(day: day, patterns: patterns, qualities: qualities, names: names, level: level ?? 2, minutes: minutes)
+        }
+    }
+
+    /// The sentence tells about the athlete's own workout (not team practice, not a plan).
+    static func startsOwnWorkout(_ words: [String], _ sentence: String) -> Bool {
+        let intent = ["want", "wanna", "will", "going to", "gonna", "plan", "should", "need to", "tomorrow", "möchte", "werde", "morgen", "remind"]
+        guard !containsAny(words, sentence, intent),
+              !containsAny(words, sentence, ["practice", "game", "match", "spiel", "scrimmage", "no gym", "kein gym", "no real gym"]) else { return false }
+        if ownWorkout(words, sentence) != nil { return true }
+        let named = ["workout", "work out", "worked out", "gym session", "went to the gym", "hit the gym", "was at the gym", "at the gym", "in the gym",
+                     "lifted", "lifting", "leg day", "upper day", "push day", "pull day", "lift today", "weights", "krafttraining", "im gym",
+                     "gym gemacht", "training im gym", "im fitnessstudio"]
+        if containsAny(words, sentence, named) { return true }
+        // "Gym today: bench, rows, curls", "gym this morning".
+        if words.first == "gym" || (words.contains("gym") && containsAny(words, sentence, ["today", "yesterday", "this morning", "tonight", "earlier",
+                                                                                           "heute", "gestern"])) { return true }
+        // "Did 30 minutes on the bike", "went for a run": the athlete's own cardio.
+        let did = ["did", "went", "had", "trained", "rode", "ran", "swam", "rowed", "biked", "cycled", "gemacht", "war", "bin"]
+        return containsAny(words, sentence, did) && !workoutParts(sentence).names.isEmpty
+            && workoutParts(sentence).qualities.contains("conditioning")
+    }
+
+    /// Body parts and exercises a workout trained, from the clauses that aren't
+    /// about tiredness or pain ("legs are cooked" isn't what was trained).
+    static func workoutParts(_ sentence: String) -> (patterns: [String], qualities: [String], names: [String]) {
+        let clauses = sentence
+            .replacingOccurrences(of: #"\b(but|aber)\b|,"#, with: "|", options: .regularExpression)
+            .split(separator: "|").map { String($0) }
+        let lexicon: [([String], String?, String)] = [
+            (["chest", "pecs", "brust", "bench", "bench press", "bankdrücken", "push-ups", "pushups", "push ups", "liegestütze", "incline", "dips", "flys"], "push", "upperStrength"),
+            (["shoulders", "shoulder", "delts", "schultern", "shoulder press", "overhead press", "ohp", "military press", "schulterdrücken"], "push", "upperStrength"),
+            (["upper back", "back", "lats", "rücken", "rows", "rudern", "pull-ups", "pullups", "pull ups", "chin-ups", "chinups", "klimmzüge",
+              "lat pulldown", "pulldowns", "latzug"], "pull", "upperStrength"),
+            (["arms", "biceps", "triceps", "curls", "arme", "bizeps", "trizeps"], nil, "upperStrength"),
+            (["upper body", "oberkörper"], "push", "upperStrength"),
+            (["legs", "leg", "leg day", "quads", "glutes", "beine", "squats", "squat", "kniebeuge", "kniebeugen", "leg press", "beinpresse", "lunges",
+              "ausfallschritte", "step-ups", "calves", "calf raises", "calf raise", "waden"], "squat", "lowerStrength"),
+            (["hamstrings", "hamstring", "rdl", "rdls", "romanian deadlift", "deadlift", "deadlifts", "kreuzheben", "hip thrust", "hip thrusts",
+              "good mornings"], "hinge", "lowerStrength"),
+            (["core", "abs", "planks", "plank", "sit-ups", "situps", "crunches", "bauch", "rumpf"], nil, "core"),
+            (["bike", "cycling", "cycled", "biked", "spinning", "run", "running", "jog", "jogging", "swim", "swam", "swimming",
+              "rower", "rowing", "rowed", "elliptical", "treadmill", "stairmaster", "stair climber", "cardio", "intervals", "hiit",
+              "radfahren", "laufen", "joggen", "schwimmen", "ergometer"], nil, "conditioning"),
+        ]
+        var patterns: [String] = []
+        var qualities: [String] = []
+        var names: [String] = []
+        for clause in clauses {
+            let words = tokens(clause)
+            if mentionsPain(clause, words) { continue }
+            if containsAny(words, clause, fatigueWords) && !containsAny(words, clause, ["workout", "trained", "did", "had"]) { continue }
+            for (keys, pattern, quality) in lexicon {
+                let found = keys.filter { key in key.contains(" ") || key.contains("-") ? clause.contains(key) : words.contains(key) }
+                // "upper back" is one thing, not also "back"; "shoulder press" not also "shoulder".
+                let hits = found.filter { hit in !found.contains { $0 != hit && $0.contains(hit) } }
+                guard !hits.isEmpty else { continue }
+                if let pattern, !patterns.contains(pattern) { patterns.append(pattern) }
+                if !qualities.contains(quality) { qualities.append(quality) }
+                for hit in hits where !names.contains(hit) && !names.contains(where: { $0.contains(hit) }) { names.append(hit) }
+            }
+        }
+        return (patterns, qualities, names)
+    }
+
+    /// How hard the athlete said a workout was: 1 easy, 2 solid, 3 hard.
+    static func workoutEffort(_ words: [String], _ sentence: String) -> Int? {
+        if containsAny(words, sentence, ["brutal", "hard", "tough", "heavy", "intense", "killer", "insane", "max", "maxed", "crushed",
+                                         "hart", "schwer", "anstrengend", "heftig"]) { return 3 }
+        if containsAny(words, sentence, ["solid", "good", "decent", "normal", "moderate", "okay", "ok", "fine", "gut", "ordentlich", "normal"]) { return 2 }
+        if containsAny(words, sentence, ["easy", "light", "chill", "relaxed", "short", "locker", "leicht", "kurz"]) { return 1 }
+        return nil
+    }
+
+    /// How long a session was: "1 hour long", "45 minutes", "an hour and a half".
+    static func sessionMinutes(_ sentence: String, _ words: [String]) -> Int? {
+        if containsAny(words, sentence, ["an hour and a half", "one and a half hours", "1.5 hours", "eineinhalb stunden", "anderthalb stunden"]) { return 90 }
+        if containsAny(words, sentence, ["half an hour", "half hour", "halbe stunde"]) { return 30 }
+        if let match = sentence.range(of: #"(\d{1,3})\s*(minutes|minute|mins|min|minuten)\b"#, options: .regularExpression),
+           let value = Int(sentence[match].prefix { $0.isNumber }), (5...240).contains(value) {
+            return value
+        }
+        if let match = sentence.range(of: #"(\d)\s*(hours|hour|hrs|hr|stunden|stunde|h)\b"#, options: .regularExpression),
+           let value = Int(sentence[match].prefix { $0.isNumber }), (1...4).contains(value) {
+            return value * 60
+        }
+        if containsAny(words, sentence, ["an hour", "one hour", "eine stunde"]) { return 60 }
+        return nil
     }
 
     static let availabilityWords = ["only", "just", "has", "have", "got", "there's", "there is", "with", "nur", "hat", "haben", "habe", "gibt"]

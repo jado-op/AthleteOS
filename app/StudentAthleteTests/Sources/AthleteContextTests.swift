@@ -88,14 +88,61 @@ final class AthleteContextTests: XCTestCase {
 
     func testTellReadsAnOwnWorkout() {
         let result = TellParser.parse("Yesterday I did bench, rows, pull-ups and shoulder press.", now: monday, calendar: calendar)
-        guard case .workout(let day, let patterns, let qualities, _, _)? = result.proposals.first else { return XCTFail("\(result.proposals)") }
+        guard case .workout(let day, let patterns, let qualities, _, _, _)? = result.proposals.first else { return XCTFail("\(result.proposals)") }
         XCTAssertEqual(day, dayStart(-1))
         XCTAssertEqual(Set(patterns), ["push", "pull"])
         XCTAssertEqual(qualities, ["upperStrength"])
         let legs = TellParser.parse("I did squats and RDLs with my friend", now: monday, calendar: calendar)
-        guard case .workout(_, let legPatterns, _, _, _)? = legs.proposals.first else { return XCTFail("\(legs.proposals)") }
+        guard case .workout(_, let legPatterns, _, _, _, _)? = legs.proposals.first else { return XCTFail("\(legs.proposals)") }
         XCTAssertEqual(Set(legPatterns), ["squat", "hinge"])
         XCTAssertEqual(TellParser.parse("I trained chest and back yesterday", now: monday, calendar: calendar).proposals.count, 1)
+    }
+
+    /// The owner's own text (TestFlight, 2026-11-23): four short sentences about one workout.
+    func testAWorkoutToldOverSeveralSentences() {
+        let result = TellParser.parse("Had a workout today. Chest upper back and core. A little bit of arms too. Workout was solid 1 hour long",
+                                      now: monday, calendar: calendar)
+        XCTAssertTrue(result.unread.isEmpty, "\(result.unread)")
+        XCTAssertEqual(result.proposals.count, 1, "\(result.proposals)")
+        guard case .workout(let day, let patterns, let qualities, let names, let level, let minutes)? = result.proposals.first else {
+            return XCTFail("\(result.proposals)")
+        }
+        XCTAssertEqual(day, dayStart(0))
+        XCTAssertEqual(Set(patterns), ["push", "pull"])
+        XCTAssertEqual(Set(qualities), ["upperStrength", "core"])
+        XCTAssertEqual(names, ["chest", "upper back", "core", "arms"])
+        XCTAssertEqual(level, 2)
+        XCTAssertEqual(minutes, 60)
+        // Not practice, not free time, not a goal.
+        XCTAssertFalse(result.proposals.contains { if case .training = $0 { true } else if case .time = $0 { true } else { false } })
+    }
+
+    func testWorkoutSentencesDontSwallowOtherNews() {
+        let result = TellParser.parse("Hit the gym yesterday, legs and glutes, pretty hard. My knee hurts a bit. Game on Saturday.",
+                                      now: monday, calendar: calendar)
+        XCTAssertTrue(result.proposals.contains { if case .workout(dayStart(-1), _, let q, _, 3, _) = $0 { q == ["lowerStrength"] } else { false } },
+                      "\(result.proposals)")
+        XCTAssertTrue(result.proposals.contains(.pain(areas: ["knee"], level: "little")))
+        XCTAssertTrue(result.proposals.contains { if case .competition = $0 { true } else { false } })
+    }
+
+    /// Apple's on-device model (when the phone has it) can name these kinds too; every value is checked here.
+    func testTheModelsWorkoutReadingIsChecked() {
+        let rules = TellParser.parse("", now: monday, calendar: calendar)
+        let items = [
+            TellModelReader.Item(kind: "ownWorkout", day: "", time: "", days: 0, areas: [], level: "", goals: [], opponent: "",
+                                 words: "chest, upper back, core", parts: ["chest", "upper back", "core", "arms"], effort: "normal", minutes: 60),
+            TellModelReader.Item(kind: "tired", day: "", time: "", days: 0, areas: [], level: "lot", goals: [], opponent: "",
+                                 words: "legs cooked", parts: ["legs"]),
+            TellModelReader.Item(kind: "timeAvailable", day: "", time: "", days: 0, areas: [], level: "", goals: [], opponent: "",
+                                 words: "only 3 minutes", minutes: 3),
+        ]
+        let result = TellModelReader.proposals(from: items, rules: rules, now: monday, calendar: calendar)
+        XCTAssertTrue(result.proposals.contains(.workout(day: dayStart(0), patterns: ["push", "pull"], qualities: ["upperStrength", "core"],
+                                                         names: ["chest", "upper back", "core", "arms"], level: 2, minutes: 60)), "\(result.proposals)")
+        XCTAssertTrue(result.proposals.contains(.fatigue(day: dayStart(0), regions: ["legs"], level: 3)))
+        XCTAssertFalse(result.proposals.contains { if case .time = $0 { true } else { false } }, "3 minutes isn't a session")
+        XCTAssertEqual(result.unread, ["only 3 minutes"])
     }
 
     func testTellReadsEquipmentAndTime() {

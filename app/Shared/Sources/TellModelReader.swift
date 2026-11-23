@@ -42,10 +42,19 @@ enum TellModelReader {
         var goals: [String]
         var opponent: String
         var words: String
+        /// What a workout trained, or which body parts feel tired, in the athlete's words.
+        var parts: [String] = []
+        /// What practice was made of (sprinting, conditioning, jumping, skill, lowRunning).
+        var qualities: [String] = []
+        /// easy, normal or hard.
+        var effort: String = ""
+        var minutes: Int = 0
+        var equipment: [String] = []
     }
 
     static let kinds = ["game", "tournament", "race", "pain", "headKnock", "examWeek", "sick", "travel", "holiday", "noGym", "practiceOff", "practiceOn",
-                        "preSeasonStart", "seasonStart", "seasonEnd", "goals", "notUnderstood"]
+                        "preSeasonStart", "seasonStart", "seasonEnd", "goals", "tired", "practiceReport", "ownWorkout", "equipment",
+                        "timeAvailable", "notUnderstood"]
     static let areas = ["head", "neck", "shoulder", "chest", "arm", "back", "core", "hip", "leg", "knee", "ankle"]
     static let goals = ["acceleration", "maxSpeed", "agility", "strength", "power", "verticalJump", "conditioning", "aerobicFitness",
                         "mobility", "sportSkill", "recovery", "confidence", "focus"]
@@ -107,6 +116,31 @@ enum TellModelReader {
                 out.append(.season(item.kind == "preSeasonStart" ? "pre" : item.kind == "seasonStart" ? "in" : "end", from: date))
             case "goals":
                 for goal in item.goals where self.goals.contains(goal) && !goals.contains(goal) { goals.append(goal) }
+            // The shared context (AthleteContext): checked through the same word lists the rules use.
+            case "tired":
+                let text = item.parts.joined(separator: ", ").lowercased()
+                let regions = TellParser.regionWords.filter { TellParser.containsAny(TellParser.tokens(text), text, $0.0) }.map(\.1)
+                guard !regions.isEmpty else { unread.append(item.words); continue }
+                let level = item.level == "little" ? 1 : item.level == "lot" ? 3 : 2
+                out.append(.fatigue(day: when ?? today, regions: regions, level: level))
+            case "practiceReport":
+                let qualities = item.qualities.filter { ["sprinting", "conditioning", "jumping", "skill", "lowRunning"].contains($0) }
+                let level = item.effort == "hard" ? 3 : item.effort == "easy" ? 1 : 2
+                guard !qualities.isEmpty || level != 2 else { unread.append(item.words); continue }
+                out.append(.training(day: min(when ?? today, today), qualities: qualities, level: level))
+            case "ownWorkout":
+                let parts = TellParser.workoutParts(item.parts.joined(separator: ", ").lowercased())
+                let level = item.effort == "hard" ? 3 : item.effort == "easy" ? 1 : 2
+                out.append(.workout(day: min(when ?? today, today), patterns: parts.patterns, qualities: parts.qualities, names: parts.names,
+                                    level: level, minutes: (5...240).contains(item.minutes) ? item.minutes : nil))
+            case "equipment":
+                let text = item.equipment.joined(separator: ", ").lowercased()
+                let tags = TellParser.equipmentTags(TellParser.tokens(text), text)
+                guard !tags.isEmpty else { unread.append(item.words); continue }
+                out.append(.equipment(from: when ?? today, days: (1...30).contains(item.days) ? item.days : 1, tags: tags))
+            case "timeAvailable":
+                guard (10...180).contains(item.minutes) else { unread.append(item.words); continue }
+                out.append(.time(day: when ?? today, minutes: item.minutes))
             default:
                 if !item.words.isEmpty { unread.append(item.words) }
             }
@@ -122,9 +156,12 @@ enum TellModelReader {
             switch proposal {
             case .noGym where !modelNoGym && !awayDays: out.append(proposal)
             case .practice where !modelPractice: out.append(proposal)
-            // The shared context (tired regions, what practice gave, own workouts,
-            // equipment, time) is read by the rules only.
-            case .fatigue, .training, .workout, .equipment, .time: out.append(proposal)
+            // The shared context: the rules' reading where the model read none of that kind.
+            case .fatigue where !out.contains(where: { if case .fatigue = $0 { true } else { false } }): out.append(proposal)
+            case .training where !out.contains(where: { if case .training = $0 { true } else { false } }): out.append(proposal)
+            case .workout where !out.contains(where: { if case .workout = $0 { true } else { false } }): out.append(proposal)
+            case .equipment where !out.contains(where: { if case .equipment = $0 { true } else { false } }): out.append(proposal)
+            case .time where !out.contains(where: { if case .time = $0 { true } else { false } }): out.append(proposal)
             default: break
             }
         }
@@ -160,7 +197,7 @@ struct TellReadingOutput {
 @available(iOS 26.0, *)
 @Generable
 struct TellReadingItem {
-    @Guide(description: "One of: game, tournament, race, pain, headKnock, examWeek, sick, travel, holiday, noGym, practiceOff, practiceOn, preSeasonStart, seasonStart, seasonEnd, goals, notUnderstood")
+    @Guide(description: "One of: game, tournament, race, pain, headKnock, examWeek, sick, travel, holiday, noGym, practiceOff, practiceOn, preSeasonStart, seasonStart, seasonEnd, goals, tired, practiceReport, ownWorkout, equipment, timeAvailable, notUnderstood")
     var kind: String
     @Guide(description: "The day it starts or happens as yyyy-MM-dd, worked out from the calendar given. Empty when the athlete gave no day.")
     var day: String
@@ -170,12 +207,22 @@ struct TellReadingItem {
     var days: Int
     @Guide(description: "For pain only: body areas from head, neck, shoulder, chest, arm, back, core, hip, leg, knee, ankle. Otherwise empty.")
     var areas: [String]
-    @Guide(description: "For pain only: little, some or lot. Otherwise empty.")
+    @Guide(description: "For pain or tired: little, some or lot. Otherwise empty.")
     var level: String
     @Guide(description: "For goals only: from acceleration, maxSpeed, agility, strength, power, verticalJump, conditioning, aerobicFitness, mobility, sportSkill, recovery, confidence, focus. Otherwise empty.")
     var goals: [String]
     @Guide(description: "For a game: the opponent's name if said, otherwise empty.")
     var opponent: String
+    @Guide(description: "For ownWorkout: what it trained, as body parts or exercises in plain English (chest, upper back, core, arms, squats, bench press). For tired: the body parts that feel tired (legs, calves, hamstrings, quads, hips, upper body, shoulders, arms, chest, back, core, whole body). Otherwise empty.")
+    var parts: [String]
+    @Guide(description: "For practiceReport only: from sprinting, conditioning, jumping, skill, lowRunning (lowRunning = barely ran). Otherwise empty.")
+    var qualities: [String]
+    @Guide(description: "For practiceReport or ownWorkout: easy, normal or hard, from how the athlete described it (solid = normal, brutal = hard). Otherwise empty.")
+    var effort: String
+    @Guide(description: "For ownWorkout: how many minutes it lasted. For timeAvailable: the minutes the athlete has. Otherwise 0.")
+    var minutes: Int
+    @Guide(description: "For equipment only: the equipment they have, in plain English (dumbbells, bench, cables, bands, kettlebells, barbell, pull-up bar). Otherwise empty.")
+    var equipment: [String]
     @Guide(description: "The athlete's own words this entry comes from.")
     var words: String
 }
@@ -193,6 +240,10 @@ enum ModelReading {
     team practice. For a span ("Friday until Monday") give the first day and the number of days. preSeasonStart = preparation training for the season begins \
     (pre-season, dryland, training camp, Vorbereitung). seasonStart = the competition season itself begins. \
     seasonEnd = the season ends or the off-season begins. goals = what they want to get better at. \
+    tired = body parts that feel tired, sore, heavy or cooked (not pain). practiceReport = what team practice or a game was like \
+    (sprints, conditioning, jumps, mostly skills, barely ran; easy or hard). ownWorkout = a workout they did themselves (gym, weights, \
+    a home workout), even when told over several sentences: one entry with every body part or exercise, how hard and how long. \
+    equipment = the only equipment they have for some days (hotel gym, dumbbells only). timeAvailable = minutes they have to train. \
     notUnderstood = anything else they said that the app can't act on; copy their words. \
     Christmas holidays end around 7 January. "First week of" a month starts on its 1st, "mid" on the 15th, "end of" on the 22nd.
     """
@@ -211,7 +262,8 @@ enum ModelReading {
             let response = try await session.respond(to: prompt, generating: TellReadingOutput.self)
             let items = response.content.items.map {
                 TellModelReader.Item(kind: $0.kind, day: $0.day, time: $0.time, days: $0.days, areas: $0.areas, level: $0.level,
-                                     goals: $0.goals, opponent: $0.opponent, words: $0.words)
+                                     goals: $0.goals, opponent: $0.opponent, words: $0.words, parts: $0.parts, qualities: $0.qualities,
+                                     effort: $0.effort, minutes: $0.minutes, equipment: $0.equipment)
             }
             return TellModelReader.proposals(from: items, rules: rules, now: now, calendar: calendar)
         } catch {
