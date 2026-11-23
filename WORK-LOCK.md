@@ -3,7 +3,5 @@
 Only one Claude session changes master at a time. Read CLAUDE.md, "Working
 together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
-- status: in-use
-- by: claude-fb3e2636
-- since: 2026-11-23T23:37:17Z
-- task: Tell AthleteOS: understand multi-sentence workout reports
+- status: free
+- since: 2026-11-23T23:42:15Z
