@@ -139,6 +139,14 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case choseGymMadeLighter = "ATHLETE_CHOSE_GYM_MADE_LIGHTER"
     /// A week without a lower-body lift on practice days: one short, heavy leg lift keeps strength in season.
     case weeklyHeavyLegs = "WEEKLY_HEAVY_LEGS"
+    /// What the athlete told AthleteOS (the shared context, `AthleteContext`).
+    case highLowerBodyFatigue = "HIGH_LOWER_BODY_FATIGUE"
+    case lowerBodyFatigue = "LOWER_BODY_FATIGUE"
+    case highUpperBodyFatigue = "HIGH_UPPER_BODY_FATIGUE"
+    case recentHighSprintExposure = "RECENT_HIGH_SPRINT_EXPOSURE"
+    case practiceCoveredConditioning = "PRACTICE_COVERED_CONDITIONING"
+    case limitedEquipment = "LIMITED_EQUIPMENT"
+    case availableTimeToday = "AVAILABLE_TIME_TODAY"
 }
 
 /// Where an athlete is in their development (docs/TRAINING-RESEARCH.md §1:
@@ -316,6 +324,9 @@ public struct TrainingDay: Sendable {
     /// Days until the next tournament or meet (not a weekly league game): the
     /// taper window (docs/GYM-ALGORITHM-RESEARCH.md Part 2, A9).
     public var daysToKeyEvent: Int? = nil
+    /// What the athlete told AthleteOS that matters today (tired regions,
+    /// sprint-heavy practice, temporary equipment and time).
+    public var context: ContextSignals = ContextSignals()
     /// Within ten days of a tournament or meet: half the gym sets, same weights.
     public var tapering: Bool { (daysToKeyEvent ?? 99) >= 1 && (daysToKeyEvent ?? 99) <= 10 }
     /// Training stage, from age and training age.
@@ -448,6 +459,23 @@ public enum SessionPlanner {
             avoid.insert(.hardConditioning)
         }
         if let since = day.recent.daysSinceHeavyLower, since <= 1 { add(.lowerBodyTrainedRecently); avoid.insert(.heavyLowerBody) }
+        // What the athlete told AthleteOS (AthleteContext): tired regions and
+        // what practice already gave. Words, never a number.
+        let context = day.context
+        if context.lowerFatigue >= 3 {
+            add(.highLowerBodyFatigue)
+            avoid.formUnion([.heavyLowerBody, .highVolumeLowerBody, .highImpact, .maxSprinting, .hardConditioning])
+        } else if context.lowerFatigue == 2 {
+            add(.lowerBodyFatigue)
+            avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting])
+        } else if context.lowerFatigue == 1 {
+            add(.lowerBodyFatigue)
+            avoid.insert(.highImpact)
+        }
+        if context.upperFatigue >= 2 { add(.highUpperBodyFatigue); avoid.insert(.heavyUpperBody) }
+        if context.recentSprinting { add(.recentHighSprintExposure); avoid.formUnion([.maxSprinting, .hardConditioning]) }
+        if context.conditioningCovered { add(.practiceCoveredConditioning); avoid.insert(.hardConditioning) }
+        if context.equipment != nil, !day.travelling { add(.limitedEquipment) }
 
         let mustRecover = day.readiness == .low || (day.reflection?.somethingHurt ?? false) || day.daysTrainedInARow >= 7
             || (day.illnessReturnDay.map { $0 <= 2 } ?? false)
@@ -578,13 +606,18 @@ public enum SessionPlanner {
             avoid.insert(.highVolumeLowerBody)
             add(.weeklyHeavyLegs)
         }
+        // Legs the athlete said are tired: very tired = no leg loading, tired = light only.
+        if day.context.lowerFatigue >= 3 { legBudget = 0 } else if day.context.lowerFatigue == 2 { legBudget = min(legBudget, 1) }
         if legBudget <= 1 { avoid.insert(.highVolumeLowerBody) }
-        if legBudget <= 1, day.practice != nil { add(.lowerBodyTrainedRecently) }
+        if legBudget <= 1, day.practice != nil, day.context.lowerFatigue < 2 { add(.lowerBodyTrainedRecently) }
 
         // 3. How long. A gym session the athlete shaped takes the time they chose.
         let gym = type == .gymDevelopment ? day.gym : nil
         var duration = durationTarget(type: type, day: day, add: add)
-        if let gym { duration = gym.length.minutes }
+        if let gym {
+            duration = gym.length.minutes
+            if let told = day.context.minutes, told < duration { duration = max(10, told); add(.availableTimeToday) }
+        }
 
         // 4. What for.
         var (primary, maintain) = targets(type: type, day: day, legBudget: legBudget, avoid: avoid)
@@ -727,7 +760,12 @@ public enum SessionPlanner {
         case .travel: minutes = 20
         case .rest: minutes = 0
         }
-        if let available = day.availableMinutes, available < minutes, type != .rest {
+        if let told = day.context.minutes, told < minutes, type != .rest {
+            // The athlete said how long they have today: the session is rebuilt
+            // for that time (fewer blocks by priority), not cut off at the end.
+            add(.availableTimeToday)
+            minutes = max(10, told)
+        } else if let available = day.availableMinutes, available < minutes, type != .rest {
             add(.limitedTime)
             minutes = max(10, available)
         }

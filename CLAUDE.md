@@ -211,6 +211,20 @@ Reading files, CI logs or the GitHub API needs no lock.
   conditioning one is indoor: no snow/ice/water/trail items, sport drills on a gym floor only (a field drill
   only when the sport/position has no gym-floor drill, e.g. goalkeepers), at most one item outside on a
   field or track; warm-up skips don't count.
+- Adaptive context (owner, 2026-11-23: "never make the athlete tell it twice; never ignore what it was told"):
+  one shared context layer, `AthleteContext.swift` (Foundation, harness) + `AthleteContextStore` (sealed `safety.`
+  group). Events: fatigue by region (open until answered "back to normal", superseded, or 4 days without word),
+  exposures (practice character, sprints, conditioning, jumps; the athlete's own workouts by pattern), temporary
+  equipment and time (end by themselves). Reported facts are kept apart from derived tags; never invented numbers.
+  Inputs: Tell AthleteOS (`TellParser` reads fatigue, practice reports, own workouts, equipment, time; still
+  confirm-to-apply, then "Plan adjusted: before / now / why"), the evening reflection (body very tired), the Health
+  workout check (a very hard part), the check-in answers. The morning check-in opens with at most 2 follow-ups
+  (`AthleteContext.questions`) that can change the plan; a legs follow-up replaces the soreness question; pain is
+  always asked separately and keeps its safety path. TodayEngine → `TrainingDay.context` (`ContextSignals`) →
+  SessionPlanner rules + reason codes (`HIGH_LOWER_BODY_FATIGUE`, `RECENT_HIGH_SPRINT_EXPOSURE`,
+  `PRACTICE_COVERED_CONDITIONING`, `LIMITED_EQUIPMENT`, `AVAILABLE_TIME_TODAY`…) → `PlanExplanation.contextLines`.
+  Told time picks the gym length that fits (recomposed, not cut); told equipment replaces the kit for those days;
+  reported workouts count in RecentLoad and the advisor's region recency. No chatbot, no score, no cloud.
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 

@@ -207,6 +207,7 @@ public enum GymAdvisor {
         if day.gameToday { legsBlocked = "Game today" }
         else if day.daysToNextGame == 1 { legsBlocked = "Game tomorrow — legs stay fresh" }
         else if day.daysSinceLastGame == 1 { legsBlocked = "You played yesterday" }
+        else if day.context.lowerFatigue >= 2 { legsBlocked = "You said your legs are still tired" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }
         else if let since = history.daysSince[.lower], since < history.recoveryDays(.lower) {
@@ -218,7 +219,10 @@ public enum GymAdvisor {
             notToday[.lower] = legsBlocked
             notToday[.full] = legsBlocked
         }
-        if let since = history.daysSince[.upper], since < history.recoveryDays(.upper) {
+        if day.context.upperFatigue >= 2 {
+            notToday[.upper] = "You said your upper body is still tired"
+            if notToday[.full] == nil { notToday[.full] = "You said your upper body is still tired" }
+        } else if let since = history.daysSince[.upper], since < history.recoveryDays(.upper) {
             let why = since == 0 ? "Upper body trained today" : "Upper body trained yesterday"
             notToday[.upper] = why
             if notToday[.full] == nil { notToday[.full] = why }

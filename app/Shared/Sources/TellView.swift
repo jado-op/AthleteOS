@@ -7,6 +7,9 @@ import SwiftUI
 /// changes until the athlete ticks it and taps Apply.
 struct TellView: View {
     let athlete: Athlete
+    /// For "Plan adjusted": today's decision before and after the change.
+    var catalogue: Catalogue = Catalogue()
+    var plannedGymDay = false
     var onChanged: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
@@ -14,6 +17,8 @@ struct TellView: View {
     @State private var text = ""
     @State private var skipped: Set<Int> = []
     @State private var applied: [String]?
+    /// Today's plan before → after, when the change moved it (nil: unchanged or unknown).
+    @State private var adjusted: (before: String, now: String, why: String?)?
     /// Remind the evening before and each morning of days away (on by default: the athlete asked).
     @State private var remind = true
     /// What the on-device language model read (nil: the rules' reading shows).
@@ -70,10 +75,10 @@ struct TellView: View {
     private var editor: some View {
         // V8: calm — one big question, then a big, quiet place to write.
         VStack(alignment: .leading, spacing: 14) {
-            Headline([.strong("What's going on?"), .soft(" Games, holidays, no gym, pain, exams, goals — in your words. The app adjusts.")], size: 30)
+            Headline([.strong("What's going on?"), .soft(" Practice, tired legs, games, no gym, time, pain, exams — in your words. The app adjusts.")], size: 30)
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text("e.g. Friday until Monday I'm on holiday, no real gym. Match on Saturday at 4pm. My knee hurts a bit.")
+                    Text("e.g. Practice was brutal, tons of sprints, my legs are cooked. Only 30 minutes tomorrow. Match on Saturday at 4pm.")
                         .font(.title3)
                         .foregroundStyle(AppTheme.mutedText)
                         .padding(.top, 2)
@@ -183,7 +188,7 @@ struct TellView: View {
                         .foregroundStyle(AppTheme.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Tell works with days and what happens on them: games, practice, the season, pain, exams, being sick, away or without a gym, and what you want to get better at.")
+                Text("Tell works with days and what happens on them: games, practice and what it was like, how your body feels, workouts you did, the equipment and time you have, the season, pain, exams, being sick or away, and what you want to get better at.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -230,6 +235,8 @@ struct TellView: View {
         case .dayStatus(let status, _, _): status == "sick" ? AuraTone.calm.mark : AuraTone.training.mark
         case .noGym, .goals: AuraTone.training.mark
         case .practice, .season: AuraTone.body.mark
+        case .fatigue: AuraTone.body.mark
+        case .training, .workout, .equipment, .time: AuraTone.training.mark
         }
     }
 
@@ -287,6 +294,32 @@ struct TellView: View {
                     .font(.body)
                     .foregroundStyle(AppTheme.ink)
             }
+            if let adjusted {
+                // V8: one card, the change in two lines and the reason under it.
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Plan adjusted")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AuraTone.training.mark)
+                    if adjusted.before != adjusted.now {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Before").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.mutedText)
+                            Text(adjusted.before).font(.body).foregroundStyle(AppTheme.secondaryText).strikethrough(true, color: AppTheme.mutedText)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Now").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.mutedText)
+                            Text(adjusted.now).font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                        }
+                    }
+                    if let why = adjusted.why {
+                        Text(why)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardStyle()
+            }
             Button { dismiss() } label: { HeroCTALabel("Close") }
                 .buttonStyle(.primary)
                 .padding(.top, 8)
@@ -337,7 +370,42 @@ struct TellView: View {
             case "end": return "Season ends \(day(from, time: false))"
             default: return "Season starts \(day(from, time: false))"
             }
+        case .fatigue(let date, let regions, let level):
+            let names = regions.compactMap(ContextRegion.init(rawValue:)).map { $0.phrase.replacingOccurrences(of: "your ", with: "") }
+            let word = level >= 3 ? "very tired" : level == 2 ? "tired" : "a little tired"
+            let text = PlanExplanation.list(names)
+            return "\(text.prefix(1).uppercased() + text.dropFirst()) \(word) · \(relative(date))"
+        case .training(let date, let qualities, let level):
+            let parts = qualities.compactMap(ContextQuality.init(rawValue:)).filter { $0 != .skill || qualities.count == 1 }
+                .map { $0 == .lowRunning ? "little running" : (level >= 3 ? "a lot of \($0.title)" : $0.title) }
+            let load = level >= 3 ? "Hard practice" : level <= 1 ? "Light practice" : "Practice"
+            return parts.isEmpty ? "\(load) · \(relative(date))" : "\(load): \(PlanExplanation.list(parts)) · \(relative(date))"
+        case .workout(let date, _, _, let names, let level):
+            return "\(level >= 3 ? "Hard workout" : "Your workout"): \(PlanExplanation.list(names)) · \(relative(date))"
+        case .equipment(let from, let days, let tags):
+            let names = equipmentNames(tags)
+            let when = days == 1 ? day(from, time: false) : "\(day(from, time: false)) – \(day(Calendar.current.date(byAdding: .day, value: days - 1, to: from) ?? from, time: false))"
+            return "Only \(PlanExplanation.list(names)) · \(when)"
+        case .time(let date, let minutes):
+            return "\(minutes >= 90 ? "Plenty of time" : "\(minutes) minutes") · \(day(date, time: false))"
         }
+    }
+
+    /// "today", "yesterday", or the date.
+    private func relative(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "today" }
+        if calendar.isDateInYesterday(date) { return "yesterday" }
+        return day(date, time: false)
+    }
+
+    private func equipmentNames(_ tags: [String]) -> [String] {
+        let names: [String: String] = ["dumbbell": "dumbbells", "barbell": "a barbell", "bench": "a bench", "cable-machine": "cables",
+                                       "band": "bands", "kettlebell": "kettlebells", "pull-up-bar": "a pull-up bar", "box": "a box",
+                                       "med-ball": "a med ball", "lat-pulldown": "machines"]
+        var out: [String] = []
+        for tag in tags { if let name = names[tag], !out.contains(name) { out.append(name) } }
+        return out.isEmpty ? ["bodyweight"] : out
     }
 
     private func detail(_ proposal: TellParser.Proposal) -> String {
@@ -357,6 +425,16 @@ struct TellView: View {
             part == "pre" ? "Strength and speed for the season ahead from then; until then you build in the off-season."
                 : part == "end" ? "A few lighter weeks after it, then building again."
                 : "Training switches to short sessions that keep what you built, fresh for competitions."
+        case .fatigue:
+            "Leg or upper-body work stays lighter while it lasts. The morning check-in asks how it feels until it's back to normal."
+        case .training:
+            "Counted as what practice gave you, so the gym doesn't repeat it."
+        case .workout:
+            "Counted in your training: the next gym session knows what you already did."
+        case .equipment:
+            "Workouts on those days use only this. Your usual setup comes back by itself afterwards."
+        case .time(_, let minutes):
+            minutes >= 90 ? "Room for the full session." : "The session is built for that time — the most important work first."
         }
     }
 
@@ -377,6 +455,9 @@ struct TellView: View {
         let isPre: (TellParser.Proposal) -> Bool = { if case .season("pre", _) = $0 { true } else { false } }
         let ordered = chosen.filter(isPre) + chosen.filter { !isKnock($0) && !isPre($0) } + chosen.filter(isKnock)
         let toldSeasonStart = chosen.contains { if case .season("in", _) = $0 { true } else { false } }
+        var exposures: [Date: UUID] = [:]
+        var fatigues: [TellParser.Proposal] = []
+        let before = planLine()
         for proposal in ordered {
             switch proposal {
             case .competition(let date, let kind, let note, _):
@@ -446,8 +527,35 @@ struct TellView: View {
                 }
                 if sport.seasonEnd <= weeks(4, sport.seasonStart) { sport.seasonEnd = weeks(20, sport.seasonStart) }
                 try? modelContext.save()
+            case .training(let date, let qualities, let level):
+                let event = AthleteContextEvent(from: calendar.startOfDay(for: date), kind: .exposure, source: .tellAthleteOS,
+                                                reported: [title(proposal)], qualities: qualities.compactMap(ContextQuality.init(rawValue:)),
+                                                level: level, practice: true)
+                AthleteContextStore.add(event)
+                exposures[calendar.startOfDay(for: date)] = event.id
+            case .workout(let date, let patterns, let qualities, _, let level):
+                AthleteContextStore.add(AthleteContextEvent(from: calendar.startOfDay(for: date), kind: .exposure, source: .tellAthleteOS,
+                                                            reported: [title(proposal)], qualities: qualities.compactMap(ContextQuality.init(rawValue:)),
+                                                            level: level, patterns: patterns))
+            case .fatigue:
+                // After the exposures, so tired legs link to the practice that tired them.
+                fatigues.append(proposal)
+            case .equipment(let from, let days, let tags):
+                let start = calendar.startOfDay(for: from)
+                AthleteContextStore.add(AthleteContextEvent(from: start, until: calendar.date(byAdding: .day, value: max(0, days - 1), to: start),
+                                                            kind: .equipment, source: .tellAthleteOS, reported: [title(proposal)], equipment: tags))
+            case .time(let date, let minutes):
+                let start = calendar.startOfDay(for: date)
+                AthleteContextStore.add(AthleteContextEvent(from: start, until: start, kind: .time, source: .tellAthleteOS,
+                                                            reported: [title(proposal)], minutes: minutes))
             }
             lines.append(title(proposal))
+        }
+        for case .fatigue(let date, let regions, let level) in fatigues {
+            let day = calendar.startOfDay(for: date)
+            AthleteContextStore.add(AthleteContextEvent(from: day, kind: .fatigue, source: .tellAthleteOS, reported: [title(.fatigue(day: date, regions: regions, level: level))],
+                                                        regions: regions.compactMap(ContextRegion.init(rawValue:)), level: level,
+                                                        relatedID: exposures[day]))
         }
         // Day statuses: consecutive days of one kind become one span (today's starts now, later ones wait).
         // A head knock told now keeps training paused: no other status replaces it.
@@ -477,6 +585,22 @@ struct TellView: View {
         #endif
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         onChanged()
+        // What it did to today's plan, in one line (only when it changed).
+        if let before, let after = planLine(), before.title != after.title || after.why != before.why, let why = after.why ?? before.why {
+            adjusted = (before.title, after.title, before.title == after.title ? why : (after.why ?? why))
+        }
         withAnimation { applied = lines }
+    }
+
+    /// Today's plan in a few words, and the first thing the athlete told that shaped it.
+    private func planLine() -> (title: String, why: String?)? {
+        guard TodayEngine.isAvailable(catalogue),
+              let result = TodayEngine.decision(athlete: athlete, sessions: athlete.sessions, catalogue: catalogue,
+                                                plannedGymDay: plannedGymDay) else { return nil }
+        let (decision, day) = result
+        var title = decision.sessionType.title
+        if let focus = decision.gymFocus { title += " · \(focus.title)" }
+        else if decision.legBudget <= 1, [.gymDevelopment, .afterPractice].contains(decision.sessionType) { title += " · light on the legs" }
+        return (title, PlanExplanation.contextLines(Set(decision.reasons), day: day, decision: decision).first)
     }
 }

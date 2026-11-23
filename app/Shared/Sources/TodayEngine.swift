@@ -46,7 +46,13 @@ enum TodayEngine {
         switch MindsetStore.reflection(on: date, calendar: calendar)?.hardness {
         case 3?, 4?: return .hard
         case 1?: return .light
-        default: return said?.practice ?? .normal
+        default:
+            if let said = said?.practice { return said }
+            // What the athlete told AthleteOS about that practice ("brutal", "barely ran").
+            let told = AthleteContext.signals(AthleteContextStore.all, on: date, calendar: calendar)
+            if told.hardPractice { return .hard }
+            if told.lightPractice { return .light }
+            return .normal
         }
     }
 
@@ -123,6 +129,20 @@ enum TodayEngine {
             }
             days.append(load)
         }
+        // Workouts and practices the athlete told AthleteOS about count like logged ones.
+        for told in AthleteContext.pastLoads(AthleteContextStore.all, before: date, calendar: calendar) {
+            guard let index = days.firstIndex(where: { $0.daysAgo == told.daysAgo }) else { continue }
+            var load = days[index]
+            load.capacities = Array(Set(load.capacities + told.capacities)).sorted { $0.rawValue < $1.rawValue }
+            load.lowerPattern = load.lowerPattern ?? told.lowerPattern
+            load.upperPattern = load.upperPattern ?? told.upperPattern
+            load.heavyLower = load.heavyLower || told.heavyLower
+            load.sessionType = load.sessionType ?? told.sessionType
+            if load.practice == nil, let practice = told.practice, !PracticeSchedule.hasPractice(on: calendar.date(byAdding: .day, value: -told.daysAgo, to: today) ?? today, calendar: calendar) {
+                load.practice = practice
+            }
+            days[index] = load
+        }
         return RecentLoad(days: days)
     }
 
@@ -139,6 +159,8 @@ enum TodayEngine {
 
         var readiness: ReadinessLevel = .normal
         var soreLegs = false
+        // What the athlete told AthleteOS (tired legs, sprint-heavy practice, temporary equipment or time).
+        let context = AthleteContextStore.signals(on: date)
         var pain: Set<PainArea> = []
         var reflection: ReflectionSignal?
         if isToday {
@@ -152,6 +174,7 @@ enum TodayEngine {
                 }
             }
             if let checkIn = AthleteStats.todaysCheckIn(athlete) { soreLegs = checkIn.soreness >= 5 }
+            if context.lowerFatigue >= 2 { soreLegs = true }
             pain = TodaysPain.areas(now: date)
             if let yesterday = calendar.date(byAdding: .day, value: -1, to: day), let last = MindsetStore.reflection(on: yesterday, calendar: calendar) {
                 reflection = ReflectionSignal(dayFelt: last.hardness, bodyFelt: last.body)
@@ -205,8 +228,18 @@ enum TodayEngine {
             .filter { $0 > day }
             .min()
             .flatMap { calendar.dateComponents([.day], from: day, to: $0).day }
+        built.context = context
         // A gym day: what to train and for how long — the athlete's pick, or the advisor's.
-        built.gym = GymHistoryBuilder.request(athlete, day: built, catalogue: catalogue, calendar: calendar).0
+        var gym = GymHistoryBuilder.request(athlete, day: built, catalogue: catalogue, calendar: calendar).0
+        // Told "only 30 minutes": the session is composed for the length that
+        // fits (anchors first), not a longer one cut off at the end.
+        if let told = context.minutes, gym.length.minutes > told {
+            gym.length = GymLength.allCases.filter { $0.minutes <= told }.max { $0.minutes < $1.minutes } ?? .quick
+        } else if let told = context.minutes, told >= GymLength.full.minutes {
+            // "Plenty of time Saturday": room for the full session.
+            gym.length = .full
+        }
+        built.gym = gym
         return built
     }
 
@@ -258,12 +291,16 @@ enum TodayEngine {
         // Equipment: on the road only what needs none.
         // No gym that day (told ahead or travelling): bodyweight only.
         let travelling = DayStatusStore.status(on: date) == .travel || DayStatusStore.status(on: date) == .holiday || NoGymDays.contains(date)
+        // Equipment told for these days ("hotel has dumbbells and a bench") wins
+        // over both; the usual setup returns by itself after the last day.
+        let context = AthleteContextStore.signals(on: date)
+        let equipment = context.equipment ?? (travelling ? ["none"] : Set(athlete.equipmentAvailable))
         var kit = AthleteKit(catalogue: catalogue, sport: sport, positionSlug: active?.positionSlug, formatSlug: active?.formatSlug,
-                             equipment: travelling ? ["none"] : Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+                             equipment: equipment, trainsUnderCoach: athlete.trainsUnderCoach,
                              avoidSlugs: recentSlugs, contactsLeft: max(0, cap - landed),
                              seed: PlanVariant.seed("\(athlete.id)-\(day)"))
         // A real jump block yesterday (20+ landings): jumps wait 48 hours (Part 2, A10).
-        kit.jumpedYesterday = landedYesterday >= 20
+        kit.jumpedYesterday = landedYesterday >= 20 || context.jumpedYesterday
         return kit
     }
 
@@ -286,7 +323,7 @@ enum TodayEngine {
                 "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
                 athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)\($0.seasonEnd.timeIntervalSince1970)\(PreSeasonStore.start?.timeIntervalSince1970 ?? 0)" } ?? "",
                 athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)",
-                GymChoiceStore.fingerprint(on: date, calendar: calendar), "\(MeasuredSleepStore.all().count)", "\(HealthWorkoutInbox.revision)",
+                GymChoiceStore.fingerprint(on: date, calendar: calendar), "\(MeasuredSleepStore.all().count)", "\(HealthWorkoutInbox.revision)", "\(AthleteContextStore.revision)",
                 twinSteers(athlete, date: date, calendar: calendar).map(\.rawValue).sorted().joined()].joined(separator: "|")
     }
 

@@ -93,6 +93,12 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
                 : "Rest is part of the plan today. Doing nothing is the right thing to do."
         }
 
+        // What the athlete told AthleteOS (tired legs, sprint-heavy practice,
+        // equipment, time): the first thing it changed goes in the summary.
+        let told = contextLines(r, day: day, decision: decision)
+        if let first = told.first, decision.sessionType != .rest { summary += " " + first }
+        if told.count > 1 { add("What did you tell AthleteOS?", told.joined(separator: " ")) }
+
         // 1. Why train today?
         // What the athlete told AthleteOS about today: their word wins over the schedule.
         let said = DayChoice.order.filter { day.said.contains($0) && $0 != .auto }
@@ -198,6 +204,33 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         return PlanExplanation(summary: summary, parts: parts)
     }
 
+    /// What the athlete told AthleteOS, as it changed today — one calm sentence each.
+    public static func contextLines(_ r: Set<PlanReason>, day: TrainingDay, decision: SessionDecision) -> [String] {
+        var lines: [String] = []
+        let named = day.context.fatigueRegions.filter { $0.gymRegions.contains(.lower) || $0 == .wholeBody }
+        let regions = named.isEmpty ? "your legs" : list(named.map(\.phrase))
+        let are = named.count == 1 && [.wholeBody, .core, .back, .chest, .upperBody].contains(named[0]) ? "is" : "are"
+        let sprint = r.contains(.recentHighSprintExposure)
+        if r.contains(.highLowerBodyFatigue) {
+            lines.append(sprint
+                ? "Practice gave you a lot of sprinting, and you said \(regions) \(are) still very tired. Today stays away from hard leg work, jumps and sprints."
+                : "You said \(regions) \(are) still very tired, so today stays away from hard leg work, jumps and sprints.")
+        } else if r.contains(.lowerBodyFatigue) {
+            lines.append(sprint
+                ? "Practice gave you a lot of sprinting, and \(regions) \(are) still a bit tired, so leg work is lighter and there's no sprinting."
+                : "You said \(regions) \(are) a bit tired, so leg work is lighter today.")
+        } else if sprint {
+            lines.append("Practice already gave you a lot of sprinting, so there's no sprinting or hard conditioning here.")
+        }
+        if r.contains(.highUpperBodyFatigue) { lines.append("You said your upper body is tired, so no heavy pressing or pulling today.") }
+        if r.contains(.practiceCoveredConditioning), !sprint { lines.append("Practice already covered the conditioning, so none is added.") }
+        if r.contains(.availableTimeToday) {
+            lines.append("You said you have \(day.context.minutes ?? decision.durationTarget) minutes, so the session is built for that time: the most important work first, the rest left out.")
+        }
+        if r.contains(.limitedEquipment) { lines.append("You told AthleteOS what equipment you have these days, so every exercise uses only that.") }
+        return lines
+    }
+
     /// "Power, single-leg strength and trunk control — mostly glutes, quads and hamstrings."
     static func builds(_ items: [GeneratedPlannedItem], catalogue: Catalogue) -> String? {
         let qualities = SessionTrains.builds(items, catalogue: catalogue)
@@ -255,6 +288,7 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         if r.contains(.belowNormalReadiness) { why.append("your check-in was below normal") }
         if r.contains(.examOrLongDay) { why.append("it's a long school day") }
         if r.contains(.limitedTime) { why.append("you have limited time") }
+        if r.contains(.availableTimeToday) { why.append("that's the time you said you have today") }
         return "About \(d.durationTarget) minutes: " + (why.isEmpty ? "the right amount for today" : why.joined(separator: "; ")) + "."
     }
 

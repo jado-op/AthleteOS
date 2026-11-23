@@ -38,7 +38,7 @@ struct CheckInSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case loading, summary, today, sleepHours, sleepQuality, energy, soreness, pain, painDetail, illness, mood, result }
+    enum Step: Hashable { case loading, summary, context(Int), today, sleepHours, sleepQuality, energy, soreness, pain, painDetail, illness, mood, result }
 
     @State private var step: Step = .loading
     @State private var sleepHours: CheckInOption?
@@ -70,6 +70,10 @@ struct CheckInSheet: View {
     @State private var dayStatus = DayStatusStore.status()
     @State private var showingSafety = false
     @State private var saveCount = 0
+    /// Follow-ups on what the athlete told AthleteOS ("You said your legs were
+    /// very tired. How do they feel this morning?"): only what can change today's plan.
+    @State private var contextQuestions: [ContextQuestion] = AthleteContextStore.questions()
+    @State private var contextAnswers: [UUID: ContextQuestion.Answer] = [:]
 
     init(athlete: Athlete) {
         self.athlete = athlete
@@ -89,7 +93,24 @@ struct CheckInSheet: View {
     }
 
     private var steps: [Step] {
-        [.today, .sleepHours, .sleepQuality, .energy, .soreness, .pain] + (hasPain == true ? [.painDetail] : []) + [.illness, .mood]
+        // A legs follow-up already says how sore the athlete is: no second question about it.
+        contextQuestions.indices.map { Step.context($0) } + [.today, .sleepHours, .sleepQuality, .energy]
+            + (legsAsked ? [] : [.soreness]) + [.pain] + (hasPain == true ? [.painDetail] : []) + [.illness, .mood]
+    }
+
+    /// A follow-up covers the legs, so its answer stands in for "How sore are you?".
+    private var legsAsked: Bool { contextQuestions.contains { $0.covers.contains(.lower) } }
+
+    private var contextAnswered: Bool { contextQuestions.allSatisfy { contextAnswers[$0.id] != nil } }
+
+    private func answerContext(_ question: ContextQuestion, _ answer: ContextQuestion.Answer) {
+        contextAnswers[question.id] = answer
+        if question.covers.contains(.lower) {
+            // The most tired legs answer sets soreness.
+            let values = contextQuestions.filter { $0.covers.contains(.lower) }.compactMap { contextAnswers[$0.id] }
+                .map { AthleteContext.soreness(for: $0) }
+            soreness = CheckInOptions.nearest(Double(values.max() ?? 1), in: CheckInOptions.soreness)
+        }
     }
 
     private var progress: Double {
@@ -112,7 +133,7 @@ struct CheckInSheet: View {
             // goes step by step (and the summary keeps that one tap away).
             fromWatch = healthHours != nil || energyFromWatch
             hasSummary = fromWatch || lastCheckIn != nil || AthleteStats.todaysCheckIn(athlete) != nil
-            withAnimation(.easeInOut(duration: 0.2)) { step = hasSummary ? .summary : .today }
+            withAnimation(.easeInOut(duration: 0.2)) { step = hasSummary ? .summary : (steps.first ?? .today) }
         }
         .sheet(isPresented: $showingSafety) { SafetyCenterView() }
     }
@@ -126,6 +147,8 @@ struct CheckInSheet: View {
                 .appScreen()
         case .summary:
             summaryPage
+        case .context(let index):
+            contextPage(index)
         case .today:
             QuestionPage(progress: progress, question: "What's on today?", hint: todayHint,
                          buttonTitle: "Next", buttonEnabled: !dayAnswer.choices.isEmpty,
@@ -207,6 +230,58 @@ struct CheckInSheet: View {
         }
     }
 
+    @ViewBuilder
+    private func contextPage(_ index: Int) -> some View {
+        if contextQuestions.indices.contains(index) {
+            let question = contextQuestions[index]
+            let current = Step.context(index)
+            let chosen = contextAnswers[question.id]
+            let backAction: (() -> Void)? = hasSummary || index > 0 ? { back() } : nil
+            QuestionPage(progress: progress, question: question.question,
+                         hint: [question.eyebrow, question.context].compactMap { $0 }.joined(separator: " · "),
+                         buttonTitle: chosen == nil ? nil : "Next", onClose: { dismiss() },
+                         onBack: backAction, onButton: { next(from: current) }, tone: .body) {
+                ChoiceGrid(question.options.map(\.answer), title: { (answer: ContextQuestion.Answer) -> String in
+                    question.options.first { $0.answer == answer }?.title ?? ""
+                }, isSelected: { (answer: ContextQuestion.Answer) -> Bool in answer == chosen }) { (answer: ContextQuestion.Answer) in
+                    answerContext(question, answer)
+                    if answer != .worse { advance(from: current) }
+                }
+                if chosen == .worse {
+                    // Worse can mean pain: the next questions ask, and pain is never trained through.
+                    Text("If it hurts rather than feels tired, say yes when it asks about pain.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    /// The follow-ups on the summary page: the question, its context, the answers as chips.
+    @ViewBuilder
+    private var contextSummary: some View {
+        ForEach(contextQuestions) { question in
+            VStack(alignment: .leading, spacing: 8) {
+                if let context = question.context {
+                    Text("\(question.eyebrow) · \(context)")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(question.question).font(.headline).foregroundStyle(AppTheme.ink)
+                WrapLayout(spacing: 8) {
+                    ForEach(question.options, id: \.self) { option in
+                        Button { answerContext(question, option.answer) } label: {
+                            Chip(option.title, isSelected: contextAnswers[question.id] == option.answer)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
     private var gameWord: String {
         AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
     }
@@ -271,7 +346,7 @@ struct CheckInSheet: View {
     }
 
     private func back() {
-        if hasSummary, step == .today || step == .sleepHours || (saveAfterPain && step == .painDetail) {
+        if hasSummary, step == steps.first || step == .today || step == .sleepHours || (saveAfterPain && step == .painDetail) {
             saveAfterPain = false
             withAnimation(.easeInOut(duration: 0.2)) { step = .summary }
             return
@@ -325,8 +400,9 @@ struct CheckInSheet: View {
         QuestionPage(progress: 0, question: "Your morning",
                      hint: fromWatch ? "Filled in from Apple Health. Confirm, or change anything." : "Tap what's true this morning, then confirm.",
                      buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil
-                        && !dayAnswer.choices.isEmpty,
+                        && !dayAnswer.choices.isEmpty && contextAnswered,
                      onClose: { dismiss() }, onButton: { confirm() }, tone: .body) {
+            contextSummary
             if !fromWatch {
                 // Nothing measured: this morning's sleep and energy as taps, right here.
                 compactRow("Sleep", hint: nil, CheckInOptions.sleepHours, selection: $sleepHours)
@@ -350,7 +426,8 @@ struct CheckInSheet: View {
             }
             .cardStyle(padding: 12)
             }
-            compactRow("Soreness", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.soreness, selection: $soreness)
+            compactRow("Soreness", hint: legsAsked && contextAnswered ? "from your answer above" : lastCheckIn == nil ? nil : "like yesterday — tap to change",
+                       CheckInOptions.soreness, selection: $soreness)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Any pain or discomfort?").font(.headline).foregroundStyle(AppTheme.ink)
                 WrapLayout(spacing: 8) {
@@ -445,6 +522,10 @@ struct CheckInSheet: View {
         guard let sleepQuality, let energy, let soreness, let mood else { return }
         ReminderScheduler.markDone(checkIn: true)
         let day = DayKey.of(.now)
+        // The follow-ups: back to normal closes them; anything else keeps them open for tomorrow.
+        for question in contextQuestions {
+            if let answer = contextAnswers[question.id] { AthleteContextStore.answer(answer, to: question) }
+        }
         // The athlete's word on today wins over the schedule (and sets the
         // day's practice override only when it differs from it).
         DayChoiceStore.set(dayAnswer)

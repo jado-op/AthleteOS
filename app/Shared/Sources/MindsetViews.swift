@@ -313,6 +313,13 @@ struct ReflectionSheet: View {
             learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
         ReminderScheduler.markDone(reflection: true)
+        // A very tired body (physical, kept apart from how the day felt): the
+        // morning check-in asks how it feels, and today's plan stays easier until then.
+        if bodyFeel == 3 {
+            let day = Calendar.current.startOfDay(for: Self.reflectionDay())
+            AthleteContextStore.add(AthleteContextEvent(from: day, kind: .fatigue, source: .reflection,
+                                                        reported: ["Body very tired in the evening"], regions: [.wholeBody], level: 2))
+        }
         // Sometimes one small thing back (V6 §19), never the same one twice in a row.
         if let saved = MindsetStore.reflection(on: Self.reflectionDay()) {
             let last = UserDefaults.standard.string(forKey: "reflection.lastInsight")

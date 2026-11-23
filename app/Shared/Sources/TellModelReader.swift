@@ -122,6 +122,9 @@ enum TellModelReader {
             switch proposal {
             case .noGym where !modelNoGym && !awayDays: out.append(proposal)
             case .practice where !modelPractice: out.append(proposal)
+            // The shared context (tired regions, what practice gave, own workouts,
+            // equipment, time) is read by the rules only.
+            case .fatigue, .training, .workout, .equipment, .time: out.append(proposal)
             default: break
             }
         }

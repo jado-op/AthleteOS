@@ -170,6 +170,16 @@ enum HealthWorkoutInbox {
         var all = answers
         all[session.clientId] = answer
         answers = all
+        // A very hard part (legs, upper body) is remembered: the next morning's
+        // check-in asks how it feels, until it's back to normal (AthleteContext).
+        let calendar = Calendar.current
+        let tired = WorkoutTagging.trainedBands(answer).filter { $0.value == .veryHard }.map(\.key)
+        if !tired.isEmpty, let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: session.startedAt),
+                                                              to: calendar.startOfDay(for: .now)).day, days <= 1 {
+            let regions: [ContextRegion] = tired.sorted { $0.rawValue < $1.rawValue }.map { $0 == .lower ? .legs : $0 == .upper ? .upperBody : .core }
+            AthleteContextStore.add(AthleteContextEvent(from: calendar.startOfDay(for: session.startedAt), kind: .fatigue, source: .healthWorkout,
+                                                        reported: ["Very hard \(activity(of: session).lowercased())"], regions: regions, level: 2))
+        }
         bump()
         try? context.save()
     }

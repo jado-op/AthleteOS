@@ -145,8 +145,11 @@ final class TellParserTests: XCTestCase {
         XCTAssertTrue(sharp.safety?.contains("get it checked") == true)
         // "Since I got back" isn't back pain.
         XCTAssertTrue(parse("my knee hurts since I got back").proposals.contains(.pain(areas: ["knee"], level: "some")))
-        // Being sore isn't pain.
-        XCTAssertTrue(parse("legs are sore after the game").proposals.isEmpty)
+        // Being sore isn't pain: it's tired legs the next check-in follows up (AthleteContext).
+        let sore = parse("legs are sore after the game").proposals
+        XCTAssertFalse(sore.contains { if case .pain = $0 { true } else { false } })
+        XCTAssertFalse(sore.contains { if case .competition = $0 { true } else { false } })
+        XCTAssertTrue(sore.contains { if case .fatigue(_, ["legs"], 2) = $0 { true } else { false } })
     }
 
     func testStatusesAndGoals() {

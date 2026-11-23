@@ -382,7 +382,9 @@ struct HomeView: View {
                 CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged, opening: hubOpening)
             }
             .sheet(isPresented: $showingTell, onDismiss: refreshAfterChange) {
-                TellView(athlete: athlete, onChanged: onPlanInputsChanged)
+                TellView(athlete: athlete, catalogue: catalogue,
+                         plannedGymDay: week?.sessions.contains { Calendar.current.isDateInToday($0.date) } ?? false,
+                         onChanged: onPlanInputsChanged)
             }
             .task(id: allSessions.count + athlete.checkIns.count) {
                 switch IntentRoute.take([.checkIn, .reflection]) {
