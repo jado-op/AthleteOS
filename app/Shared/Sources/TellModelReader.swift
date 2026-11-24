@@ -162,6 +162,7 @@ enum TellModelReader {
             case .workout where !out.contains(where: { if case .workout = $0 { true } else { false } }): out.append(proposal)
             case .equipment where !out.contains(where: { if case .equipment = $0 { true } else { false } }): out.append(proposal)
             case .time where !out.contains(where: { if case .time = $0 { true } else { false } }): out.append(proposal)
+            case .result where !out.contains(where: { if case .result = $0 { true } else { false } }): out.append(proposal)
             default: break
             }
         }

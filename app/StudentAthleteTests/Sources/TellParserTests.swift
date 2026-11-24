@@ -238,4 +238,36 @@ final class TellParserTests: XCTestCase {
         XCTAssertEqual(CompetitionCoach.ordinal(22), "22nd")
         XCTAssertEqual(CompetitionCoach.ordinal(12), "12th")
     }
+
+    // MARK: Game results (owner, 2026-11-24: "build bridges")
+
+    private func results(_ text: String) -> [(String, String?, Int?, Int?)] {
+        parse(text).proposals.compactMap {
+            if case .result(_, let outcome, let score, let placement, let rating) = $0 { (outcome, score, placement, rating) } else { nil }
+        }
+    }
+
+    func testAToldResultIsRead() {
+        let r = results("We won 3-1 today, I scored twice")
+        XCTAssertEqual(r.count, 1)
+        XCTAssertEqual(r.first?.0, "win")
+        XCTAssertEqual(r.first?.1, "3–1")
+        XCTAssertEqual(r.first?.3, 4)
+        XCTAssertEqual(results("Lost the game 2:0 yesterday, played bad").first?.0, "loss")
+        XCTAssertEqual(results("Lost the game 2:0 yesterday, played bad").first?.3, 2)
+        XCTAssertEqual(results("They beat us 4-2").first?.0, "loss")
+        XCTAssertEqual(results("It was a draw, 1-1").first?.0, "draw")
+        XCTAssertEqual(results("Came 2nd in the 100m race today").first?.0, "placed")
+        XCTAssertEqual(results("Came 2nd in the 100m race today").first?.2, 2)
+        XCTAssertEqual(results("Wir haben 3:1 gewonnen").first?.0, "win")
+    }
+
+    func testAResultIsNotANewCompetitionAndNotEveryWin() {
+        let told = parse("We won the game today 2-0")
+        XCTAssertFalse(told.proposals.contains { if case .competition = $0 { true } else { false } })
+        XCTAssertTrue(results("I lost weight this month").isEmpty)
+        XCTAssertTrue(results("I won a bet with my brother").isEmpty)
+        XCTAssertTrue(results("We want to win the game on Saturday").isEmpty)
+        XCTAssertTrue(parse("We want to win the game on Saturday").proposals.contains { if case .competition = $0 { true } else { false } })
+    }
 }

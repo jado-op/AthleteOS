@@ -39,6 +39,9 @@ public enum TellParser {
         case equipment(from: Date, days: Int, tags: [String])
         /// Minutes available on a day.
         case time(day: Date, minutes: Int)
+        /// How a competition went: outcome ("win", "draw", "loss", "placed"), the score and
+        /// placing when said, and how the athlete played (1–5) when they said it.
+        case result(day: Date, outcome: String, score: String?, placement: Int?, rating: Int?)
     }
 
     public enum CompetitionWord: String, Sendable { case game, tournament, meet }
@@ -100,7 +103,15 @@ public enum TellParser {
             let report = isReport(words, sentence)
             let past = pastDay(words, sentence, found: date?.day, now: now, calendar: calendar)
             // A competition on a day — not "the game was brutal" (that's a report).
-            let competition = report && (date == nil || (date?.day ?? today) <= today) ? nil : competitionWord(words, sentence)
+            // "We won 3-1", "lost in the final", "came 2nd": how a competition went.
+            let outcome = gameOutcome(words, sentence)
+            let competition = (report || outcome != nil) && (date == nil || (date?.day ?? today) <= today) ? nil : competitionWord(words, sentence)
+            if let outcome {
+                let day = past ?? min(date?.day ?? today, today)
+                proposals.append(.result(day: day, outcome: outcome.outcome, score: outcome.score, placement: outcome.placement,
+                                         rating: playedRating(words, sentence)))
+                understood = true
+            }
             if let kind = competition, let range, range.days > 1, range.days <= 4 {
                 // "Tournament Friday to Sunday": one competition a day, the time on the first.
                 for offset in 0..<range.days {
@@ -723,6 +734,49 @@ public enum TellParser {
     /// A word list matches whole words; a phrase with a space matches as text.
     static func containsAny(_ words: [String], _ sentence: String, _ keys: [String]) -> Bool {
         keys.contains { key in key.contains(" ") ? sentence.contains(key) : words.contains(key) }
+    }
+
+    /// How a competition went, when the sentence says it: "we won 3-1", "lost
+    /// 2:0", "it was a draw", "came 2nd", "wir haben 3:1 gewonnen". A plain "won"
+    /// needs a score, a competition word or a team ("we") — "I won a bet" isn't a game.
+    static func gameOutcome(_ words: [String], _ sentence: String) -> (outcome: String, score: String?, placement: Int?)? {
+        guard !containsAny(words, sentence, ["want", "hope", "will", "gonna", "need", "should", "möchte", "will", "wollen", "if", "wenn"])
+        else { return nil }
+        var score: String?
+        if let match = sentence.range(of: #"\b\d{1,3}\s*[-–:]\s*\d{1,3}\b"#, options: .regularExpression) {
+            score = sentence[match].replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ":", with: "–").replacingOccurrences(of: "-", with: "–")
+        }
+        var placement: Int?
+        if let match = sentence.range(of: #"\b(came|finished|placed|got|took|wurde|wurden|platz)\s+(\d{1,2})(st|nd|rd|th|\.)?"#, options: .regularExpression),
+           let number = sentence[match].split(separator: " ").last.map({ String($0).filter(\.isNumber) }).flatMap({ Int($0) }), number > 0 {
+            placement = number
+        } else if let match = sentence.range(of: #"\b(\d{1,2})(st|nd|rd|th)\s+place\b"#, options: .regularExpression),
+                  let number = Int(sentence[match].prefix { $0.isNumber }), number > 0 {
+            placement = number
+        }
+        let team = containsAny(words, sentence, ["we", "wir", "team", "us"]) || competitionWord(words, sentence) != nil || score != nil
+        if let placement { return (placement == 1 && containsAny(words, sentence, ["won"]) ? "win" : "placed", score, placement) }
+        if containsAny(words, sentence, ["draw", "tied", "tie", "unentschieden", "remis"]) && (team || containsAny(words, sentence, ["it", "was"])) {
+            return ("draw", score, nil)
+        }
+        if sentence.contains("beat us") || sentence.contains("they beat") || sentence.contains("they won") { return ("loss", score, nil) }
+        if containsAny(words, sentence, ["won", "gewonnen", "beat", "geschlagen", "siegten"]) && team { return ("win", score, nil) }
+        if containsAny(words, sentence, ["lost", "verloren", "losing", "defeated"]) && team
+            && !containsAny(words, sentence, ["weight", "kilos", "kg", "pounds", "lbs", "phone", "keys", "shoes", "focus", "track", "gewicht"]) {
+            return ("loss", score, nil)
+        }
+        return nil
+    }
+
+    /// How the athlete said they played: 5 great … 2 poorly; nil when they didn't say.
+    static func playedRating(_ words: [String], _ sentence: String) -> Int? {
+        if containsAny(words, sentence, ["best game", "played great", "played amazing", "played really well", "career high", "man of the match",
+                                         "mvp", "hat trick", "hattrick", "super gespielt", "richtig gut gespielt"]) { return 5 }
+        if containsAny(words, sentence, ["played well", "played good", "played solid", "scored", "i scored", "assist", "assists", "gut gespielt", "tor geschossen"]) { return 4 }
+        if containsAny(words, sentence, ["played bad", "played badly", "played poorly", "played terrible", "played awful", "worst game",
+                                         "schlecht gespielt", "mies gespielt"]) { return 2 }
+        if containsAny(words, sentence, ["played okay", "played ok", "played alright", "played fine", "okay gespielt"]) { return 3 }
+        return nil
     }
 
     static func competitionWord(_ words: [String], _ sentence: String) -> CompetitionWord? {

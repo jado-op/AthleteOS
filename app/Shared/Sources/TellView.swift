@@ -235,7 +235,7 @@ struct TellView: View {
     /// The activity colour of a change (V8).
     private func color(_ proposal: TellParser.Proposal) -> Color {
         switch proposal {
-        case .competition: AuraTone.game.mark
+        case .competition, .result: AuraTone.game.mark
         case .pain, .headKnock: AppTheme.danger
         case .examWeek: AuraTone.mind.mark
         case .dayStatus(let status, _, _): status == "sick" ? AuraTone.calm.mark : AuraTone.training.mark
@@ -404,6 +404,11 @@ struct TellView: View {
             return "Only \(PlanExplanation.list(names)) · \(when)"
         case .time(let date, let minutes):
             return "\(minutes >= 90 ? "Plenty of time" : "\(minutes) minutes") · \(day(date, time: false))"
+        case .result(let date, let outcome, let score, let placement, let rating):
+            let result = CompetitionResult(id: "", outcome: CompetitionResult.Outcome(rawValue: outcome) ?? .win, placement: placement,
+                                           score: score, rating: rating ?? 3)
+            let played = rating.map { $0 >= 5 ? "played great" : $0 == 4 ? "played well" : $0 <= 2 ? "not your best game" : "played okay" }
+            return (["Result: \(result.summary)"] + (played.map { [$0] } ?? []) + [relative(date)]).joined(separator: " · ")
         }
     }
 
@@ -451,10 +456,42 @@ struct TellView: View {
             "Workouts on those days use only this. Your usual setup comes back by itself afterwards."
         case .time(_, let minutes):
             minutes >= 90 ? "Room for the full session." : "The session is built for that time — the most important work first."
+        case .result:
+            "Saved in Competitions with your record; add what went well there. The next focus points build on it."
         }
     }
 
     // MARK: Apply
+
+    /// "We won 3-1": onto that day's competition (or the one just before, told the
+    /// morning after), or a new one for the day; what the athlete already wrote stays.
+    private func saveResult(day date: Date, outcome: String, score: String?, placement: Int?, rating: Int?) {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let recent = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        let target: Competition
+        if let same = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: day) }) {
+            target = same
+        } else if calendar.isDateInToday(day),
+                  let before = athlete.competitions.filter({ $0.date >= recent && $0.date < day && CompetitionStore.results()[$0.id] == nil })
+                      .max(by: { $0.date < $1.date }) {
+            target = before
+        } else {
+            let created = Competition(sportSlug: athlete.activeSport?.sportSlug ?? "general", date: day, kind: outcome == "placed" ? .meet : .game,
+                                      isHome: true, notes: nil, athlete: athlete)
+            modelContext.insert(created)
+            target = created
+        }
+        var result = CompetitionStore.results()[target.id]
+            ?? CompetitionResult(id: target.id, outcome: .win, rating: rating ?? 3)
+        result.outcome = CompetitionResult.Outcome(rawValue: outcome) ?? result.outcome
+        if let score { result.score = score }
+        if let placement { result.placement = placement }
+        if let rating { result.rating = rating }
+        result.savedAt = .now
+        CompetitionStore.save(result)
+        try? modelContext.save()
+    }
 
     private func apply(_ proposals: [TellParser.Proposal]) {
         var lines: [String] = []
@@ -564,6 +601,8 @@ struct TellView: View {
                 let start = calendar.startOfDay(for: from)
                 AthleteContextStore.add(AthleteContextEvent(from: start, until: calendar.date(byAdding: .day, value: max(0, days - 1), to: start),
                                                             kind: .equipment, source: .tellAthleteOS, reported: [title(proposal)], equipment: tags))
+            case .result(let date, let outcome, let score, let placement, let rating):
+                saveResult(day: date, outcome: outcome, score: score, placement: placement, rating: rating)
             case .time(let date, let minutes):
                 let start = calendar.startOfDay(for: date)
                 AthleteContextStore.add(AthleteContextEvent(from: start, until: start, kind: .time, source: .tellAthleteOS,
