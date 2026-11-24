@@ -364,9 +364,10 @@ struct HomeView: View {
                     refreshTwinBriefing()
                     status = DayStatusStore.status()
                     announcement = TeamAnnouncements.current
-                    switch IntentRoute.take([.checkIn, .reflection]) {
+                    switch IntentRoute.take([.checkIn, .reflection, .tell]) {
                     case .checkIn?: activeSheet = .checkIn
                     case .reflection?: activeSheet = .reflection
+                    case .tell?: showingTell = true
                     default: break
                     }
                     askAboutHealthWorkout()
@@ -387,9 +388,10 @@ struct HomeView: View {
                          onChanged: onPlanInputsChanged)
             }
             .task(id: allSessions.count + athlete.checkIns.count) {
-                switch IntentRoute.take([.checkIn, .reflection]) {
+                switch IntentRoute.take([.checkIn, .reflection, .tell]) {
                 case .checkIn?: activeSheet = .checkIn
                 case .reflection?: activeSheet = .reflection
+                case .tell?: showingTell = true
                 default: break
                 }
                 // No prompts tied to streaks (Backend Knowledge System §18):

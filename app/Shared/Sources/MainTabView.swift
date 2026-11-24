@@ -113,6 +113,7 @@ public struct MainTabView: View {
             switch IntentRoute.pending {
             case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
             case .logPractice?: selectedTab = .progress
+            case .tell?: selectedTab = .today
             default: break
             }
         }
@@ -212,7 +213,7 @@ public struct MainTabView: View {
                 // Siri / Shortcuts: open the right tab (the screen takes the rest).
                 switch IntentRoute.pending {
                 case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
-                case .checkIn?, .reflection?: selectedTab = .today
+                case .checkIn?, .reflection?, .tell?: selectedTab = .today
                 case .logPractice?: selectedTab = .progress
                 case nil: break
                 }

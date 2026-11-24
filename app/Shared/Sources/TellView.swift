@@ -51,7 +51,11 @@ struct TellView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(applied == nil ? "Cancel" : "Done") { dismiss() } }
             }
-            .onAppear { writing = true }
+            .onAppear {
+                // Said to Siri ("Tell AthleteOS my legs are dead"): the words are already here to confirm.
+                if text.isEmpty, let said = IntentRoute.takeTellText() { text = said }
+                writing = true
+            }
             .task(id: text) { await readWithModel() }
         }
     }

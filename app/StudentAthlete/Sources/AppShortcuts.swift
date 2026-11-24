@@ -53,6 +53,24 @@ struct LogPracticeIntent: AppIntent {
     }
 }
 
+/// "Tell AthleteOS": say what's going on ("my legs are dead", "did chest and
+/// back for an hour"); the app opens on Tell AthleteOS with the words read,
+/// and nothing changes until the athlete confirms.
+struct TellIntent: AppIntent {
+    static let title: LocalizedStringResource = "Tell AthleteOS"
+    static let description = IntentDescription("Tell AthleteOS what's going on — a workout, tired legs, a game. You confirm the changes in the app.")
+    static let openAppWhenRun = true
+
+    @Parameter(title: "What's going on", requestValueDialog: "What's going on?")
+    var text: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        IntentRoute.tell(text)
+        return .result()
+    }
+}
+
 struct TodaysPlanIntent: AppIntent {
     static let title: LocalizedStringResource = "What's my plan today"
     static let description = IntentDescription("Says today's training without opening the app.")
@@ -81,6 +99,8 @@ struct AthleteOSShortcuts: AppShortcutsProvider {
                     shortTitle: "Log practice", systemImageName: "square.and.pencil")
         AppShortcut(intent: ReflectionIntent(), phrases: ["Evening reflection in \(.applicationName)", "Reflect on my day with \(.applicationName)"],
                     shortTitle: "Reflect", systemImageName: "moon.stars.fill")
+        AppShortcut(intent: TellIntent(), phrases: ["Tell \(.applicationName)", "Tell \(.applicationName) something", "Update \(.applicationName)"],
+                    shortTitle: "Tell AthleteOS", systemImageName: "text.bubble")
         AppShortcut(intent: TodaysPlanIntent(), phrases: ["What's my plan today in \(.applicationName)", "What's my training today in \(.applicationName)"],
                     shortTitle: "Today's plan", systemImageName: "calendar")
     }

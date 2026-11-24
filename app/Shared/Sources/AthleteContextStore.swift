@@ -60,6 +60,11 @@ enum AthleteContextStore {
         AthleteContext.questions(all, now: now)
     }
 
+    /// A told workout deleted from Training History: the plan forgets it too.
+    static func forgetToldWorkout(on day: Date, calendar: Calendar = .current) {
+        all = all.filter { !($0.kind == .exposure && !$0.practice && $0.source == .tellAthleteOS && calendar.isDate($0.from, inSameDayAs: day)) }
+    }
+
     /// Forgets every context event on this phone.
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)

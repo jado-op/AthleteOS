@@ -96,6 +96,7 @@ struct SessionDetailView: View {
         let context = modelContext
         let doomed = session
         CloudSync.discard(sessionClientId: clientId)
+        if HealthWorkoutInbox.isTold(session) { AthleteContextStore.forgetToldWorkout(on: session.startedAt) }
         // Leave the screen first: a view must never draw a deleted model.
         dismiss()
         Task { @MainActor in
