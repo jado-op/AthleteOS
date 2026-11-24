@@ -60,6 +60,27 @@ enum AthleteContextStore {
         AthleteContext.questions(all, now: now)
     }
 
+    /// What AthleteOS is using right now, newest first: open fatigue, equipment and
+    /// time still ahead, and exposures from the last three days (resolved notes left out).
+    static func remembered(now: Date = .now, calendar: Calendar = .current) -> [AthleteContextEvent] {
+        let today = calendar.startOfDay(for: now)
+        let recent = calendar.date(byAdding: .day, value: -3, to: today) ?? today
+        return all.filter { event in
+            guard event.status == .open, !event.reported.isEmpty else { return false }
+            switch event.kind {
+            case .fatigue: return true
+            case .equipment, .time: return calendar.startOfDay(for: event.until ?? event.from) >= today
+            case .exposure: return event.from >= recent
+            }
+        }
+        .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// "That's wrong": the event goes, and the plan stops using it.
+    static func remove(_ id: UUID) {
+        all = all.filter { $0.id != id && $0.relatedID != id }
+    }
+
     /// A told workout deleted from Training History: the plan forgets it too.
     static func forgetToldWorkout(on day: Date, calendar: Calendar = .current) {
         all = all.filter { !($0.kind == .exposure && !$0.practice && $0.source == .tellAthleteOS && calendar.isDate($0.from, inSameDayAs: day)) }

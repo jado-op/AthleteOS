@@ -23,6 +23,8 @@ struct TellView: View {
     @State private var remind = true
     /// A told workout was saved as training (shown on the done screen).
     @State private var savedWorkout = false
+    /// What AthleteOS is using from earlier (shown under the empty editor).
+    @State private var remembered: [AthleteContextEvent] = []
     /// What the on-device language model read (nil: the rules' reading shows).
     @State private var modelResult: TellParser.Result?
     @State private var reading = false
@@ -54,6 +56,7 @@ struct TellView: View {
             .onAppear {
                 // Said to Siri ("Tell AthleteOS my legs are dead"): the words are already here to confirm.
                 if text.isEmpty, let said = IntentRoute.takeTellText() { text = said }
+                remembered = AthleteContextStore.remembered()
                 writing = true
             }
             .task(id: text) { await readWithModel() }
@@ -107,6 +110,55 @@ struct TellView: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.mutedText)
             }
+            if text.isEmpty, !remembered.isEmpty { rememberedList }
+        }
+    }
+
+    /// What the app is going by right now, from earlier: told once, used until it
+    /// ends — and removable when it's wrong or over.
+    private var rememberedList: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("AthleteOS remembers")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .padding(.top, 14)
+            ForEach(remembered) { event in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Circle().fill(event.kind == .fatigue ? AuraTone.body.mark : AuraTone.training.mark).frame(width: 8, height: 8)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.reported.first ?? "")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(rememberedWhen(event))
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.mutedText)
+                    }
+                    Spacer(minLength: 8)
+                    Button {
+                        AthleteContextStore.remove(event.id)
+                        withAnimation { remembered = AthleteContextStore.remembered() }
+                        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+                        onChanged()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(AppTheme.mutedText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Forget: \(event.reported.first ?? "")")
+                }
+            }
+        }
+    }
+
+    private func rememberedWhen(_ event: AthleteContextEvent) -> String {
+        let told = relative(event.from)
+        switch event.kind {
+        case .fatigue: return "Told \(told) · asked each morning until it's back to normal"
+        case .equipment: return "Until \(day(event.until ?? event.from, time: false))"
+        case .time: return relative(event.from).prefix(1).uppercased() + relative(event.from).dropFirst()
+        case .exposure: return "Counted \(told) · the plan doesn't repeat it"
         }
     }
 

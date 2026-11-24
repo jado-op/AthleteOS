@@ -1731,6 +1731,10 @@ struct HomeView: View {
         AuraCard(.body, focus: UnitPoint(x: 0.85, y: 0.2), radius: 180) {
             VStack(alignment: .leading, spacing: 16) {
                 Headline([.icon("person.3.fill"), .strong(" When is practice?"), .soft(" Your plan is built around it.")], size: 26)
+                Text("Pick your team calendar on this phone and games, practices and cancellations come in by themselves.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Set up my schedule") { activeSheet = .schedule }
                     .buttonStyle(.secondary)
             }
