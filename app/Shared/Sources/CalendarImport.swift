@@ -86,6 +86,17 @@ public enum ScheduleClassifier {
         return away && !home
     }
 
+    /// How hard a practice will be, from its calendar title: "Scrimmage",
+    /// "Conditioning", "Fitness test" → hard; "Walkthrough", "Film", "Recovery",
+    /// "Shootaround" → light; anything else says nothing (nil).
+    public static func practiceCharacter(title: String) -> Bool? {
+        if contains(title, any: ["walkthrough", "walk-through", "walk through", "film", "video session", "recovery", "regeneration",
+                                 "shootaround", "shoot around", "light practice", "mobility", "stretching", "taper", "lockerer", "auslaufen"]) { return false }
+        if contains(title, any: ["scrimmage", "conditioning", "fitness test", "beep test", "tryout", "tryouts", "sprints", "hell week",
+                                 "two-a-days", "two a days", "testing", "game sim", "intrasquad", "trainingsspiel", "konditionstraining", "leistungstest"]) { return true }
+        return nil
+    }
+
     public static func competitionKind(title: String) -> String {
         if contains(title, any: tournament) { return "TOURNAMENT" }
         if contains(title, any: meet) { return "MEET" }

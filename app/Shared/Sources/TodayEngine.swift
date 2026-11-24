@@ -52,6 +52,11 @@ enum TodayEngine {
             let told = AthleteContext.signals(AthleteContextStore.all, on: date, calendar: calendar)
             if told.hardPractice { return .hard }
             if told.lightPractice { return .light }
+            // The calendar's own word for it ("Scrimmage", "Walkthrough").
+            let character = ScheduleStore.imported.practices(on: date, calendar: calendar)
+                .filter { !$0.cancelled }.compactMap { ScheduleClassifier.practiceCharacter(title: $0.title) }
+            if character.contains(true) { return .hard }
+            if character.contains(false) { return .light }
             return .normal
         }
     }
