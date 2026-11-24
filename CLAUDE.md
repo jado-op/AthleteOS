@@ -225,6 +225,12 @@ Reading files, CI logs or the GitHub API needs no lock.
   `PRACTICE_COVERED_CONDITIONING`, `LIMITED_EQUIPMENT`, `AVAILABLE_TIME_TODAY`…) → `PlanExplanation.contextLines`.
   Told time picks the gym length that fits (recomposed, not cut); told equipment replaces the kit for those days;
   reported workouts count in RecentLoad and the advisor's region recency. No chatbot, no score, no cloud.
+- Told = saved (owner, 2026-11-24: "I put in a workout, but it didn't save anywhere"): a told workout is also a
+  Session (`HealthWorkoutInbox.logTold`, already answered, merged per day, joins a same-day Health workout); "we won 3-1"
+  saves a `CompetitionResult`; Tell after the check-in updates that day's `DayChoiceStore` answer; Tell lists what it
+  remembers (removable). Siri "Tell AthleteOS" (`TellIntent`). Calendars: a phone calendar can be picked
+  (`PhoneCalendars`, EventKit, read only, feed url `phone:<id>`); practice titles like Scrimmage/Walkthrough set
+  practice intensity (`ScheduleClassifier.practiceCharacter`). No coach-reported practice (owner: "I hate the idea").
 - Foundation-only files (engine, reflection insights, Campus content) can be compiled and
   tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 
