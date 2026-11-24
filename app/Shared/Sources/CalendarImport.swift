@@ -438,7 +438,7 @@ public struct ImportedSchedule: Codable, Sendable, Equatable {
     }
 }
 
-/// A calendar the athlete connected by link.
+/// A calendar the athlete connected by link (or picked on the phone: `PhoneCalendars`).
 public struct CalendarFeed: Codable, Sendable, Equatable, Identifiable {
     public enum Role: String, Codable, Sendable, CaseIterable {
         case team, school
@@ -472,6 +472,8 @@ public struct CalendarFeed: Codable, Sendable, Equatable, Identifiable {
 
     /// Downloads and reads the calendar: from a week ago to half a year ahead.
     public func fetchEvents(session: URLSession = .shared, now: Date = .now, calendar: Calendar = .current) async throws -> [ScheduleEvent] {
+        // A calendar already on this phone (`PhoneCalendars`): read there, nothing downloaded.
+        if PhoneCalendars.isPhone(self) { return try await PhoneCalendars.events(for: self, now: now, calendar: calendar) }
         guard let url = Self.normalizedURL(self.url) else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 20

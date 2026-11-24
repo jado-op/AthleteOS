@@ -64,6 +64,11 @@
 	  §17: both strings are mandatory. An app with the HealthKit entitlement and
 	  only one of these is rejected at upload.
 	-->
+	<!-- A team or school calendar already on the phone can be picked instead of pasting its link (read only). -->
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>AthleteOS reads the team or school calendar you pick (games, practices, exams) so your plan fits your schedule. It never changes your calendars, and the events stay on your phone.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>AthleteOS reads the team or school calendar you pick (games, practices, exams) so your plan fits your schedule. It never changes your calendars, and the events stay on your phone.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>

@@ -443,6 +443,9 @@ struct AddCalendarSheet: View {
     @State private var checkedFeed: CalendarFeed?
     @State private var errorMessage: String?
     @State private var openGuide: Guide?
+    /// Calendars on this phone (nil: not looked yet).
+    @State private var phoneChoices: [PhoneCalendars.Choice]?
+    @State private var phoneDenied = false
 
     enum Guide: String, CaseIterable, Identifiable {
         case teamSnap, gameChanger, sportsEngine, school, google, apple, hudl
@@ -506,10 +509,10 @@ struct AddCalendarSheet: View {
             title: "Connect a calendar",
             subtitle: "Paste the link to your team's or school's calendar. We only read it — nothing is ever changed or shared.",
             buttonTitle: found == nil ? (checking ? "Checking…" : "Check the link") : "Connect",
-            buttonEnabled: !checking && CalendarFeed.normalizedURL(link) != nil,
+            buttonEnabled: !checking && (CalendarFeed.normalizedURL(link) != nil || (found != nil && checkedFeed.map(PhoneCalendars.isPhone) == true)),
             onClose: { dismiss() },
             onContinue: {
-                if let found, let checkedFeed, checkedFeed.url == link, checkedFeed.role == role {
+                if let found, let checkedFeed, checkedFeed.url == link || PhoneCalendars.isPhone(checkedFeed), checkedFeed.role == role {
                     onAdd(checkedFeed, found)
                 } else {
                     check()
@@ -527,8 +530,10 @@ struct AddCalendarSheet: View {
                 .buttonStyle(.plain)
             }
 
+            phoneSection
+
             VStack(alignment: .leading, spacing: 8) {
-                Text("Calendar link")
+                Text(phoneChoices?.isEmpty == false ? "Or paste a calendar link" : "Calendar link")
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
                 TextField("webcal://… or https://…", text: $link)
@@ -560,6 +565,65 @@ struct AddCalendarSheet: View {
                     guideCard(guide)
                 }
             }
+        }
+    }
+
+    /// The quickest way in: a team or school calendar that already syncs to this phone.
+    @ViewBuilder
+    private var phoneSection: some View {
+        #if os(iOS)
+        VStack(alignment: .leading, spacing: 10) {
+            if let choices = phoneChoices {
+                Text("Calendars on this phone")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                if choices.isEmpty {
+                    Text(phoneDenied ? "AthleteOS can't read your calendars. Allow it in Settings → AthleteOS → Calendars, or paste a link below."
+                                     : "No calendars on this phone yet. Paste a link below.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                ForEach(choices) { choice in
+                    Button { pickPhone(choice) } label: {
+                        OptionRow(title: choice.title, subtitle: choice.account.isEmpty ? "On this phone" : choice.account,
+                                  systemImage: "calendar", isSelected: checkedFeed?.url == PhoneCalendars.prefix + choice.id)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Button { lookOnPhone() } label: {
+                    OptionRow(title: "Pick a calendar on this phone",
+                              subtitle: "TeamSnap, GameChanger, your school or Google often sync here already — no link needed",
+                              systemImage: "iphone", isSelected: false)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        #endif
+    }
+
+    private func lookOnPhone() {
+        Task {
+            let allowed = await PhoneCalendars.requestAccess()
+            phoneDenied = !allowed
+            phoneChoices = allowed ? PhoneCalendars.choices() : []
+        }
+    }
+
+    private func pickPhone(_ choice: PhoneCalendars.Choice) {
+        let feed = CalendarFeed(url: PhoneCalendars.prefix + choice.id, name: choice.title, role: role)
+        checking = true
+        errorMessage = nil
+        link = ""
+        Task {
+            do {
+                found = try await feed.fetchEvents()
+                checkedFeed = feed
+            } catch {
+                errorMessage = "That calendar couldn't be read. Try another one, or paste its link."
+            }
+            checking = false
         }
     }
 
