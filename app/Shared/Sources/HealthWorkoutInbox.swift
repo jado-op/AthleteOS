@@ -124,6 +124,19 @@ enum HealthWorkoutInbox {
         var answersMap = answers
         var map = imported
 
+        // The watch already brought this workout in and it isn't answered yet: what
+        // they told is its answer (no second session, and the check doesn't ask).
+        if let health = athlete.sessions.first(where: { map[$0.clientId] != nil && !toldSet.contains($0.clientId) && answersMap[$0.clientId] == nil
+                                                        && calendar.isDate($0.startedAt, inSameDayAs: day) }) {
+            answersMap[health.clientId] = WorkoutTagging.Answer(rating: rating, regions: regions, cardio: cardio)
+            answers = answersMap
+            health.sessionRPE = rating
+            if !regions.isEmpty { SessionKinds.record(health.clientId, .gym) }
+            bump()
+            try? context.save()
+            return health
+        }
+
         // The same day told again: the one workout grows instead of a second appearing.
         if let existing = athlete.sessions.first(where: { toldSet.contains($0.clientId) && calendar.isDate($0.startedAt, inSameDayAs: day) }) {
             var answer = answersMap[existing.clientId] ?? WorkoutTagging.Answer()
@@ -163,6 +176,16 @@ enum HealthWorkoutInbox {
         bump()
         try? context.save()
         return session
+    }
+
+    /// "60 min · 3 sets · effort 6/10"; a Health or told workout without sets
+    /// says what it was, and no minutes when none were told.
+    static func historyLine(_ session: Session, effort: Bool) -> String {
+        var parts: [String] = []
+        if session.minutes > 0 { parts.append("\(session.minutes) min") }
+        parts.append(session.sets.isEmpty && isImported(session) ? activity(of: session) : countedNoun(session.sets.count, "set"))
+        if effort, let rpe = session.sessionRPE { parts.append("effort \(rpe)/10") }
+        return parts.joined(separator: " · ")
     }
 
     /// ["chest", "upper back", "core", "arms"] → "Chest, upper back, core and arms".

@@ -1693,7 +1693,7 @@ struct HomeView: View {
             rows.append(DoneRow(icon: "person.3.fill", color: AppTheme.orange, title: "Practice", value: log.minutes.map { "\($0) min" } ?? "Logged"))
         }
         let workoutMinutes = todaysSessions.filter { SessionKinds.kind(of: $0.clientId) != .mobility }.reduce(0) { $0 + $1.minutes }
-        if workoutDoneToday { rows.append(DoneRow(icon: "dumbbell.fill", color: AppTheme.red, title: "Workout", value: "\(workoutMinutes) min")) }
+        if workoutDoneToday { rows.append(DoneRow(icon: "dumbbell.fill", color: AppTheme.red, title: "Workout", value: workoutMinutes > 0 ? "\(workoutMinutes) min" : "Done")) }
         let mobilityMinutes = todaysSessions.filter { SessionKinds.kind(of: $0.clientId) == .mobility }.reduce(0) { $0 + $1.minutes }
         if mobilityDoneToday { rows.append(DoneRow(icon: "figure.flexibility", color: AppTheme.water, title: "Mobility", value: "\(mobilityMinutes) min")) }
         if learnedToday { rows.append(DoneRow(icon: "graduationcap.fill", color: AppTheme.purple, title: "Learning", value: "Done")) }

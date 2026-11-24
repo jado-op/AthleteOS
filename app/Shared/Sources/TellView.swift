@@ -463,6 +463,23 @@ struct TellView: View {
 
     // MARK: Apply
 
+    /// The check-in's "What's on today?" answer for that day, kept in step with what
+    /// was told after it (the engine reads that answer first): practice on or off,
+    /// how hard it was, a game. Nothing when the day has no answer.
+    private func markSaidDay(_ date: Date, practice: Bool? = nil, intensity: PracticeIntensity? = nil, game: Bool = false) {
+        guard let said = DayChoiceStore.answer(on: date), !said.isAuto else { return }
+        var choices = said.choices
+        if let practice { if practice { choices.insert(.practice) } else { choices.remove(.practice) } }
+        if game { choices.insert(.game) }
+        if practice == true || game { choices.subtract(DayChoice.allCases.filter(\.standsAlone)) }
+        guard !choices.isEmpty else {
+            DayChoiceStore.set(nil, on: date)
+            return
+        }
+        let level = choices.contains(.practice) ? (intensity ?? said.practice ?? .normal) : nil
+        DayChoiceStore.set(DayAnswer(choices: choices, practice: level), on: date)
+    }
+
     /// "We won 3-1": onto that day's competition (or the one just before, told the
     /// morning after), or a new one for the day; what the athlete already wrote stays.
     private func saveResult(day date: Date, outcome: String, score: String?, placement: Int?, rating: Int?) {
@@ -510,6 +527,9 @@ struct TellView: View {
         let toldSeasonStart = chosen.contains { if case .season("in", _) = $0 { true } else { false } }
         var exposures: [Date: UUID] = [:]
         var fatigues: [TellParser.Proposal] = []
+        // Day statuses are confirmed only when they are really saved (not past, not replaced by a head knock).
+        var statusLines: [String] = []
+        var pastStatus = false
         let before = planLine()
         for proposal in ordered {
             switch proposal {
@@ -518,6 +538,15 @@ struct TellView: View {
                 case .game: .game
                 case .tournament: .tournament
                 case .meet: .meet
+                }
+                markSaidDay(date, game: true)
+                // Told again ("match Saturday 4pm"): the one already there gets the time and note.
+                if let same = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: date) && $0.kind == stored }) {
+                    if case .competition(_, _, _, true) = proposal { same.date = date }
+                    if let note, !note.isEmpty { same.notes = note }
+                    try? modelContext.save()
+                    lines.append(title(proposal))
+                    continue
                 }
                 modelContext.insert(Competition(sportSlug: athlete.activeSport?.sportSlug ?? "general", date: date, kind: stored,
                                                 isHome: true, notes: note, athlete: athlete))
@@ -543,9 +572,16 @@ struct TellView: View {
                     continue
                 }
                 guard let kind = DayStatus(rawValue: status) else { continue }
+                var future = false
                 for offset in 0..<max(1, min(days, 31)) {
-                    if let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) { statusDays.append((kind, day)) }
+                    guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) else { continue }
+                    // Days already over stay as they were.
+                    if day < calendar.startOfDay(for: .now) { pastStatus = true; continue }
+                    statusDays.append((kind, day))
+                    future = true
                 }
+                if future { statusLines.append(title(proposal)) }
+                continue
             case .noGym(let from, let days):
                 NoGymDays.add(from: from, days: days)
                 for offset in 0..<max(1, min(days, 31)) {
@@ -555,6 +591,7 @@ struct TellView: View {
                 for offset in 0..<max(1, min(days, 31)) {
                     if let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: from)) {
                         PracticeOverride.set(happening, on: DayKey.of(day, calendar: calendar))
+                        markSaidDay(day, practice: happening)
                     }
                 }
             case .goals(let goals):
@@ -586,6 +623,7 @@ struct TellView: View {
                                                 level: level, practice: true)
                 AthleteContextStore.add(event)
                 exposures[calendar.startOfDay(for: date)] = event.id
+                markSaidDay(date, intensity: level >= 3 ? .hard : level <= 1 ? .light : .normal)
             case .workout(let date, let patterns, let qualities, let names, let level, let minutes):
                 // Saved as training (Training History, "Training done", body map), and as context for the plan.
                 HealthWorkoutInbox.logTold(day: date, names: names, patterns: patterns, qualities: qualities, level: level,
@@ -619,6 +657,8 @@ struct TellView: View {
         // Day statuses: consecutive days of one kind become one span (today's starts now, later ones wait).
         // A head knock told now keeps training paused: no other status replaces it.
         let sortedDays = chosen.contains(where: isKnock) ? [] : statusDays.sorted { $0.1 < $1.1 }
+        if !chosen.contains(where: isKnock) { lines += statusLines }
+        if pastStatus { lines.append("Days already over stay as they were") }
         var index = 0
         while index < sortedDays.count {
             let (status, start) = sortedDays[index]
@@ -648,7 +688,9 @@ struct TellView: View {
         if let before, let after = planLine(), before.title != after.title || after.why != before.why, let why = after.why ?? before.why {
             adjusted = (before.title, after.title, before.title == after.title ? why : (after.why ?? why))
         }
-        withAnimation { applied = lines }
+        var shown: [String] = []
+        for line in lines where !shown.contains(line) { shown.append(line) }
+        withAnimation { applied = shown }
     }
 
     /// Today's plan in a few words, and the first thing the athlete told that shaped it.

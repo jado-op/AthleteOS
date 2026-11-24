@@ -78,6 +78,12 @@ public enum DayStatusStore {
 
     public static func status(on date: Date = .now, calendar: Calendar = .current) -> DayStatus {
         let day = calendar.startOfDay(for: date)
+        // A later day told ahead ("holiday Friday until Monday") wins over a status
+        // left open ("sick", no end): that one is about now, not those days.
+        if let stored, stored.until == nil, day > calendar.startOfDay(for: .now),
+           let ahead = planned.last(where: { day >= calendar.startOfDay(for: $0.from) && day <= calendar.startOfDay(for: $0.until) }) {
+            return ahead.status
+        }
         if let stored, day >= calendar.startOfDay(for: stored.from),
            stored.until.map({ day <= calendar.startOfDay(for: $0) }) ?? true {
             return stored.status

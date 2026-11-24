@@ -292,7 +292,7 @@ struct ReflectionSheet: View {
 
     /// "Nothing to review today": the day counts as reflected, nothing asked.
     private func saveNothing() {
-        MindsetStore.saveEvening(hardness: nil, body: nil, practice: nil, wentWell: [], needsWork: [], learned: nil)
+        MindsetStore.saveEvening(hardness: nil, body: nil, practice: nil, wentWell: [], needsWork: [], learned: nil, on: Self.reflectionDay())
         onSaved()
         dismiss()
     }
@@ -317,8 +317,12 @@ struct ReflectionSheet: View {
         // morning check-in asks how it feels, and today's plan stays easier until then.
         if bodyFeel == 3 {
             let day = Calendar.current.startOfDay(for: Self.reflectionDay())
+            // Saved again the same evening: the one event stands.
+            let known = AthleteContextStore.all.contains { $0.source == .reflection && $0.kind == .fatigue && Calendar.current.isDate($0.from, inSameDayAs: day) }
+            if !known {
             AthleteContextStore.add(AthleteContextEvent(from: day, kind: .fatigue, source: .reflection,
                                                         reported: ["Body very tired in the evening"], regions: [.wholeBody], level: 2))
+            }
         }
         // Sometimes one small thing back (V6 §19), never the same one twice in a row.
         if let saved = MindsetStore.reflection(on: Self.reflectionDay()) {

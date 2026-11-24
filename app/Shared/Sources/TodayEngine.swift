@@ -261,7 +261,8 @@ enum TodayEngine {
         let earlier = athlete.sessions.filter { $0.startedAt < todayStart }.count
         let games = athlete.competitions.map { DayKey.of($0.date, calendar: calendar) }.sorted().joined(separator: ",")
         let key = [DayKey.of(now, calendar: calendar), "\(earlier)", "\(athlete.checkIns.count)", games,
-                   "\(MindsetStore.reflections.count)", "\(PracticeLogStore.logs.count)", "\(BenchmarkStore.results.count)"].joined(separator: "|")
+                   "\(MindsetStore.reflections.count)", "\(PracticeLogStore.logs.count)", "\(BenchmarkStore.results.count)",
+                   "\(HealthWorkoutInbox.revision)", AthleteStats.todaysCheckIn(athlete).map { "\($0.soreness)\($0.energy)\($0.stress)\($0.sleepQuality)" } ?? ""].joined(separator: "|")
         if let twinCache, twinCache.key == key { return twinCache.steers }
         let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load(), now: now, calendar: calendar)
         let steers = TwinSteer.from(TwinAnalysis.report(input, calendar: calendar).insights.map(\.kind))
@@ -320,7 +321,8 @@ enum TodayEngine {
         let checkIn = AthleteStats.todaysCheckIn(athlete)
         let answers = checkIn.map { "\($0.sleepQuality),\($0.sleepHours ?? -1),\($0.soreness),\($0.energy),\($0.stress)" } ?? "none"
         return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar),
-                "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", "\(athlete.competitions.count)",
+                "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", athlete.competitions.map { "\(Int($0.date.timeIntervalSince1970))\($0.kind.rawValue)" }.sorted().joined(separator: ","),
+                "\(ScheduleStore.isExamWeek(date, calendar: calendar))\(PainStore.report()?.level.rawValue ?? "")",
                 DayStatusStore.status(on: date, calendar: calendar).rawValue + "\(NoGymDays.contains(date, calendar: calendar))", "\(ReadinessOverride.isOn(date, calendar: calendar))", TodaysPain.areas().map(\.rawValue).sorted().joined(),
                 Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
                 "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
