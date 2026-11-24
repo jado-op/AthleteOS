@@ -90,6 +90,97 @@ enum HealthWorkoutInbox {
                                                 bands: bands.filter { !covered.contains($0.key) })
     }
 
+    // MARK: Told in Tell AthleteOS
+
+    /// Marks a session the athlete told AthleteOS about (no Health workout yet).
+    private static let toldPrefix = "told:"
+    private static let toldKey = "health.toldWorkouts"           // session clientIds told in Tell AthleteOS
+
+    private static var told: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: toldKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue.suffix(300)), forKey: toldKey) }
+    }
+
+    /// A workout the athlete told AthleteOS about ("chest, upper back and core, 1 h").
+    static func isTold(_ session: Session) -> Bool { told.contains(session.clientId) }
+
+    /// Logs a workout told in Tell AthleteOS as the athlete's own training, so
+    /// it shows in Training History, Home's "Training done", the body map and
+    /// the gym planner — like a workout from Health, already answered with what
+    /// they said (never asked again). Told twice for one day: one workout, merged.
+    /// Minutes only when they said them; nothing is invented.
+    @discardableResult
+    static func logTold(day: Date, names: [String], patterns: [String], qualities: [String], level: Int, minutes: Int?,
+                        athlete: Athlete, context: ModelContext, now: Date = .now, calendar: Calendar = .current) -> Session {
+        var regions: [GymRegion: WorkoutTagging.Band] = [:]
+        let band: WorkoutTagging.Band = level >= 3 ? .veryHard : level <= 1 ? .light : .solid
+        if patterns.contains(where: { ["push", "pull"].contains($0) }) || qualities.contains("upperStrength") { regions[.upper] = band }
+        if patterns.contains(where: { ["squat", "hinge", "lunge"].contains($0) }) || qualities.contains("lowerStrength") { regions[.lower] = band }
+        if patterns.contains("core") || qualities.contains("core") { regions[.core] = band }
+        let cardio = qualities.contains("conditioning")
+        let rating = level >= 3 ? 8 : level <= 1 ? 3 : 5
+        let isToday = calendar.isDate(day, inSameDayAs: now)
+        let toldSet = told
+        var answersMap = answers
+        var map = imported
+
+        // The same day told again: the one workout grows instead of a second appearing.
+        if let existing = athlete.sessions.first(where: { toldSet.contains($0.clientId) && calendar.isDate($0.startedAt, inSameDayAs: day) }) {
+            var answer = answersMap[existing.clientId] ?? WorkoutTagging.Answer()
+            var bands = answer.bands
+            for (region, value) in regions { bands[region] = max(bands[region] ?? value, value) }
+            answer = WorkoutTagging.Answer(rating: max(answer.rating ?? rating, rating), regions: bands, cardio: answer.cardio || cardio,
+                                           hurt: answer.hurt, exercises: answer.exercises)
+            answersMap[existing.clientId] = answer
+            answers = answersMap
+            if let minutes, minutes > 0, existing.healthKitWorkoutId == nil {
+                existing.minutes = minutes
+                existing.startedAt = (existing.endedAt ?? existing.startedAt).addingTimeInterval(-Double(minutes) * 60)
+            }
+            existing.sessionRPE = answer.rating
+            let old = activity(of: existing)
+            let merged = merge(old == "Workout" ? [] : old.components(separatedBy: ", ").flatMap { $0.components(separatedBy: " and ") }, names)
+            existing.notes = "\(toldTitle(merged)) · told AthleteOS"
+            if !regions.isEmpty { SessionKinds.record(existing.clientId, .gym) }
+            bump()
+            try? context.save()
+            return existing
+        }
+
+        let length = max(0, minutes ?? 0)
+        let end = isToday ? now : (calendar.date(bySettingHour: 18, minute: 0, second: 0, of: day) ?? calendar.startOfDay(for: day))
+        let session = Session(startedAt: end.addingTimeInterval(-Double(length) * 60), endedAt: end, sessionRPE: rating, minutes: length,
+                              source: .phone, notes: "\(toldTitle(names)) · told AthleteOS", syncedAt: now, athlete: athlete)
+        context.insert(session)
+        if !regions.isEmpty { SessionKinds.record(session.clientId, .gym) }
+        map[session.clientId] = toldPrefix + session.clientId
+        imported = map
+        answersMap[session.clientId] = WorkoutTagging.Answer(rating: rating, regions: regions, cardio: cardio)
+        answers = answersMap
+        var toldNow = toldSet
+        toldNow.insert(session.clientId)
+        told = toldNow
+        bump()
+        try? context.save()
+        return session
+    }
+
+    /// ["chest", "upper back", "core", "arms"] → "Chest, upper back, core and arms".
+    static func toldTitle(_ names: [String]) -> String {
+        let clean = merge([], names)
+        guard let first = clean.first else { return "Workout" }
+        let list = clean.count == 1 ? first : clean.dropLast().joined(separator: ", ") + " and " + (clean.last ?? "")
+        return list.prefix(1).uppercased() + list.dropFirst()
+    }
+
+    private static func merge(_ a: [String], _ b: [String]) -> [String] {
+        var out: [String] = []
+        for name in (a + b).map({ $0.trimmingCharacters(in: .whitespaces).lowercased() }) where !name.isEmpty && !out.contains(name) {
+            out.append(name)
+        }
+        return out
+    }
+
     // MARK: Import
 
     /// Logs every counting Health workout of today and yesterday that isn't
@@ -112,6 +203,19 @@ enum HealthWorkoutInbox {
                   // A session the athlete logged in the app at the same time is the same workout.
                   !athlete.sessions.contains(where: { abs($0.startedAt.timeIntervalSince(workout.start)) < 20 * 60 && $0.endedAt != nil })
             else { continue }
+            // The athlete told AthleteOS about this workout already: the told one gets
+            // the watch's real times and minutes, and stays the one workout.
+            let toldSet = told
+            if let toldSession = athlete.sessions.first(where: { toldSet.contains($0.clientId) && $0.healthKitWorkoutId == nil
+                                                                 && calendar.isDate($0.startedAt, inSameDayAs: workout.start) }) {
+                toldSession.startedAt = workout.start
+                toldSession.endedAt = workout.end
+                toldSession.minutes = workout.minutes
+                toldSession.healthKitWorkoutId = id
+                map[toldSession.clientId] = id
+                added += 1
+                continue
+            }
             let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: now)
             let session = Session(startedAt: workout.start, endedAt: workout.end,
                                   sessionRPE: WearableLoad.effort(averageHeartRate: workout.averageHeartRate, minutes: workout.minutes, age: age),

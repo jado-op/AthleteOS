@@ -21,6 +21,8 @@ struct TellView: View {
     @State private var adjusted: (before: String, now: String, why: String?)?
     /// Remind the evening before and each morning of days away (on by default: the athlete asked).
     @State private var remind = true
+    /// A told workout was saved as training (shown on the done screen).
+    @State private var savedWorkout = false
     /// What the on-device language model read (nil: the rules' reading shows).
     @State private var modelResult: TellParser.Result?
     @State private var reading = false
@@ -294,6 +296,12 @@ struct TellView: View {
                     .font(.body)
                     .foregroundStyle(AppTheme.ink)
             }
+            if savedWorkout {
+                Label("Saved to your training: Progress, Training History and the body map count it.", systemImage: "figure.strengthtraining.traditional")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let adjusted {
                 // V8: one card, the change in two lines and the reason under it.
                 VStack(alignment: .leading, spacing: 12) {
@@ -537,7 +545,11 @@ struct TellView: View {
                                                 level: level, practice: true)
                 AthleteContextStore.add(event)
                 exposures[calendar.startOfDay(for: date)] = event.id
-            case .workout(let date, let patterns, let qualities, _, let level, let minutes):
+            case .workout(let date, let patterns, let qualities, let names, let level, let minutes):
+                // Saved as training (Training History, "Training done", body map), and as context for the plan.
+                HealthWorkoutInbox.logTold(day: date, names: names, patterns: patterns, qualities: qualities, level: level,
+                                           minutes: minutes, athlete: athlete, context: modelContext)
+                savedWorkout = true
                 AthleteContextStore.add(AthleteContextEvent(from: calendar.startOfDay(for: date), kind: .exposure, source: .tellAthleteOS,
                                                             reported: [title(proposal)], qualities: qualities.compactMap(ContextQuality.init(rawValue:)),
                                                             level: level, patterns: patterns, minutes: minutes))

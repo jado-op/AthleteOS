@@ -135,7 +135,9 @@ enum GymHistoryBuilder {
             }
         }
         // Workouts the athlete told AthleteOS about ("bench, rows and pull-ups yesterday").
+        // A told workout is also a logged session (`HealthWorkoutInbox.logTold`): counted once.
         for (region, days) in AthleteContext.regionDays(AthleteContextStore.all, now: now, calendar: calendar) {
+            guard daysSince[region] != days else { continue }
             daysSince[region] = min(daysSince[region] ?? 99, days)
             if days <= 7 { weekCount[region, default: 0] += 1 }
         }

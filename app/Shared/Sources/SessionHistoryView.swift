@@ -131,7 +131,7 @@ struct SessionDetailView: View {
     private var summaryCard: some View {
         AuraCard(.training, focus: UnitPoint(x: 0.22, y: 0.5), radius: 200) {
             HStack(alignment: .lastTextBaseline, spacing: 16) {
-                BigFigure("\(session.minutes)", unit: "min", size: 72)
+                BigFigure(session.minutes > 0 ? "\(session.minutes)" : "—", unit: "min", size: 72)
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 6) {
                     summaryLine("\(session.sets.count)", session.sets.count == 1 ? "set" : "sets")
@@ -161,12 +161,29 @@ struct SessionDetailView: View {
                 Headline([.strong(session.startedAt.formatted(.dateTime.weekday(.wide).month().day())),
                           .soft(" · " + session.startedAt.formatted(date: .omitted, time: .shortened))], size: 32)
                 summaryCard
-                HStack(spacing: 8) {
-                    Image(systemName: session.syncedAt != nil ? "checkmark.icloud.fill" : "icloud.slash")
-                    Text(session.syncedAt != nil ? "Backed up" : "Saved on this phone — backs up next time you're online")
+                if HealthWorkoutInbox.isImported(session) {
+                    // From Apple Health or told in Tell AthleteOS: what it was, and that it stays on this phone.
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(HealthWorkoutInbox.activity(of: session))
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                        HStack(spacing: 8) {
+                            Image(systemName: HealthWorkoutInbox.isTold(session) ? "text.bubble" : "heart.text.square")
+                            Text(HealthWorkoutInbox.isTold(session)
+                                 ? (session.healthKitWorkoutId != nil ? "Told AthleteOS · times from Apple Health" : "Told AthleteOS · stays on this phone")
+                                 : "From Apple Health · stays on this phone")
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(AppTheme.secondaryText)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: session.syncedAt != nil ? "checkmark.icloud.fill" : "icloud.slash")
+                        Text(session.syncedAt != nil ? "Backed up" : "Saved on this phone — backs up next time you're online")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(session.syncedAt != nil ? AppTheme.green : AppTheme.secondaryText)
                 }
-                .font(.caption.weight(.medium))
-                .foregroundStyle(session.syncedAt != nil ? AppTheme.green : AppTheme.secondaryText)
 
                 ForEach(byItem, id: \.slug) { entry in
                     VStack(alignment: .leading, spacing: 10) {

@@ -20,7 +20,7 @@ struct SessionRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: session.source == .watch ? "applewatch" : "figure.strengthtraining.traditional")
+            Image(systemName: HealthWorkoutInbox.isTold(session) ? "text.bubble" : session.source == .watch ? "applewatch" : "figure.strengthtraining.traditional")
                 .font(.title2)
                 .foregroundStyle(AppTheme.ink)
                 .frame(width: 64, height: 64)
@@ -35,9 +35,18 @@ struct SessionRow: View {
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
+                if session.notes != nil, HealthWorkoutInbox.isImported(session) {
+                    // A workout from Health or told in Tell AthleteOS: what it was.
+                    Text(HealthWorkoutInbox.activity(of: session))
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                        .lineLimit(1)
+                }
                 HStack(spacing: 10) {
-                    Label("\(session.minutes) min", systemImage: "clock")
-                    Label("\(countedNoun(session.sets.count, "set")) done", systemImage: "list.bullet")
+                    if session.minutes > 0 { Label("\(session.minutes) min", systemImage: "clock") }
+                    if !session.sets.isEmpty || !HealthWorkoutInbox.isImported(session) {
+                        Label("\(countedNoun(session.sets.count, "set")) done", systemImage: "list.bullet")
+                    }
                     if let rpe = session.sessionRPE {
                         Label("Effort \(rpe)/10", systemImage: "flame")
                     }
