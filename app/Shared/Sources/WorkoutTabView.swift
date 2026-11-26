@@ -552,9 +552,6 @@ struct WorkoutTabView: View {
 
     // MARK: - Week, more
 
-    /// V8: the week as a strip of tiles — today's in ember, the rest calm —
-    /// each with its day, the workout and its length. Swipe sideways.
-    @ViewBuilder
     /// What was done, next to what to do: the month, season and year, practice
     /// logged, every workout (moved here from the Academy, owner 2026-11-26).
     private var calendarRow: some View {
@@ -567,6 +564,9 @@ struct WorkoutTabView: View {
         .buttonStyle(.pressable)
     }
 
+    /// V8: the week as a strip of tiles — today's in ember, the rest calm —
+    /// each with its day, the workout and its length. Swipe sideways.
+    @ViewBuilder
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
