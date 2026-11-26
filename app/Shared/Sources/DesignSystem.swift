@@ -282,35 +282,6 @@ public extension Font {
     }
 }
 
-/// A number on the instrument panel: the value in the monospaced face, a
-/// small label under it. Words ("Normal") stay in the regular face.
-public struct TelemetryStat: View {
-    let value: String
-    let label: String
-    var accent: Color? = nil
-
-    public init(_ value: String, _ label: String, accent: Color? = nil) {
-        self.value = value
-        self.label = label
-        self.accent = accent
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(value.contains(where: \.isNumber) ? .telemetry(24, weight: .medium) : .system(size: 22, weight: .semibold))
-                .foregroundStyle(accent ?? AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// A numbered section: "01  Today ……… 1 of 4 done", on a hairline.
 public struct SpaceSection<Trailing: View>: View {
     let number: Int
@@ -671,93 +642,6 @@ public struct CircleIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
-    }
-}
-
-// MARK: - Rings
-
-/// A progress ring with anything centred inside it.
-public struct RingView<Center: View>: View {
-    let progress: Double
-    let color: Color
-    let lineWidth: CGFloat
-    let center: Center
-
-    public init(progress: Double, color: Color, lineWidth: CGFloat = 8, @ViewBuilder center: () -> Center) {
-        self.progress = progress
-        self.color = color
-        self.lineWidth = lineWidth
-        self.center = center()
-    }
-
-    public var body: some View {
-        ZStack {
-            Circle()
-                .stroke(AppTheme.fill, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: max(0, min(1, progress)))
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.6), value: progress)
-            center
-        }
-    }
-}
-
-/// A small stat card: a bold value, a gray label, and a ring with an
-/// icon underneath.
-public struct RingStatCard: View {
-    let value: String
-    let label: String
-    let progress: Double
-    let color: Color
-    let systemImage: String
-    /// One line saying what the number means or what tapping does.
-    let caption: String?
-
-    public init(value: String, label: String, progress: Double, color: Color, systemImage: String, caption: String? = nil) {
-        self.value = value
-        self.label = label
-        self.progress = progress
-        self.color = color
-        self.systemImage = systemImage
-        self.caption = caption
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text(label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                if let caption {
-                    Text(caption)
-                        .font(.caption2)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .lineLimit(2, reservesSpace: true)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 2)
-                }
-            }
-            RingView(progress: progress, color: color, lineWidth: 6) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-            .frame(width: 58, height: 58)
-            .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 14)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)" + (caption.map { ". \($0)" } ?? ""))
     }
 }
 

@@ -550,6 +550,19 @@ struct TellView: View {
 
     // MARK: Apply
 
+    /// "Practice was hard": a practice log for that day (effort only; how it
+    /// went stays unsaid until the athlete adds it). An existing log keeps
+    /// everything the athlete wrote; only its effort follows what they said.
+    private func logToldPractice(on date: Date, level: Int) {
+        guard let sport = athlete.activeSport?.sportSlug ?? athlete.sports.first?.sportSlug else { return }
+        let day = DayKey.of(date)
+        let hard = level >= 3 ? 4 : level <= 1 ? 2 : 3
+        var log = PracticeLogStore.log(on: day, sportSlug: sport)
+            ?? PracticeLog(day: day, sportSlug: sport, types: [], hard: hard, went: 0, mood: 0, note: "Told AthleteOS")
+        log.hard = hard
+        PracticeLogStore.save(log)
+    }
+
     /// The check-in's "What's on today?" answer for that day, kept in step with what
     /// was told after it (the engine reads that answer first): practice on or off,
     /// how hard it was, a game. Nothing when the day has no answer.
@@ -711,6 +724,8 @@ struct TellView: View {
                 AthleteContextStore.add(event)
                 exposures[calendar.startOfDay(for: date)] = event.id
                 markSaidDay(date, intensity: level >= 3 ? .hard : level <= 1 ? .light : .normal)
+                // Saved as a practice too, so the training calendar and the twin see it (owner, 2026-11-26).
+                logToldPractice(on: date, level: level)
             case .workout(let date, let patterns, let qualities, let names, let level, let minutes):
                 // Saved as training (Training History, "Training done", body map), and as context for the plan.
                 HealthWorkoutInbox.logTold(day: date, names: names, patterns: patterns, qualities: qualities, level: level,

@@ -5,7 +5,7 @@ import SwiftUI
 /// Development Goals, then grouped menu cards whose rows open focused edit
 /// sheets — training setup, health and safety, team and family, settings,
 /// subscription, your data and the account. Trends, tests and exercise
-/// progress live in the Academy (Progress → Trends, Performances).
+/// progress live in the Academy (Twin → Trends, Performances) and the training calendar in Workout.
 struct MeView: View {
     let athlete: Athlete
     let onPlanInputsChanged: () -> Void

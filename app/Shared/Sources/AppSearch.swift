@@ -41,7 +41,7 @@ enum AppSearchTarget: Hashable {
     case sports, season, equipment, experience, name, checkIns, exerciseProgress, dataExport
     case reminders, health, help, team, coach, parent, goals, trends, library, sportGuide
     case upgrade, support
-    case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
+    case skillPlans, planSettings, newWorkout, addWithCode, addTraining, calendars
     case sportPosition
     case skill(String)
     case link(String)
@@ -81,7 +81,7 @@ enum AppSearch {
     /// Everything the app can do, in the words athletes use for it.
     static var functions: [AppSearchEntry] { [
         function("Morning check-in", "Sleep, energy, soreness, pain, mood", "sun.max.fill", ["readiness", "sleep", "energy", "sore", "soreness", "pain", "mood", "stress", "morning"], .checkIn),
-        function("Log a workout", "Start an empty workout and log sets", "plus.circle.fill", ["log", "record", "track", "sets", "reps", "weights", "start", "workout"], .logWorkout),
+        function("Log a workout", "Tell AthleteOS what you did", "plus.circle.fill", ["log", "record", "track", "sets", "reps", "weights", "start", "workout"], .logWorkout),
         function("Log practice", "How practice went, effort and mood", "person.3.fill", ["practice", "team", "training", "effort", "mood", "log"], .practiceLog),
         function("Add a game", "Games, tournaments and meets", "sportscourt.fill", ["add game", "match", "tournament", "meet", "race", "event"], .addGame),
         function("Competitions", "Your next game, results and record", "trophy.fill", ["competition", "competitions", "games", "results", "record", "score", "chance"], .competitions),
@@ -98,7 +98,7 @@ enum AppSearch {
         function("Academy", "Your digital twin, insights and briefings", "figure.stand.line.dotted.figure.stand", ["academy", "twin", "digital twin", "insights", "briefings", "personal best", "pr", "performances"], .tab(.academy)),
         function("Need to talk to someone?", "A helpline for your country", "bubble.left.and.bubble.right.fill", ["talk", "helpline", "crisis", "kummer", "someone to talk to"], .support),
         function("Workout", "After practice, gym day, mobility, travel", "figure.strengthtraining.traditional", ["workout", "train", "gym", "plan", "exercise"], .tab(.workout)),
-        function("Progress", "Calendar, practice log and history", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
+        function("Training calendar", "Calendar, practice log and history", "calendar", ["progress", "calendar", "week", "month", "stats"], .tab(.progress)),
         function("Me", "Profile and settings", "person.fill", ["me", "profile", "settings", "account"], .tab(.me)),
         function("Sports", "Switch, change or add a sport", "sportscourt.fill", ["sport", "sports", "position", "switch", "change", "add"], .sports),
         function("Season dates", "When your season starts and ends", "calendar", ["season", "dates", "off-season", "in-season", "preseason"], .season),
@@ -121,12 +121,11 @@ enum AppSearch {
         function("Help & app tour", "How the app works", "questionmark.circle.fill", ["help", "tour", "faq", "support", "how"], .help),
         function("AthleteOS Pro", "What Pro adds", "star.fill", ["pro", "upgrade", "subscription", "premium", "pay"], .upgrade),
         function("Skill plans", "A dated plan to get better at one skill", "scope", ["skill", "skills", "improve", "get better", "technique", "plan", "block"], .skillPlans),
-        function("Muscle workouts", "Build a workout by muscle group", "figure.stand", ["muscle", "muscles", "body part", "arms", "legs", "chest", "back", "abs", "core", "glutes", "shoulders"], .muscleWorkouts),
         function("Plan settings", "Gym days per week and session length", "slider.horizontal.3", ["plan settings", "days per week", "sessions", "how long", "minutes", "free time", "schedule"], .planSettings),
         function("New workout", "Build your own workout", "plus.rectangle.on.rectangle", ["new workout", "create", "my workout", "own", "custom", "build"], .newWorkout),
         function("Add a workout with a code", "From a teammate or coach", "qrcode.viewfinder", ["code", "qr", "import", "shared", "share", "teammate"], .addWithCode),
         function("Share a workout", "Send one of your workouts with a code", "square.and.arrow.up", ["share", "send", "code", "qr", "friend"], .tab(.workout)),
-        function("Add a training", "An extra team session", "plus.circle", ["extra", "training", "session", "team", "add"], .addTraining),
+        function("Add a training", "Tell AthleteOS about an extra session", "plus.circle", ["extra", "training", "session", "team", "add"], .addTraining),
         function("Team & school calendars", "Connect TeamSnap, Google or Apple", "link", ["calendar", "teamsnap", "google", "apple", "school", "sync", "import", "exams"], .calendars),
         function("Sport & position", "Your sport, position and format", "sportscourt.fill", ["position", "role", "format", "sport", "goalkeeper"], .sportPosition),
         function("Weight units", "kg or lb — in Me, Settings", "scalemass", ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial"], .tab(.me)),

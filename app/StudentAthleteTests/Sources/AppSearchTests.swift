@@ -43,7 +43,6 @@ final class AppSearchTests: XCTestCase {
         XCTAssertEqual(first("equipment"), .equipment)
         XCTAssertEqual(first("remindrs"), .reminders, "a typo still finds it")
         XCTAssertEqual(first("skill plan"), .skillPlans)
-        XCTAssertEqual(first("muscle workout"), .muscleWorkouts)
         XCTAssertEqual(first("teamsnap"), .calendars)
         XCTAssertTrue(AppSearch.rank(AppSearch.functions, query: "zzqx").isEmpty)
     }

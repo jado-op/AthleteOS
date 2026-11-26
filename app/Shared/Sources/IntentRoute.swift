@@ -15,6 +15,11 @@ public enum IntentRoute: String, Sendable {
     }
 
     /// The words Siri brought, once.
+    /// Tell AthleteOS opened from inside the app with a sentence started.
+    public static func prefillTell(_ text: String) {
+        UserDefaults.standard.set(text, forKey: tellKey)
+    }
+
     public static func takeTellText() -> String? {
         defer { UserDefaults.standard.removeObject(forKey: tellKey) }
         return UserDefaults.standard.string(forKey: tellKey).flatMap { $0.isEmpty ? nil : $0 }

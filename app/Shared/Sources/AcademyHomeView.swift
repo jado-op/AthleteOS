@@ -78,6 +78,8 @@ struct AcademyHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var openLift: LiftTrend?
     @State private var showingTests = false
+    /// The last 30 days, sleep and load over time: the twin's one Trends page.
+    @State private var showingTrends = false
     @State private var showingExerciseProgress = false
     @State private var showingExerciseProgressPaywall = false
     @State private var catalogue = Catalogue()
@@ -195,6 +197,7 @@ struct AcademyHomeView: View {
             IntakeInterviewView(sportSummary: meta, sportSlug: sportSlug, startAt: interviewStart)
         }
         .sheet(isPresented: $showingSupport) { SupportSheet() }
+        .sheet(isPresented: $showingTrends) { TrendsSheet(athlete: athlete, sessions: athlete.sessions) }
         .sheet(isPresented: $showingTests, onDismiss: reload) {
             BenchmarksView(sportSlug: sportSlug)
         }
@@ -303,6 +306,10 @@ struct AcademyHomeView: View {
                 SleepReadinessWidget(nights: sleepNights, days: readinessDays,
                                      fromWatch: UserDefaults.standard.bool(forKey: "sleep.fromHealth"))
             }
+            Button { showingTrends = true } label: {
+                ListRow(systemImage: "chart.xyaxis.line", color: AuraTone.body.mark, title: "Trends", detail: "The last 30 days, sleep and load")
+            }
+            .buttonStyle(.pressable)
             insightCards([.recovery, .fuel])
         }
     }

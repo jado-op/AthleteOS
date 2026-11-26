@@ -54,25 +54,18 @@ struct ImproveView: View {
     let apiClient: APIClient
     let onPlanInputsChanged: () -> Void
 
-    enum Mode: String, CaseIterable {
-        case skill = "Get better at a skill"
-        case muscles = "Train a muscle group"
-    }
-
     @Query(sort: \SkillBlock.generatedAt, order: .reverse) private var allSkillBlocks: [SkillBlock]
     @Environment(\.modelContext) private var modelContext
     @State private var blockPendingDelete: SkillBlock?
     @State private var path: [ImproveRoute] = []
     @State private var searchText = ""
-    @State private var mode: Mode = .skill
 
-    /// Opened from search: straight to muscle workouts, or to one skill's plan.
+    /// Opened from search: straight to one skill's plan.
     init(athlete: Athlete, apiClient: APIClient, onPlanInputsChanged: @escaping () -> Void,
-         initialMode: Mode = .skill, initialSkillSlug: String? = nil) {
+         initialSkillSlug: String? = nil) {
         self.athlete = athlete
         self.apiClient = apiClient
         self.onPlanInputsChanged = onPlanInputsChanged
-        _mode = State(initialValue: initialMode)
         _path = State(initialValue: initialSkillSlug.map { [.setup(skillSlug: $0)] } ?? [])
     }
 
@@ -102,17 +95,10 @@ struct ImproveView: View {
                     if !savedBlocks.isEmpty {
                         savedSection
                     }
-                    SectionHeader("What do you want to improve?", subtitle: "Choose one.")
-                    modePicker
-                    if mode == .skill {
-                        howItWorks
-                        searchField
-                        skillGrid
-                    } else {
-                        TipCard(id: "muscles", icon: "figure.stand", title: "Build a workout by muscle",
-                                message: "Pick what to train and how long you have.")
-                        MuscleBuilderView(athlete: athlete, apiClient: apiClient)
-                    }
+                    SectionHeader("What do you want to improve?", subtitle: "Choose one skill.")
+                    howItWorks
+                    searchField
+                    skillGrid
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -136,44 +122,6 @@ struct ImproveView: View {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    /// Two big, self-explaining choices instead of a small toggle.
-    private var modePicker: some View {
-        HStack(spacing: 12) {
-            ForEach(Mode.allCases, id: \.self) { value in
-                let selected = mode == value
-                Button {
-                    withAnimation(.snappy) { mode = value }
-                } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Image(systemName: value == .skill ? "target" : "figure.strengthtraining.traditional")
-                            .font(.system(size: 20, weight: .semibold))
-                        Text(value == .skill ? "A skill" : "Muscles")
-                            .font(.headline)
-                        Text(value == .skill ? "Like shooting or first-step speed. You get a day-by-day plan up to your next game." : "Pick body areas. You get one workout to do right now.")
-                            .font(.caption)
-                            .foregroundStyle(selected ? AppTheme.ink.opacity(0.85) : AppTheme.secondaryText)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundStyle(AppTheme.ink)
-                    .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-                    .padding(16)
-                    // V8: the chosen one is the training (ember) card; the other a quiet plate.
-                    .background(AuraBackground(selected ? .training : .calm, focus: UnitPoint(x: 0.2, y: 0.25), radius: 150))
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .strokeBorder(Color.white.opacity(selected ? 0.14 : 0.07), lineWidth: 1)
-                    }
-                }
-                .buttonStyle(.pressable)
-                .accessibilityLabel(value == .skill ? "Improve a skill" : "Train muscles")
-                .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
     }

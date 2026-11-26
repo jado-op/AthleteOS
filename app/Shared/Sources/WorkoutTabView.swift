@@ -17,7 +17,6 @@ struct WorkoutTabView: View {
     @State private var preview: PreviewBox?
     @State private var showingGym = false
     @State private var showingImprove = false
-    @State private var showingMuscles = false
     @State private var showingLibrary = false
     @ObservedObject private var navigation = WorkoutNavigation.shared
     /// The recommended session's exercises, opened from the card (details one tap away).
@@ -99,22 +98,26 @@ struct WorkoutTabView: View {
             if TodayEngine.workoutDone(athlete) {
                 return (.mobility, "Training's done for today. If you want more, keep it to a few easy minutes of mobility.")
             }
-            // The athlete's own word from the check-in wins over the schedule.
-            if let said = TodayEngine.said(on: .now) {
-                if said.choices.contains(.rest) { return (nil, "You chose a rest day. Rest is part of the plan.") }
-                if said.choices.contains(.game) { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
-                if said.choices.contains(.light), !said.choices.contains(.gym) { return (.mobility, "You asked for something light today.") }
-                if said.choices.contains(.gym), !said.choices.contains(.practice), let day = engineDay {
-                    return (.gymDay, day.explanation?.summary ?? "You said: gym today.")
-                }
-            }
-            if gameToday != nil { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
-            if practiceToday { return (.afterPractice, "You have practice today, so the gym work is short.") }
-            if gymSession?.isToday == true { return (.gymDay, "No team practice today, so this is your main session.") }
-            // The engine may still want a primer, recovery or conditioning day
-            // (the same session Home shows).
-            if let day = engineDay { return (.gymDay, day.explanation?.summary ?? "Today's session, built around your week.") }
+            // The same decision Home, the Watch and the widgets show.
+            if let pick { return (pick.mode, pickReason(for: pick)) }
+            if TodayEngine.said(on: .now)?.choices.contains(.rest) == true { return (nil, "You chose a rest day. Rest is part of the plan.") }
+            if TodayEngine.gameOn(athlete, date: .now) { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
             return (.mobility, "A rest day: a few minutes of movement keeps you fresh.")
+        }
+    }
+
+    /// Today's main workout: the one decision every screen shows.
+    private var pick: (mode: WorkoutMode, session: GeneratedSession)? {
+        TodayEngine.todaysPick(athlete: athlete, week: week, catalogue: catalogue)
+    }
+
+    private func pickReason(for pick: (mode: WorkoutMode, session: GeneratedSession)) -> String {
+        if let summary = pick.session.explanation?.summary { return summary }
+        switch pick.mode {
+        case .afterPractice: return "You have practice today, so the gym work is short."
+        case .mobility: return "You asked for something light today."
+        case .travel: return "A short workout you can do anywhere, only if you feel like it."
+        case .gymDay: return "No team practice today, so this is your main session."
         }
     }
 
@@ -225,9 +228,6 @@ struct WorkoutTabView: View {
                     startAfterImport = workout
                 })
             }
-            .sheet(isPresented: $showingMuscles) {
-                ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialMode: .muscles)
-            }
             .sheet(isPresented: $showingImprove) {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
             }
@@ -248,23 +248,18 @@ struct WorkoutTabView: View {
         return session(for: mode)
     }
 
-    /// On a day without practice or a planned gym day: what the engine
-    /// builds (a primer before a game, recovery, conditioning), as on Home.
-    private var engineDay: GeneratedSession? {
-        guard status == .active, gameToday == nil, !practiceToday, gymSession?.isToday != true,
-              TodayEngine.isAvailable(catalogue) else { return nil }
-        return TodayEngine.session(nil, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, plannedGymDay: false)
-    }
-
+    /// A workout of this kind for today: today's pick when it is this kind,
+    /// otherwise the kind built on its own (the "Other workouts" tiles).
     private func session(for mode: WorkoutMode) -> GeneratedSession? {
+        if let pick, pick.mode == mode { return pick.session }
         switch mode {
-        case .gymDay: engineDay ?? gymSession?.session
+        case .gymDay: return gymSession?.session
         case .afterPractice:
-            TodayEngine.workout(.afterPractice, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
-                                plannedGymDay: gymSession?.isToday == true).map { adjusted($0) }
+            return TodayEngine.workout(.afterPractice, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
+                                       plannedGymDay: gymSession?.isToday == true).map { adjusted($0) }
         case .mobility, .travel:
-            TodayEngine.workout(mode, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
-                                plannedGymDay: gymSession?.isToday == true).map { $0.decision != nil ? $0 : TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
+            return TodayEngine.workout(mode, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
+                                       plannedGymDay: gymSession?.isToday == true).map { $0.decision != nil ? $0 : TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
         }
     }
 
@@ -318,7 +313,7 @@ struct WorkoutTabView: View {
                 .accessibilityAddTraits(.isHeader)
             Text(status == .active && TodayEngine.workoutDone(athlete) ? "Training done"
                  : recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
-                 : (rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
+                 : (rec.mode.map { $0 == .gymDay ? (recommendedSession?.title ?? gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
                 .font(.system(size: 38, weight: .semibold))
                 .tracking(-1)
                 .foregroundStyle(AppTheme.ink)
@@ -692,10 +687,6 @@ struct WorkoutTabView: View {
             VStack(spacing: 4) {
                 Button { showingImprove = true } label: {
                     ListRow(systemImage: "target", color: AppTheme.ink, title: "Skill plans")
-                }
-                .buttonStyle(.pressable)
-                Button { showingMuscles = true } label: {
-                    ListRow(systemImage: "figure.strengthtraining.traditional", color: AppTheme.ink, title: "Muscle workouts")
                 }
                 .buttonStyle(.pressable)
                 Button { showingLibrary = true } label: {

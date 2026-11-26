@@ -178,48 +178,6 @@ public struct BigFigure: View {
     }
 }
 
-/// A small coloured tile: a label, a big value, a word — tap to open it.
-public struct MetricTile: View {
-    let tone: AuraTone
-    let label: String
-    let value: String
-    let unit: String
-    let note: String?
-
-    public init(_ tone: AuraTone, label: String, value: String, unit: String = "", note: String? = nil) {
-        self.tone = tone
-        self.label = label
-        self.value = value
-        self.unit = unit
-        self.note = note
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(label)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.ink.opacity(0.8))
-                .lineLimit(1)
-            Spacer(minLength: 10)
-            HStack(alignment: .lastTextBaseline) {
-                BigFigure(value, unit: unit, size: 34)
-                Spacer(minLength: 4)
-                if let note {
-                    Text(note)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.75))
-                        .lineLimit(1)
-                }
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-        .background(AuraBackground(tone, focus: UnitPoint(x: 0.8, y: 0.75), radius: 110))
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// A section label (V8): one short bold title, a quiet detail on the right — no number, no hairline.
 public struct SectionLabel<Trailing: View>: View {
     let title: String

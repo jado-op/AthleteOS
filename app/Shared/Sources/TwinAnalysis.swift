@@ -590,7 +590,8 @@ public enum TwinAnalysis {
     static func sleepAffectsPractice(_ c: Context) -> TwinInsight? {
         var short: [Double] = [], long: [Double] = []
         var points: [TwinPoint] = []
-        for practice in c.input.practices where practice.date >= c.start && practice.date <= c.input.now {
+        // went 0: a practice told in a sentence, how it went not said.
+        for practice in c.input.practices where practice.date >= c.start && practice.date <= c.input.now && practice.went > 0 {
             guard let hours = c.mornings.first(where: { c.calendar.isDate($0.date, inSameDayAs: practice.date) })?.sleepHours else { continue }
             if hours < 7.5 { short.append(Double(practice.went)) } else { long.append(Double(practice.went)) }
             points.append(TwinPoint(date: practice.date, value: Double(practice.went), marked: hours < 7.5))

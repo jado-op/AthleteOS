@@ -118,7 +118,7 @@ struct AppTourView: View {
              steps: ["Check in each morning — 30 seconds", "Do the next step at the top", "Type \u{201C}match on Saturday\u{201D} into Tell AthleteOS"]),
         Page(icon: "figure.stand.line.dotted.figure.stand", color: AppTheme.brightRed, tab: "Academy",
              title: "Your digital twin",
-             body: "Your twin reads your check-ins, training, games and tests, and an interview about how you think. It shows what's really going on, holds your best performances, and your coach assigns a briefing for each thing it finds. Switch to Progress for your calendar, practice log and history. Only you can see it.",
+             body: "Your twin reads your check-ins, training, games and tests, and an interview about how you think. It shows what's really going on, holds your best performances, and your coach assigns a briefing for each thing it finds. Trends live under “How are you changing?”. Only you can see it.",
              steps: ["Do the interview — about five minutes", "Read the coach's read and your insights", "Add any performance you want to track"]),
         Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",
              title: "Three kinds of workout",
@@ -309,17 +309,17 @@ struct HelpCenterView: View {
 
     private let faqs: [(q: String, a: String)] = [
         ("How do I start a workout?",
-         "Home → the next step, or the Workout tab: today's workout is on top, the other workouts below. You can also start any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
+         "Home → the next step, or the Workout tab: today's workout is on top, the other workouts below. You can also start any day of a skill plan, or a single exercise from the Library (Try it now)."),
         ("What happens during a workout?",
          "You see one exercise at a time with its key positions. Set the reps or weight with the big buttons, tap Log set, and a rest timer starts on its own. Swipe or tap Next when you're done with an exercise. Tap × to finish."),
         ("Why did my workout change?",
          "If your morning check-in shows poor sleep or high soreness, workouts get lighter. You can always switch back to the full ones."),
         ("How do games change my week?",
-         "Add it with the + on Home, the trophy on Home (your games, results and game prep), or just tell AthleteOS (“game on Saturday”). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
+         "Tell AthleteOS (“game on Saturday”), or use the trophy on Home (your games, results and game prep). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
         ("What do the colours in the calendar mean?",
-         "Violet: a workout. Orange: team practice. Yellow: the extra workout after practice. Cyan: stretching and mobility. Green: a game. A day with several gets a split dot; outlined means planned; a ring marks a game."),
+         "Orange: a workout. Blue: team practice. Yellow: the extra workout after practice. Cyan: stretching and mobility. Green: a game. A day with several gets a split dot; outlined means planned; a ring marks a game."),
         ("How do I log team practice?",
-         "Academy → Progress → Team practice → Log today's practice, or tap an earlier day in the calendar. Choose Easy (how hard, how it went, mood) or Exact (also tired muscles and how each part of your game went)."),
+         "Tell AthleteOS (“practice was hard”), or Workout → Training calendar → Team practice → Log today's practice, or tap an earlier day in the calendar. Choose Easy (how hard, how it went, mood) or Exact (also tired muscles and how each part of your game went)."),
         ("How do I get better at one skill?",
          "Workout → Build and explore → Skill plans → choose a skill → set the date → Build my plan. Its drills then show on Home and Workout."),
         ("How do I make workouts more personal?",
@@ -529,22 +529,6 @@ struct ProLockCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 16)
         .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: feature)
-    }
-}
-
-/// Start dates of muscle-group workouts, for the free weekly allowance.
-enum MuscleWorkoutLedger {
-    private static let key = "muscleWorkoutStarts"
-
-    static var dates: [Date] {
-        (UserDefaults.standard.string(forKey: key) ?? "")
-            .split(separator: ",")
-            .compactMap { Double($0).map(Date.init(timeIntervalSince1970:)) }
-    }
-
-    static func record(_ date: Date = .now) {
-        let recent = dates.filter { $0 > date.addingTimeInterval(-60 * 60 * 24 * 60) } + [date]
-        UserDefaults.standard.set(recent.map { String($0.timeIntervalSince1970) }.joined(separator: ","), forKey: key)
     }
 }
 

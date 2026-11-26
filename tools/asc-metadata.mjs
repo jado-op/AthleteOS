@@ -53,7 +53,7 @@ BUILT AROUND YOUR SCHEDULE
 • 60 sports with their formats and positions — soccer, football, basketball, volleyball, track, swimming, hockey, wrestling, lacrosse and many more
 
 GET BETTER AT YOUR SPORT
-• Pick a skill and your next game date for a day-by-day plan, or build a workout by muscle
+• Pick a skill and your next game date for a day-by-day plan
 • 700+ exercises and drills with animated how-tos
 • Tests every 6–8 weeks: vertical jump filmed with your camera, 10 m and 30 m sprint, plank, push-ups and a test for your sport — see real improvement
 
@@ -82,7 +82,7 @@ PRIVATE BY DESIGN
 • Log out any time, or delete your account for good
 
 ATHLETEOS PRO
-The check-in, weekly plan, logging, Campus and the Apple Watch app are free. Pro unlocks unlimited skill plans and muscle workouts, several sports and every progress chart. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
+The check-in, weekly plan, logging, Campus and the Apple Watch app are free. Pro unlocks unlimited skill plans, several sports and every progress chart. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
 
 AthleteOS gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, never clears anyone to return to play, and never replaces a coach, athletic trainer or doctor.
 

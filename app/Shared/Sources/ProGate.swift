@@ -15,7 +15,6 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case fullSeasonCalendar
     case dataExport
     case multipleSports
-    case muscleWorkouts
     case exerciseProgress
     case shareWorkouts
     /// Free: swap exercises and set the week. Pro: change everything.
@@ -52,7 +51,6 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .fullSeasonCalendar: "Full season calendar, tournaments and multi-game weeks"
         case .dataExport: "Export all your data"
         case .multipleSports: "Play several sports — switch between them any time"
-        case .muscleWorkouts: "Unlimited muscle-group workouts"
         case .exerciseProgress: "Progress charts for every exercise"
         case .shareWorkouts: "Share your workouts with a code, link or QR code"
         case .workoutEditor: "Change every exercise, set and rep in your plan"
@@ -87,7 +85,6 @@ public extension ProFeature {
         case .coachWorkouts: "Coach tools"
         case .coachNotes: "More notes"
         case .skillBlocks: "More skill plans"
-        case .muscleWorkouts: "More muscle workouts"
         case .multipleSports: "Several sports"
         case .exerciseProgress: "Exercise progress"
         case .dataExport: "Data export"
@@ -125,8 +122,6 @@ public enum ProLimits {
     public static let freeDownloadedSports = 1
     /// Sports on a free account; more than one is Pro.
     public static let freeSports = 1
-    /// Muscle-group workouts a free athlete can start per calendar week.
-    public static let freeMuscleWorkoutsPerWeek = 1
     /// Times a free athlete can change their sport per calendar month.
     public static let freeSportSwitchesPerMonth = 3
     /// New Campus lessons a free athlete can start per day (replays and reviews don't count).
@@ -200,16 +195,6 @@ public enum ProGate {
         guard !isPro else { return nil }
         let thisMonth = switchDates.filter { calendar.isDate($0, equalTo: now, toGranularity: .month) }.count
         return max(0, ProLimits.freeSportSwitchesPerMonth - thisMonth)
-    }
-
-    /// Muscle workouts started this calendar week count toward the free
-    /// allowance. `nil` means unlimited.
-    public static func remainingMuscleWorkouts(
-        isPro: Bool, startDates: [Date], now: Date = .now, calendar: Calendar = .current
-    ) -> Int? {
-        guard !isPro else { return nil }
-        let thisWeek = startDates.filter { calendar.isDate($0, equalTo: now, toGranularity: .weekOfYear) }.count
-        return max(0, ProLimits.freeMuscleWorkoutsPerWeek - thisWeek)
     }
 
     /// New Campus lessons left today on free. `nil` means unlimited.

@@ -9,9 +9,6 @@ import SwiftUI
 struct TrendsSheet: View {
     let athlete: Athlete
     let sessions: [Session]
-    /// Opens the twin (Progress only; the Academy's other page).
-    var onOpenTwin: (() -> Void)? = nil
-
     @Environment(\.dismiss) private var dismiss
 
     private var thirtyDays: ThirtyDays {
@@ -90,22 +87,6 @@ struct TrendsSheet: View {
         return VStack(alignment: .leading, spacing: 14) {
             // V8: the 30 days in one sentence — the numbers in white, the words between them dimmed.
             Headline(headline(summary), size: 32)
-            if let onOpenTwin {
-                Button {
-                    dismiss()
-                    onOpenTwin()
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("What your twin sees in them")
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AuraTone.mind.mark)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.pressable)
-            }
         }
     }
 }

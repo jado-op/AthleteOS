@@ -65,8 +65,6 @@ struct HomeView: View {
     @State private var revision = 0
     /// "Sick, travelling or on holiday?" tapped in the Today sheet: the day-status sheet opens once it has closed.
     @State private var openDayStatusNext = false
-    #if os(iOS)
-    #endif
     /// The widget being held while arranging, and where the board is in reordering it.
 
     /// The Health workout `WorkoutCheckSheet` asks about.
@@ -74,7 +72,7 @@ struct HomeView: View {
     @State private var checkStartStep: WorkoutCheckSheet.Step = .effort
 
     enum HomeSheet: String, Identifiable {
-        case checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
+        case checkIn, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
         /// "How hard was it, what did it train?" after a workout from Apple Health.
         case workoutCheck
         var id: String { rawValue }
@@ -144,37 +142,9 @@ struct HomeView: View {
         memo.workout = buildTodaysWorkout()
     }
 
+    /// The one decision every screen shows (`TodayEngine.todaysPick`).
     private func buildTodaysWorkout() -> (mode: WorkoutMode, session: GeneratedSession)? {
-        // No added training when the rules say so (game near, illness, pain…).
-        guard planning.decision.allowsAddedTraining else { return nil }
-        switch status {
-        case .sick, .concussion: return nil
-        case .travel, .holiday:
-            return engine(.travel).map { (mode: WorkoutMode.travel, session: $0) }
-        case .active:
-            // The athlete's word on today ("What's on today?") wins over the schedule.
-            let said = TodayEngine.said(on: .now)
-            if TodayEngine.gameOn(athlete, date: .now) { return nil }
-            if said?.choices.contains(.rest) == true { return nil }
-            if let said, said.choices.contains(.light), !said.choices.contains(.gym) {
-                return engine(.mobility).map { (mode: WorkoutMode.mobility, session: $0) }
-            }
-            if practiceToday {
-                return engine(.afterPractice).map { (mode: WorkoutMode.afterPractice, session: $0) }
-            }
-            let planned = week?.sessions.first(where: { calendar.isDateInToday($0.date) })
-            // The athlete's own version of this gym day stays exactly theirs.
-            if let planned, let slot = planned.slot, PlanCustomizationStore.load().workout(for: .gym(slot)) != nil {
-                return (mode: WorkoutMode.gymDay, session: adjusted(planned))
-            }
-            // V6: the engine decides — a development day, a primer before a
-            // game, recovery, a programmed conditioning day, or rest.
-            if TodayEngine.isAvailable(catalogue) {
-                return TodayEngine.session(nil, athlete: athlete, sessions: allSessions, catalogue: catalogue, plannedGymDay: planned != nil)
-                    .map { (mode: WorkoutMode.gymDay, session: $0) }
-            }
-            return planned.map { (mode: WorkoutMode.gymDay, session: adjusted($0)) }
-        }
+        TodayEngine.todaysPick(athlete: athlete, sessions: allSessions, week: week, catalogue: catalogue)
     }
 
     /// A workout of this kind for today: the athlete's own version, the V6
@@ -411,7 +381,8 @@ struct HomeView: View {
                                                minutes: 52, source: .watch, notes: "Strength training · from your Apple Watch")
                         checkStartStep = name.hasSuffix("Done") ? .done : name.hasSuffix("Trained") ? .trained : .effort
                     }
-                    activeSheet = name.hasPrefix(HomeSheet.workoutCheck.rawValue) ? .workoutCheck : HomeSheet(rawValue: name)
+                    if name == "addGame" { openHub(.addGame) }
+                    else { activeSheet = name.hasPrefix(HomeSheet.workoutCheck.rawValue) ? .workoutCheck : HomeSheet(rawValue: name) }
                 }
                 loaded = true
                 askAboutHealthWorkout()
@@ -429,9 +400,6 @@ struct HomeView: View {
                 switch sheet {
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
-                case .addGame:
-                    // The one add-a-game form lives in the Competitions hub.
-                    CompetitionHubView(athlete: athlete, onChanged: onPlanInputsChanged, opening: .addGame)
                 case .history:
                     SessionHistoryView()
                 case .dayStatus:
@@ -542,7 +510,8 @@ struct HomeView: View {
         pendingSearch = nil
         switch target {
         case .checkIn: activeSheet = .checkIn
-        case .addGame: activeSheet = .addGame
+        // The one add-a-game form lives in the Competitions hub.
+        case .addGame: openHub(.addGame)
         case .history: activeSheet = .history
         case .dayStatus: activeSheet = .dayStatus
         case .schedule: activeSheet = .schedule
@@ -553,7 +522,13 @@ struct HomeView: View {
         case .competitions: openHub(.overview)
         case .gamePrep: openHub(.gamePrep)
         case .tests: activeSheet = .tests
-        case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
+        // One door for input (owner, 2026-11-26): adding goes through Tell AthleteOS.
+        case .logWorkout:
+            IntentRoute.prefillTell("I did a workout: ")
+            showingTell = true
+        case .addTraining:
+            IntentRoute.prefillTell("Extra practice on ")
+            showingTell = true
         case .tab(let tab): selectedTab = tab
         case .lesson(let id):
             CampusLaunch.shared.pendingLessonID = id
@@ -611,7 +586,7 @@ struct HomeView: View {
         case .exerciseProgress: ExerciseProgressListView(sessions: allSessions, catalogue: catalogue)
         case .dataExport: DataExportView(athlete: athlete, sessions: allSessions)
         case .reminders: RemindersSheet(athlete: athlete)
-        case .health: HealthPermissionView()
+        case .health: HealthConnectionView()
         case .help: HelpCenterView()
         case .team: MyTeamView()
         case .coach: CoachView()
@@ -624,8 +599,6 @@ struct HomeView: View {
         case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
         case .skill(let slug):
             ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialSkillSlug: slug)
-        case .muscleWorkouts:
-            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialMode: .muscles)
         case .planSettings: PlanSettingsSheet(onChanged: onPlanInputsChanged)
         case .newWorkout:
             WorkoutEditorView(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []),
@@ -636,7 +609,6 @@ struct HomeView: View {
             SharedWorkoutSheet(onSaved: { MyWorkoutsStore.upsert($0) }, onStart: { workout in
                 pendingLive = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
             })
-        case .addTraining: ExtraPracticeSheet { onPlanInputsChanged() }
         case .calendars: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
         case .sportPosition: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
         default: EmptyView()
@@ -775,10 +747,6 @@ struct HomeView: View {
     private var firstName: String? {
         guard let name = athlete.displayName?.split(separator: " ").first, !name.isEmpty else { return nil }
         return String(name)
-    }
-
-    private var greeting: String {
-        firstName.map { "\(phase.greeting), \($0)" } ?? phase.greeting
     }
 
     // MARK: - The part of the day (V4)

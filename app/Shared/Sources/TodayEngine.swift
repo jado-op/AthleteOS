@@ -388,45 +388,63 @@ enum TodayEngine {
         }
     }
 
-    /// Today's main workout, the way Home picks it — for the Watch and the
-    /// widgets, so every screen shows the same session. Nil: rest or no plan.
-    static func todaysWorkout(athlete: Athlete, week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar = .current) -> GeneratedSession? {
+    /// Today's main workout: one decision for Home, the Workout tab, the
+    /// Watch and the widgets, so every screen shows the same session (owner,
+    /// 2026-11-26: "one brain"). Nil: no added training today (rules, sick,
+    /// a game, a rest day the athlete chose). Callers add only their own extras
+    /// (the Workout tab offers mobility on a rest day; Home shows "Training done").
+    static func todaysPick(athlete: Athlete, sessions: [Session]? = nil, week: GeneratedWeek?, catalogue: Catalogue,
+                           calendar: Calendar = .current) -> (mode: WorkoutMode, session: GeneratedSession)? {
+        let sessions = sessions ?? athlete.sessions
         let status = DayStatusStore.status()
         let said = Self.said(on: .now, calendar: calendar)
         guard status != .sick, status != .concussion, !gameOn(athlete, date: .now, calendar: calendar),
               said?.choices.contains(.rest) != true else { return nil }
-        // The same rules gate as Home (e.g. head pain: no added training on the Watch either).
-        guard PlanningRules.today(athlete, sessions: athlete.sessions).decision.allowsAddedTraining else { return nil }
+        // The safety rules first (e.g. head pain: no added training anywhere).
+        guard PlanningRules.today(athlete, sessions: sessions).decision.allowsAddedTraining else { return nil }
         let planned = week?.sessions.first { calendar.isDateInToday($0.date) }
-        let sessions = athlete.sessions
+        let context = modeContext(athlete, catalogue: catalogue)
+        // Old packs without exercise profiles: the previous builder, with today's pain and readiness.
         func old(_ session: GeneratedSession) -> GeneratedSession {
+            if session.decision != nil { return session }
             let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
-            guard let band = DailyLoop.todayBand(athlete) else { return safe }
+            guard !ReadinessOverride.isOn(.now, calendar: calendar), let band = DailyLoop.todayBand(athlete) else { return safe }
             return ReadinessApplier.apply(to: safe, band: band).session
         }
-        // The athlete's own version of a workout wins, as on Home (`workout(_:)`).
-        func mine(_ mode: WorkoutMode) -> GeneratedSession? {
-            guard let custom = PlanCustomizationStore.load().workout(for: .mode(mode)), !custom.items.isEmpty else { return nil }
-            return custom.session(date: .now, catalogue: catalogue)
+        func built(_ mode: WorkoutMode) -> (mode: WorkoutMode, session: GeneratedSession)? {
+            workout(mode, athlete: athlete, sessions: sessions, catalogue: catalogue, context: context,
+                    plannedGymDay: planned != nil).map { (mode: mode, session: old($0)) }
         }
         // "Something light" (and no gym): mobility, whatever else the day holds.
-        if let said, said.choices.contains(.light), !said.choices.contains(.gym), isAvailable(catalogue) {
-            if let custom = mine(.mobility) { return TodaysPain.apply(custom, athlete: athlete, catalogue: catalogue) }
-            return session(.mobility, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
+        if let said, said.choices.contains(.light), !said.choices.contains(.gym) { return built(.mobility) }
+        if status == .travel || status == .holiday { return built(.travel) }
+        if PracticeSchedule.hasPractice(on: .now, calendar: calendar) { return built(.afterPractice) }
+        // The athlete's own version of this gym day stays exactly theirs.
+        if let planned, let slot = planned.slot, PlanCustomizationStore.load().workout(for: .gym(slot)) != nil {
+            return (mode: WorkoutMode.gymDay, session: old(planned))
         }
-        if status == .travel || status == .holiday {
-            if let custom = mine(.travel) { return TodaysPain.apply(custom, athlete: athlete, catalogue: catalogue) }
-            return session(.travel, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
-        }
-        if PracticeSchedule.hasPractice(on: .now, calendar: calendar) {
-            if let custom = mine(.afterPractice) { return old(custom) }
-            return session(.afterPractice, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
-                ?? (isAvailable(catalogue) ? nil : planned.map(old))
-        }
-        if let planned, let slot = planned.slot, PlanCustomizationStore.load().workout(for: .gym(slot)) != nil { return old(planned) }
+        // The engine decides: a development day, a primer before a game, recovery, conditioning, or rest.
         if isAvailable(catalogue) {
             return session(nil, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
+                .map { (mode: WorkoutMode.gymDay, session: $0) }
         }
-        return planned.map(old)
+        return planned.map { (mode: WorkoutMode.gymDay, session: old($0)) }
+    }
+
+    /// The Watch and the widgets: just the session of `todaysPick`.
+    static func todaysWorkout(athlete: Athlete, week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar = .current) -> GeneratedSession? {
+        todaysPick(athlete: athlete, week: week, catalogue: catalogue, calendar: calendar)?.session
+    }
+
+    /// What the older workout builders need to know about the athlete today.
+    static func modeContext(_ athlete: Athlete, catalogue: Catalogue, calendar: Calendar = .current) -> WorkoutModeContext {
+        let gameToday = athlete.competitions.contains { calendar.isDateInToday($0.date) }
+        return WorkoutModeContext(
+            catalogue: catalogue, sport: athlete.activeSport.flatMap { allSportsBySlug[$0.sportSlug] },
+            positionSlug: athlete.activeSport?.positionSlug, formatSlug: athlete.activeSport?.formatSlug,
+            equipment: Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now), struggles: Struggles.selected,
+            prepMoment: PrepMoment.at(.now, gameToday: gameToday)
+        )
     }
 }

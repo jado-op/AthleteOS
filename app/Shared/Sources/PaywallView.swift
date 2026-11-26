@@ -31,7 +31,7 @@ public struct PaywallView: View {
     private var features: [ProFeature] {
         // Only what really is Pro in the app — each has a gate.
         let all: [ProFeature] = [
-            .workoutEditor, .myWorkouts, .shareWorkouts, .unlimitedLessons, .skillBlocks, .muscleWorkouts,
+            .workoutEditor, .myWorkouts, .shareWorkouts, .unlimitedLessons, .skillBlocks,
             .multipleSports, .fullSeasonCalendar, .detailedTracking, .exerciseProgress, .fullHistory,
             .videoJumpTest, .visualization, .moreCalendars, .coachWorkouts, .coachNotes, .dataExport,
         ]
@@ -475,7 +475,7 @@ public struct SubscriptionRow: View {
             }
             return "Active"
         }
-        return "Unlimited skill plans and muscle workouts, several sports, every progress chart"
+        return "Unlimited skill plans, several sports, every progress chart"
     }
 }
 

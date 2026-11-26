@@ -127,7 +127,7 @@ struct ProgressTabView: View {
     }
 
     enum ProgressSheet: String, Identifiable {
-        case history, trends, checkIns, seasonReview
+        case history, checkIns, seasonReview
         var id: String { rawValue }
     }
 
@@ -231,10 +231,6 @@ struct ProgressTabView: View {
             .sheet(item: $sheet, onDismiss: { revision += 1 }) { sheet in
                 switch sheet {
                 case .history: SessionHistoryView()
-                case .trends:
-                    TrendsSheet(athlete: athlete, sessions: sessions) {
-                        withAnimation { AcademyNavigation.shared.page = .twin }
-                    }
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .seasonReview: SeasonReviewSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
                 }
@@ -708,10 +704,6 @@ struct ProgressTabView: View {
                     ListRow(systemImage: "clock.arrow.circlepath", color: AppTheme.ink, title: "All workouts", detail: "\(sessions.count)")
                 }
                 .buttonStyle(.pressable)
-                Button { sheet = .trends } label: {
-                    ListRow(systemImage: "chart.xyaxis.line", color: AppTheme.ink, title: "Trends", detail: "Last 30 days, sleep, load")
-                }
-                .buttonStyle(.pressable)
                 Button { sheet = .checkIns } label: {
                     ListRow(systemImage: "sun.max.fill", color: AppTheme.ink, title: "Past check-ins", detail: "\(athlete.checkIns.count)")
                 }
@@ -814,7 +806,7 @@ struct DayDetailSheet: View {
     private func practiceSummary(_ log: PracticeLog) -> String {
         let types = log.types.isEmpty ? "" : log.types.joined(separator: ", ") + " · "
         let minutes = log.minutes.map { "\($0) min · " } ?? ""
-        return "\(types)\(minutes)effort \(log.hard)/5 · result \(log.went)/5"
+        return "\(types)\(minutes)effort \(log.hard)/5" + (log.went > 0 ? " · result \(log.went)/5" : "")
     }
 
     private func checkInSummary(_ checkIn: CheckIn) -> String {
@@ -874,8 +866,8 @@ struct PracticeLogSheet: View {
         if let log {
             _types = State(initialValue: Set(log.types))
             _hard = State(initialValue: log.hard)
-            _went = State(initialValue: log.went)
-            _mood = State(initialValue: log.mood)
+            _went = State(initialValue: log.went > 0 ? log.went : 3)
+            _mood = State(initialValue: log.mood > 0 ? log.mood : 3)
             _minutes = State(initialValue: log.minutes ?? 90)
             _tiredMuscles = State(initialValue: Set(log.tiredMuscles))
             _ratings = State(initialValue: log.ratings)

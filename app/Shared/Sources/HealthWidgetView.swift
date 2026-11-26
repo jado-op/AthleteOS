@@ -117,9 +117,6 @@ struct HealthMetricCard: View {
                             .animation(.snappy(duration: 0.2), value: selectedDay?.date)
                     }
                     Spacer(minLength: 0)
-                    if let progress = summary.goalProgress, selectedDay == nil {
-                        GoalRing(progress: progress, tint: metric.tint, caption: "of 60")
-                    }
                 }
                 HealthChart(series: series, usual: summary.usual, goal: metric.dailyGoal, tint: metric.tint, selected: $selected)
                     .frame(height: 96)
@@ -298,35 +295,6 @@ struct Sparkline: View {
         if bars { return 0...max(high, 1) }
         let pad = max((high - low) * 0.25, abs(high) * 0.005, 0.05)
         return (low - pad)...(high + pad)
-    }
-}
-
-/// Today's progress toward a daily goal, as a thin ring.
-struct GoalRing: View {
-    let progress: Double
-    let tint: Color
-    let caption: String
-
-    var body: some View {
-        ZStack {
-            Circle().stroke(Color.white.opacity(0.1), lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: min(1, progress))
-                .stroke(tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.6), value: progress)
-            VStack(spacing: 0) {
-                Text("\(Int((min(progress, 9.99) * 100).rounded())) %")
-                    .font(.caption.weight(.bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                Text(caption)
-                    .font(.caption2)
-                    .foregroundStyle(AppTheme.mutedText)
-            }
-        }
-        .frame(width: 58, height: 58)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(Int((progress * 100).rounded())) percent of today's goal")
     }
 }
 

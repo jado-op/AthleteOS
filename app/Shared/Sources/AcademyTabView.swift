@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The Academy tab: three pages under one quiet switch (owner, 2026-11-19) —
-/// Twin (the athlete as widgets), Campus (questions that form a picture of
-/// them, the lessons and long reads) and Progress (the calendar). Anything
-/// that used to open the Campus or Progress tab lands here (MainTabView).
+/// The Academy tab: two pages under one quiet switch (owner, 2026-11-19) —
+/// Twin (the athlete as widgets, with Trends) and Campus (questions that form
+/// a picture of them, the lessons and long reads). The training calendar is in
+/// the Workout tab (owner, 2026-11-26).
 enum AcademyPage: String, CaseIterable, Sendable {
     case twin, campus
 

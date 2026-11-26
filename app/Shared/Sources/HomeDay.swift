@@ -125,25 +125,6 @@ struct HomeAmbientBackground: View {
     }
 }
 
-/// Red as light behind a hero word or number: a soft, blurred bloom that
-/// never changes the layout.
-struct HeroBloom: View {
-    var color: Color = AppTheme.brand
-
-    // V8: the card's aura does this job now; kept as a no-op for call sites.
-    var body: some View { Color.clear.frame(width: 0, height: 0) }
-
-    var oldBody: some View {
-        Ellipse()
-            .fill(RadialGradient(colors: [color.opacity(0.16), color.opacity(0.04), .clear],
-                                 center: .center, startRadius: 0, endRadius: 150))
-            .frame(width: 320, height: 200)
-            .blur(radius: 24)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-}
-
 /// A hero button's label: "CHECK IN →".
 struct HeroCTALabel: View {
     let title: String
@@ -156,36 +137,6 @@ struct HeroCTALabel: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-    }
-}
-
-/// A glass data block: a big value, a small tracked label. Heights differ
-/// on purpose so a row of them reads like a layout, not a table.
-struct GlassMetric: View {
-    let value: String
-    let label: String
-    var height: CGFloat = 76
-    var accent: Color?
-
-    var body: some View {
-        // V8: no grey box — a big light number with its label.
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 34, weight: .light))
-                .monospacedDigit()
-                .tracking(-0.8)
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            Text(label)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(accent ?? AppTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -355,26 +306,9 @@ struct HomeWeekBlock: View {
         parts.append("\(week.checkIns)/\(week.daysSoFar) check-ins")
         return parts.joined(separator: " · ")
     }
-
-    static func twoDigits(_ value: Int) -> String {
-        value < 10 && value >= 0 ? "0\(value)" : "\(value)"
-    }
 }
 
 // MARK: - Small pieces of the centred Home
-
-/// A small spaced-out label above a section ("TODAY'S FOCUS").
-struct HomeEyebrow: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(AppTheme.secondaryText)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
 
 /// A compact supporting row: a small coloured dot, title left, value
 /// right, never centred. (V5: fewer icons — the dot carries the colour.)

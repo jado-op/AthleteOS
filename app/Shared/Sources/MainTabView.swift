@@ -34,7 +34,6 @@ public struct MainTabView: View {
     @AppStorage("healthPermissionAsked") private var healthPermissionAsked = false
     @State private var showingHealthPermission = false
     @AppStorage("appTourSeen") private var appTourSeen = false
-    @State private var showingTour = false
     @State private var workoutContext: WorkoutContext?
     @State private var backingUp = false
     @State private var demoPaywall = false
@@ -150,12 +149,6 @@ public struct MainTabView: View {
         .sheet(isPresented: $showingMe) {
             MeView(athlete: athlete, onPlanInputsChanged: regenerate, onClose: { showingMe = false })
                 .environment(\.workoutContext, workoutContext)
-        }
-        .fullScreenCover(isPresented: $showingTour, onDismiss: askForHealthIfNeeded) {
-            AppTourView {
-                appTourSeen = true
-                showingTour = false
-            }
         }
         // Switching or adding a sport rebuilds the week for it.
         .onChange(of: athlete.activeSport?.id) { regenerate() }
