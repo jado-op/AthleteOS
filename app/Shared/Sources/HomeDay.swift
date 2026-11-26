@@ -242,69 +242,50 @@ struct WeekPlanProgress: Equatable {
     }
 }
 
-/// The week as one bar (V6): a big count, a segment per planned session
-/// (workouts red, practices orange) that lights up when it is done.
-struct WeekPlanBar: View {
-    let plan: WeekPlanProgress
+// MARK: - Glance row
+
+/// One of Home's three glance tiles (owner, 2026-11-26: a fixed skeleton): a
+/// small label, one big word or number, a quiet line under it. Always in the
+/// same place; only what it says changes. Tap opens the thing's one home.
+struct GlanceTile: View {
+    let tone: AuraTone
+    let label: String
+    let value: String
+    let detail: String
+    let action: () -> Void
 
     var body: some View {
-        // V8: no box — a big light number, then one segment per planned
-        // session in its activity colour (gym ember, practice blue), dim until done.
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                BigFigure(String(plan.doneTotal), size: 56)
-                Text("of \(plan.plannedTotal) planned")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                Spacer(minLength: 8)
-                Text(plan.statusLine)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(plan.isComplete ? AppTheme.ink : AppTheme.secondaryText)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
+                    .lineLimit(1)
+                Text(value)
+                    .font(.system(size: 24, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.ink.opacity(0.6))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
             }
-            HStack(spacing: 6) {
-                ForEach(Array(plan.segments.enumerated()), id: \.offset) { _, segment in
-                    let color = segment.kind == .workout ? AuraTone.training.mark : AuraTone.body.mark
-                    Capsule()
-                        .fill(segment.done ? color : color.opacity(0.22))
-                        .frame(height: 8)
-                }
+            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .padding(14)
+            .background(AuraBackground(tone, focus: UnitPoint(x: 0.25, y: 0.3), radius: 110))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.4), value: plan.doneTotal)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("This week: \(plan.doneTotal) of \(plan.plannedTotal) planned sessions done. \(plan.statusLine)")
-    }
-}
-
-/// The week: the plan bar and one telemetry line. The only weekly summary on Home.
-struct HomeWeekBlock: View {
-    let week: WeekSummary
-    let accent: Color
-    var plan: WeekPlanProgress?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionLabel("This week")
-            if let plan, plan.isVisible { WeekPlanBar(plan: plan) }
-            // One line, not a grid of the same numbers again.
-            Text(summaryLine)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.pressable)
         .accessibilityElement(children: .combine)
-    }
-
-    /// "2 practices · 1 workout · 1 mobility · 4/5 check-ins"
-    private var summaryLine: String {
-        var parts: [String] = []
-        if week.practices > 0 { parts.append("\(week.practices) \(week.practices == 1 ? "practice" : "practices")") }
-        if week.workouts > 0 { parts.append("\(week.workouts) \(week.workouts == 1 ? "workout" : "workouts")") }
-        if week.mobility > 0 { parts.append("\(week.mobility) mobility") }
-        parts.append("\(week.checkIns)/\(week.daysSoFar) check-ins")
-        return parts.joined(separator: " · ")
+        .accessibilityLabel("\(label): \(value). \(detail)")
     }
 }
 

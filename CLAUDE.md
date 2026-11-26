@@ -82,6 +82,15 @@ Reading files, CI logs or the GitHub API needs no lock.
   everything the athlete adds goes through Tell AthleteOS (with one-tap starters); the training calendar (Progress)
   left the Academy for the Workout tab ("Training calendar" row, `WorkoutNavigation`); "Exercises by muscle" was
   deleted (the library's body-map filter does it). Don't bring these back as separate entry points.
+- Architecture pass (owner, 2026-11-26: "yes do all of it", from NN/g, Apple HIG, Oura/WHOOP/Strava and adaptive-UI
+  research): **one brain** — today's workout is decided once, `TodayEngine.todaysPick`, and Home, Workout, the Watch and
+  the widgets only display it (never add a second decision path). **One home per thing** — Trends lives in the twin's
+  "How are you changing?" (`TrendsSheet`), the calendar in Workout, mental skills in Campus; search jumps to that home
+  (`AcademyNavigation.pendingTwinSheet`) instead of opening a copy. **Home is a fixed skeleton**: the now slot (a
+  workout left open, else the day's next step), three glance tiles (body today → twin or check-in, next competition →
+  hub, this week → training calendar; `GlanceTile`), today's plan + tomorrow + why, then notices (pain, low energy, coach
+  note, schedule) — slots never move, only their content changes. Told practice saves a `PracticeLog` (went 0 = not
+  said). Deleted: "Muscle workouts" (MuscleBuilderView, its Pro allowance), the exercise-minutes % ring, Home's week bar.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview

@@ -72,7 +72,7 @@ struct HomeView: View {
     @State private var checkStartStep: WorkoutCheckSheet.Step = .effort
 
     enum HomeSheet: String, Identifiable {
-        case checkIn, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
+        case checkIn, history, dayStatus, todayPlan, schedule, reflection, search, safety, seasonReview, tournament
         /// "How hard was it, what did it train?" after a workout from Apple Health.
         case workoutCheck
         var id: String { rawValue }
@@ -278,32 +278,23 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                // Centred and open: the one next step, today's plan under it
-                // (docs/CLARITY-PLAN.md); everything else stays compact below.
-                VStack(alignment: .leading, spacing: 48) {
+                // A fixed skeleton (owner, 2026-11-26; NN/g and Findlater: adapt
+                // the content, never move the places): the one thing to do now,
+                // three glance tiles, today and tomorrow, then notices — always
+                // in this order. Only what each slot says changes with the day.
+                VStack(alignment: .leading, spacing: 40) {
                     VStack(alignment: .leading, spacing: 22) {
                         topBar
                         header
-                        quickBar
+                        tellBar
                     }
-                    if let announcement {
-                        AnnouncementCard(announcement: announcement) {
-                            TeamAnnouncements.markSeen(announcement.id)
-                            withAnimation { self.announcement = nil }
-                        }
-                    }
-                    if let open = unfinishedWorkout { resumeCard(open) }
-                    if let lowEnergy, !lowEnergySnoozed {
-                        LowEnergyCard(warning: lowEnergy) {
-                            LowEnergyCheck.snoozeForAWeek()
-                            lowEnergySnoozed = true
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 48) { dayContent }
+                    nowSlot
                         .id(contentKey)
                         .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
-                    if !scheduleIsSet && status == .active { scheduleCard }
-                    if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red, plan: weekPlan) }
+                    if loaded { glanceRow }
+                    dayDetails
+                    notices
+                    if loaded, status != .concussion, todayPlan.next != .sleep { alsoToday }
                 }
                 .animation(.easeInOut(duration: 0.45), value: contentKey)
                 .padding(.horizontal, 20)
@@ -424,10 +415,6 @@ struct HomeView: View {
                     SeasonReviewSheet(athlete: athlete, sessions: allSessions, catalogue: catalogue)
                 case .safety:
                     SafetyCenterView()
-                case .mentalSkills:
-                    MentalSkillsView()
-                case .tests:
-                    BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
                     ReflectionSheet(completion: completion, practiceToday: practiceToday,
                                     restDay: !loggedToday && !practiceToday && gameToday == nil) { revision += 1 }
@@ -517,11 +504,15 @@ struct HomeView: View {
         case .schedule: activeSheet = .schedule
         case .reflection: activeSheet = .reflection
         case .safety: activeSheet = .safety
-        case .mentalSkills: activeSheet = .mentalSkills
+        // Search lands in each thing's one home (owner, 2026-11-26).
+        case .mentalSkills:
+            AcademyNavigation.shared.page = .campus
+            selectedTab = .academy
         case .seasonReview: activeSheet = .seasonReview
         case .competitions: openHub(.overview)
         case .gamePrep: openHub(.gamePrep)
-        case .tests: activeSheet = .tests
+        case .tests: openTwin("tests")
+        case .trends: openTwin("trends")
         // One door for input (owner, 2026-11-26): adding goes through Tell AthleteOS.
         case .logWorkout:
             IntentRoute.prefillTell("I did a workout: ")
@@ -592,7 +583,6 @@ struct HomeView: View {
         case .coach: CoachView()
         case .parent: ParentSummaryView()
         case .goals: StrugglesSheet(onSaved: onPlanInputsChanged)
-        case .trends: TrendsSheet(athlete: athlete, sessions: allSessions)
         case .library: LibraryView(athlete: athlete)
         case .sportGuide: SportGuideView(athlete: athlete)
         case .support: SupportSheet()
@@ -613,6 +603,13 @@ struct HomeView: View {
         case .sportPosition: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
         default: EmptyView()
         }
+    }
+
+    /// The twin, with one of its pages open (Trends, Tests).
+    private func openTwin(_ sheet: String) {
+        AcademyNavigation.shared.page = .twin
+        AcademyNavigation.shared.pendingTwinSheet = sheet
+        selectedTab = .academy
     }
 
     /// The Competitions hub, opened where it's needed.
@@ -684,49 +681,24 @@ struct HomeView: View {
                                      game: gameToday?.date, gameWord: gameWord)
     }
 
-    /// Two ways in: tell the app what's going on in your own words, and the
-    /// next competition with its countdown.
-    private var quickBar: some View {
-        let next = AthleteStats.upcomingCompetitions(athlete).first
-        let family = AcademyContent.family(forSport: athlete.activeSport?.sportSlug)
-        return HStack(spacing: 10) {
-            Button { showingTell = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "text.bubble")
-                        .foregroundStyle(AppTheme.brightRed)
-                    Text("Tell AthleteOS…")
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Spacer(minLength: 0)
-                }
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .glassSurface(cornerRadius: 22)
+    /// The one door for input: tell the app what's going on in your own words.
+    /// (The next competition is a glance tile below.)
+    private var tellBar: some View {
+        Button { showingTell = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "text.bubble")
+                    .foregroundStyle(AppTheme.brightRed)
+                Text("Tell AthleteOS…")
+                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.pressable)
-            .accessibilityLabel("Tell AthleteOS what's going on")
-            Button { openHub(.overview) } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "trophy.fill")
-                        .foregroundStyle(AppTheme.yellow)
-                    if let next {
-                        let days = AthleteStats.daysUntil(next.date)
-                        Text(days == 0 ? "Today" : days == 1 ? "Tomorrow" : "\(days) d")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(AppTheme.ink)
-                    } else {
-                        Text(family.tokens["Events"] ?? "Games")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .glassSurface(cornerRadius: 22)
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel(next.map { "Next \(family.event) in \(AthleteStats.daysUntil($0.date)) days. Results and plan." } ?? "\(family.tokens["Events"] ?? "Games"): results and plan")
+            .font(.subheadline)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .glassSurface(cornerRadius: 22)
         }
+        .buttonStyle(.pressable)
+        .accessibilityLabel("Tell AthleteOS what's going on")
     }
 
     /// Search everything, at the end of the top bar.
@@ -958,35 +930,124 @@ struct HomeView: View {
 
     // MARK: - The day: one next step, then the plan (docs/CLARITY-PLAN.md)
 
+    /// Slot 1: the one thing to do now. A workout left open comes first; then
+    /// the day's next step (check in, warm up, train, read, reflect), the day
+    /// done, or sleep.
     @ViewBuilder
-    private var dayContent: some View {
+    private var nowSlot: some View {
         if !loaded {
             ProgressView().frame(maxWidth: .infinity, minHeight: 120)
+        } else if let open = unfinishedWorkout {
+            resumeCard(open)
         } else if status == .concussion {
             pausedCard
         } else {
             let plan = todayPlan
             switch plan.next {
-            case .dayComplete:
-                dayCompleteView
-                alsoToday
-            case .sleep:
-                nightView
+            case .dayComplete: dayCompleteView
+            case .sleep: nightView
             default:
-                // What to do now, then the whole day in order.
-                VStack(spacing: 30) {
-                    AuraCard(tone(plan.next), focus: UnitPoint(x: 0.3, y: 0.5), radius: 220) {
-                        nextStepHero(plan.next)
-                    }
-                    VStack(alignment: .leading, spacing: 18) {
-                        painNote
-                        planPanel(plan)
-                        whySection
-                    }
+                AuraCard(tone(plan.next), focus: UnitPoint(x: 0.3, y: 0.5), radius: 220) {
+                    nextStepHero(plan.next)
                 }
-                alsoToday
             }
         }
+    }
+
+    /// Slot 3: today in order and tomorrow in a line, with the reason under them.
+    @ViewBuilder
+    private var dayDetails: some View {
+        if loaded, status != .concussion, todayPlan.next != .dayComplete, todayPlan.next != .sleep {
+            VStack(alignment: .leading, spacing: 18) {
+                planPanel(todayPlan)
+                if let tomorrow = tomorrowLine {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("Tomorrow")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
+                        tomorrowText(tomorrow)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                whySection
+            }
+        }
+    }
+
+    /// Slot 4: anything that needs a word today, always here, never above the
+    /// plan — pain, constant tiredness, the coach's note, a missing schedule.
+    @ViewBuilder
+    private var notices: some View {
+        if loaded {
+            VStack(alignment: .leading, spacing: 14) {
+                painNote
+                if let lowEnergy, !lowEnergySnoozed {
+                    LowEnergyCard(warning: lowEnergy) {
+                        LowEnergyCheck.snoozeForAWeek()
+                        lowEnergySnoozed = true
+                    }
+                }
+                if let announcement {
+                    AnnouncementCard(announcement: announcement) {
+                        TeamAnnouncements.markSeen(announcement.id)
+                        withAnimation { self.announcement = nil }
+                    }
+                }
+                if !scheduleIsSet && status == .active { scheduleCard }
+            }
+        }
+    }
+
+    /// Slot 2: three tiles, each a doorway to its one home — the body today
+    /// (the twin), the next competition (the hub), this week (the calendar).
+    private var glanceRow: some View {
+        HStack(spacing: 10) {
+            GlanceTile(tone: .body, label: "Body today", value: bodyGlance.value, detail: bodyGlance.detail) {
+                if todaysCheckIn == nil, status == .active {
+                    activeSheet = .checkIn
+                } else {
+                    AcademyNavigation.shared.page = .twin
+                    selectedTab = .academy
+                }
+            }
+            GlanceTile(tone: .game, label: "Next \(eventWord.lowercased())", value: gameGlance.value, detail: gameGlance.detail) {
+                openHub(.overview)
+            }
+            GlanceTile(tone: .training, label: "This week", value: weekGlance.value, detail: weekGlance.detail) {
+                WorkoutNavigation.shared.showingCalendar = true
+                selectedTab = .workout
+            }
+        }
+    }
+
+    private var bodyGlance: (value: String, detail: String) {
+        switch status {
+        case .concussion: return ("Paused", "Until a doctor clears you")
+        case .sick: return ("Resting", "Get well first")
+        default: break
+        }
+        guard todaysCheckIn != nil, let level = readiness?.level else { return ("Check in", "30 seconds") }
+        switch level {
+        case .normal: return ("Ready", "Train as planned")
+        case .reduced: return ("Lighter", "A bit less today")
+        case .recovery: return ("Recover", "Easy day today")
+        }
+    }
+
+    private var gameGlance: (value: String, detail: String) {
+        guard let next = AthleteStats.upcomingCompetitions(athlete).first else { return ("None", "Add one in a sentence") }
+        let days = AthleteStats.daysUntil(next.date)
+        let value = days == 0 ? "Today" : days == 1 ? "Tomorrow" : "\(days) days"
+        return (value, next.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+    }
+
+    private var weekGlance: (value: String, detail: String) {
+        let plan = weekPlan
+        let practices = plan.practicesPlanned > 0 ? "\(plan.practicesDone)/\(plan.practicesPlanned) practices" : "Training calendar"
+        guard plan.workoutsPlanned > 0 else { return ("\(plan.workoutsDone) done", practices) }
+        return ("\(min(plan.workoutsDone, plan.workoutsPlanned))/\(plan.workoutsPlanned)", "workouts · " + practices)
     }
 
     /// The one thing to do now — or, when nothing is, what the day is waiting for.

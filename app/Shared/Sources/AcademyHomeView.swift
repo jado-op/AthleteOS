@@ -176,6 +176,7 @@ struct AcademyHomeView: View {
             if DemoData.initialTab == .academy, DemoData.initialSheet == "week" { showingWeek = true }
             openPendingBriefing()
             openPendingInterview()
+            openPendingTwinSheet()
         }
         .task { await health.load() }
         .onChange(of: scenePhase) { _, phase in
@@ -185,6 +186,7 @@ struct AcademyHomeView: View {
         .onChange(of: athlete.sessions.count) { reload() }
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
+        .onChange(of: navigation.pendingTwinSheet) { openPendingTwinSheet() }
         .fullScreenCover(isPresented: $showingWeek) {
             TwinWeekView(weeks: weekGroups, recovering: recovering, health: health,
                          training: athlete.sessions.map { TwinWeek.Training(date: $0.startedAt, minutes: $0.minutes) })
@@ -224,6 +226,17 @@ struct AcademyHomeView: View {
         }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
         .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
+    }
+
+    /// Search's Trends or Tests: open it here, in its one home.
+    private func openPendingTwinSheet() {
+        guard let sheet = navigation.pendingTwinSheet else { return }
+        navigation.pendingTwinSheet = nil
+        switch sheet {
+        case "trends": showingTrends = true
+        case "tests": showingTests = true
+        default: break
+        }
     }
 
     private func openPendingInterview() {

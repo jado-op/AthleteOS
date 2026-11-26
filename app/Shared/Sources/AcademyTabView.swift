@@ -25,6 +25,9 @@ final class AcademyNavigation: ObservableObject {
     @Published var pendingBriefingID: String?
     /// Home's "Meet your twin": open the interview.
     @Published var pendingInterview = false
+    /// A page of the twin to open on arrival ("trends", "tests"): search
+    /// lands in the one home of each thing, not in a copy on Home.
+    @Published var pendingTwinSheet: String?
 }
 
 /// The Workout tab's own routes: the training calendar (what you did lives
