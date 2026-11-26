@@ -19,10 +19,10 @@ struct WorkoutTabView: View {
     @State private var showingImprove = false
     @State private var showingMuscles = false
     @State private var showingLibrary = false
+    @ObservedObject private var navigation = WorkoutNavigation.shared
     /// The recommended session's exercises, opened from the card (details one tap away).
     @State private var showingContents = false
     @State private var detailItem: CatalogueItem?
-    @State private var showingMuscleExercises = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
     @State private var sharing: ShareTarget?
@@ -131,6 +131,7 @@ struct WorkoutTabView: View {
                         .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
                     skillDrillsToday
                     weekSection
+                    calendarRow
                     moreWorkouts
                     // What the athlete's training has done to their body so far (gym second).
                     MuscleTrainingSection(athlete: athlete, catalogue: catalogue)
@@ -232,12 +233,6 @@ struct WorkoutTabView: View {
             }
             .sheet(item: $detailItem) { item in
                 NavigationStack { ItemDetailView(item: item, closes: true) }
-            }
-            .sheet(isPresented: $showingMuscleExercises) {
-                MuscleExercisesSheet(catalogue: catalogue, athlete: athlete) { item in
-                    showingMuscleExercises = false
-                    detailItem = item
-                }
             }
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
@@ -560,6 +555,18 @@ struct WorkoutTabView: View {
     /// V8: the week as a strip of tiles — today's in ember, the rest calm —
     /// each with its day, the workout and its length. Swipe sideways.
     @ViewBuilder
+    /// What was done, next to what to do: the month, season and year, practice
+    /// logged, every workout (moved here from the Academy, owner 2026-11-26).
+    private var calendarRow: some View {
+        let calendar = Calendar.current
+        let month = athlete.sessions.filter { calendar.isDate($0.startedAt, equalTo: .now, toGranularity: .month) }.count
+        return Button { navigation.showingCalendar = true } label: {
+            ListRow(systemImage: "calendar", color: AppTheme.ink, title: "Training calendar",
+                    detail: month == 0 ? "Practice, workouts and games" : "\(countedNoun(month, "workout")) this month")
+        }
+        .buttonStyle(.pressable)
+    }
+
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
@@ -695,11 +702,10 @@ struct WorkoutTabView: View {
                     ListRow(systemImage: "books.vertical", color: AppTheme.ink, title: "Exercise library")
                 }
                 .buttonStyle(.pressable)
-                Button { showingMuscleExercises = true } label: {
-                    ListRow(systemImage: "figure.stand", color: AppTheme.ink, title: "Exercises by muscle")
-                }
-                .buttonStyle(.pressable)
             }
+        }
+        .sheet(isPresented: $navigation.showingCalendar) {
+            ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: onPlanInputsChanged)
         }
         .sheet(isPresented: $showingLibrary) {
             LibraryView(athlete: athlete)

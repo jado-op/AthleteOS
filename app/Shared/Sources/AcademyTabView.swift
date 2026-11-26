@@ -5,13 +5,12 @@ import SwiftUI
 /// them, the lessons and long reads) and Progress (the calendar). Anything
 /// that used to open the Campus or Progress tab lands here (MainTabView).
 enum AcademyPage: String, CaseIterable, Sendable {
-    case twin, campus, progress
+    case twin, campus
 
     var title: String {
         switch self {
         case .twin: "Twin"
         case .campus: "Campus"
-        case .progress: "Progress"
         }
     }
 }
@@ -28,7 +27,15 @@ final class AcademyNavigation: ObservableObject {
     @Published var pendingInterview = false
 }
 
-/// The top of every page: the profile button and the Twin · Campus · Progress switch.
+/// The Workout tab's own routes: the training calendar (what you did lives
+/// next to what to do; owner, 2026-11-26 — it left the Academy).
+@MainActor
+final class WorkoutNavigation: ObservableObject {
+    static let shared = WorkoutNavigation()
+    @Published var showingCalendar = false
+}
+
+/// The top of every page: the profile button and the Twin · Campus switch.
 struct AcademyPageSwitcher: View {
     let name: String?
     @ObservedObject private var navigation = AcademyNavigation.shared
@@ -77,7 +84,6 @@ struct AcademyTabView: View {
             switch navigation.page {
             case .twin: AcademyHomeView(athlete: athlete)
             case .campus: CampusPage(athlete: athlete)
-            case .progress: ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: onPlanInputsChanged)
             }
         }
         .onAppear(perform: openLessonsIfAsked)

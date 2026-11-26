@@ -110,7 +110,42 @@ struct TellView: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.mutedText)
             }
+            if text.isEmpty { starters }
             if text.isEmpty, !remembered.isEmpty { rememberedList }
+        }
+    }
+
+    /// One tap to start the usual things (Tell is the one place to add anything;
+    /// owner, 2026-11-26): the sentence begins, the athlete finishes it.
+    private var starters: some View {
+        let game = family.event.lowercased()
+        let items: [(String, String, String)] = [
+            ("figure.strengthtraining.traditional", "Did a workout", "Did a workout today: "),
+            ("person.3.fill", "Practice was…", "Practice today was "),
+            ("figure.walk", "Legs feel…", "My legs feel "),
+            ("sportscourt.fill", "Next \(game)", "\(family.tokens["Event"] ?? "Game") on "),
+            ("trophy.fill", "Result", "We "),
+            ("bandage.fill", "Something hurts", "Pain in my "),
+            ("house.fill", "No gym", "No gym "),
+            ("bed.double.fill", "Sick", "I'm sick today"),
+        ]
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(items, id: \.1) { item in
+                    Button {
+                        text = item.2
+                        writing = true
+                    } label: {
+                        Label(item.1, systemImage: item.0)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .padding(.horizontal, 12)
+                            .frame(height: 34)
+                            .glassCapsule()
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
         }
     }
 

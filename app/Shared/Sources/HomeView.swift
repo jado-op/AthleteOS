@@ -43,7 +43,6 @@ struct HomeView: View {
     @State private var hubOpening: CompetitionHubFocus = .overview
     @State private var showingTell = false
     @State private var showingGym = false
-    @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
     /// Picked in search: opens once the search has closed.
     @State private var pendingSearch: AppSearchTarget?
@@ -75,7 +74,7 @@ struct HomeView: View {
     @State private var checkStartStep: WorkoutCheckSheet.Step = .effort
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
+        case checkIn, addGame, history, dayStatus, todayPlan, schedule, reflection, search, safety, mentalSkills, tests, seasonReview, tournament
         /// "How hard was it, what did it train?" after a workout from Apple Health.
         case workoutCheck
         var id: String { rawValue }
@@ -425,16 +424,9 @@ struct HomeView: View {
                     activeSheet = .dayStatus
                 }
                 refreshTwinBriefing()
-                runPendingAction()
                 runPendingSearch()
             }) { sheet in
                 switch sheet {
-                case .quickActions:
-                    QuickActionsSheet { action in
-                        pendingAction = action
-                        activeSheet = nil
-                    }
-                    .presentationDetents([.height(320)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:
@@ -651,15 +643,6 @@ struct HomeView: View {
         }
     }
 
-    private func runPendingAction() {
-        guard let action = pendingAction else { return }
-        pendingAction = nil
-        switch action {
-        case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
-        case .addGame: activeSheet = .addGame
-        }
-    }
-
     /// The Competitions hub, opened where it's needed.
     private func openHub(_ opening: CompetitionHubFocus) {
         hubOpening = opening
@@ -668,7 +651,8 @@ struct HomeView: View {
 
     // MARK: - Top
 
-    /// Small floating glass controls: the kind of day, search, "+".
+    /// Small floating glass controls: the kind of day and search. Everything the
+    /// athlete adds goes through one door, Tell AthleteOS (owner, 2026-11-26).
     private var topBar: some View {
         HStack(spacing: 8) {
             ProfileButton(name: athlete.displayName)
@@ -696,15 +680,6 @@ struct HomeView: View {
             Spacer(minLength: 4)
             .accessibilityLabel("Today is: \(dayChipTitle). Change what's on today.")
             searchButton
-            Button { activeSheet = .quickActions } label: {
-                Image(systemName: "plus")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .glassCapsule()
-            }
-            .buttonStyle(.pressable)
-            .accessibilityLabel("Add: log a workout or add a game")
         }
     }
 
@@ -782,7 +757,7 @@ struct HomeView: View {
         }
     }
 
-    /// Search everything: fills the space between the day and the "+".
+    /// Search everything, at the end of the top bar.
     private var searchButton: some View {
         Button { activeSheet = .search } label: {
             Image(systemName: "magnifyingglass")

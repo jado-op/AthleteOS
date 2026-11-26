@@ -7,9 +7,10 @@ import UIKit
 import WidgetKit
 #endif
 
-/// The tabs: Home (an overview), Academy (the Digital Twin and progress —
-/// Twin | Progress — with Campus's short lessons inside) and Workout (owner,
-/// 2026-11-18). `.campus` and `.progress` remain as routes into the Academy.
+/// The tabs: Home (today), Academy (Twin · Campus) and Workout (what to do and,
+/// in its training calendar, what was done) (owner, 2026-11-18; Progress moved
+/// to Workout 2026-11-26). `.campus` routes into the Academy, `.progress` opens
+/// the Workout tab's calendar.
 /// Me is not a tab:
 /// it opens from the profile button at the top left of every tab, and
 /// anything that routes to `.me` opens it there.
@@ -92,7 +93,13 @@ public struct MainTabView: View {
                 showingMe = true
                 return
             }
-            // Campus and Progress live in the Academy now.
+            // The training calendar lives in the Workout tab.
+            if tab == .progress {
+                WorkoutNavigation.shared.showingCalendar = true
+                selectedTab = .workout
+                return
+            }
+            // Campus lives in the Academy.
             if let page = academyRoute(tab) {
                 AcademyNavigation.shared.page = page
                 selectedTab = .academy
@@ -110,19 +117,24 @@ public struct MainTabView: View {
                 AcademyNavigation.shared.page = page
                 selectedTab = .academy
             }
+            if selectedTab == .progress {
+                WorkoutNavigation.shared.showingCalendar = true
+                selectedTab = .workout
+            }
             switch IntentRoute.pending {
             case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
-            case .logPractice?: selectedTab = .progress
+            case .logPractice?:
+                WorkoutNavigation.shared.showingCalendar = true
+                selectedTab = .workout
             case .tell?: selectedTab = .today
             default: break
             }
         }
     }
 
-    /// Where an old Campus or Progress route lands in the Academy.
+    /// Where an old Campus route lands in the Academy.
     private func academyRoute(_ tab: AppTab) -> AcademyPage? {
         switch tab {
-        case .progress: return .progress
         case .campus: return .campus
         default: return nil
         }

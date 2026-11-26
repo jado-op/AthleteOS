@@ -114,6 +114,7 @@ struct ProgressTabView: View {
     @State private var tracking = ProAccess.isPro ? TrackingLevel.current : .easy
     @State private var paywall: ProFeature?
     @State private var catalogue = Catalogue()
+    @Environment(\.dismiss) private var dismiss
 
     enum Zoom: String, CaseIterable, Identifiable {
         case month = "Month", season = "Season", year = "Year"
@@ -193,7 +194,6 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
-                    AcademyPageSwitcher(name: athlete.displayName)
                     summaryCard
                     calendarCard
                     practiceSection
@@ -207,7 +207,9 @@ struct ProgressTabView: View {
             }
             .scrollIndicators(.hidden)
             .appScreen(.hero)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Training calendar")
+            .navigationBarTitleDisplayModeInline()
+            .toolbar { CloseToolbarItem { dismiss() } }
             .onAppear {
                 revision += 1
                 if IntentRoute.take([.logPractice]) != nil { loggingPractice = DayBox(date: .now) }

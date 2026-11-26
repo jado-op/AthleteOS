@@ -78,12 +78,16 @@ Reading files, CI logs or the GitHub API needs no lock.
   coach's briefing (`TwinWidgets.swift`). Never a score. With Apple Health data (owner, 2026-11-19) the twin
   opens with "More insights into your health" (see Apple Health below). It replaces the sleep/readiness widget
   when Health has sleep.
+- Layout pass (owner, 2026-11-26: "before you fix it, delete it"): one door for input — Home's "+" sheet is gone,
+  everything the athlete adds goes through Tell AthleteOS (with one-tap starters); the training calendar (Progress)
+  left the Academy for the Workout tab ("Training calendar" row, `WorkoutNavigation`); "Exercises by muscle" was
+  deleted (the library's body-map filter does it). Don't bring these back as separate entry points.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
-  The Academy has a **Twin · Campus · Progress** switch at the top (owner, 2026-11-19;
+  The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
   questions one at a time ("Campus asks", answers in `AcademyStore`), shows what it knows about
   the athlete, and holds the ~100 short lessons, the long reads (briefings), mental skills and the
-  sport guide. Progress is the calendar page. Routes to `AppTab.campus` / `.progress` / `.me`
+  sport guide. The training calendar is in the Workout tab. Routes to `AppTab.campus` / `.progress` / `.me`
   are redirected in `MainTabView` (Me = profile-button sheet).
 - Academy privacy: the twin and every answer belong to the athlete alone — never coaches,
   parents, scouts or other users; backed up only to their own account, encrypted on the
@@ -192,7 +196,7 @@ Reading files, CI logs or the GitHub API needs no lock.
   source ("Rules the engine now follows"). Profiles carry `quality`, `energy`, `muscles` (coach muscle
   words over the anatomical list); `TrainingStage` (foundation / development / performance), effort
   by reps in reserve (never to failure), landing caps, `InjuryPrevention` per sport, pull ≥ push,
-  strength before running. Workout tab shows what each exercise trains; "Exercises by muscle" sheet.
+  strength before running. Workout tab shows what each exercise trains; the library filters by muscle on a body map.
 - Gym by focus (owner, 2026-11-19): tap Gym → upper / legs / core / full body / "you pick", 30 / 60 / 90 min
   (`GymFocus.swift`, `GymStore.swift`, `GymSetupView.swift`). Anchors (one push + one pull, squat + hinge,
   anti-extension + anti-rotation) hold for a four-week block; accessories rotate every session; a stalled anchor

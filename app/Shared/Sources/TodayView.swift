@@ -9,11 +9,6 @@ struct LiveSessionLaunch: Identifiable {
     var resuming: Session? = nil
 }
 
-enum QuickAction: String, Identifiable, CaseIterable {
-    case logWorkout, addGame
-    var id: String { rawValue }
-}
-
 /// One logged session as a list card.
 struct SessionRow: View {
     let session: Session
@@ -69,64 +64,3 @@ struct CompactLabelStyle: LabelStyle {
     }
 }
 
-/// The "+" sheet: the four things an athlete adds to their day. Places with
-/// a home of their own (skill plans in Workout, past workouts in Progress)
-/// are not repeated here (docs/CLARITY-PLAN.md).
-struct QuickActionsSheet: View {
-    let onSelect: (QuickAction) -> Void
-
-    private struct Tile: Identifiable {
-        let action: QuickAction
-        let title: String
-        let detail: String
-        let icon: String
-        var id: QuickAction { action }
-    }
-
-    private let tiles: [Tile] = [
-        Tile(action: .logWorkout, title: "Log a workout", detail: "Something you did that isn't in your plan", icon: "figure.run"),
-        Tile(action: .addGame, title: "Add a game", detail: "Your plan builds up to it", icon: "sportscourt.fill"),
-    ]
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Capsule()
-                .fill(AppTheme.hairline)
-                .frame(width: 40, height: 5)
-                .padding(.top, 10)
-            Text("Add to today")
-                .font(.headline)
-                .foregroundStyle(AppTheme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(tiles) { tile in
-                    Button {
-                        onSelect(tile.action)
-                    } label: {
-                        VStack(spacing: 8) {
-                            Image(systemName: tile.icon)
-                                .font(.system(size: 26, weight: .semibold))
-                                .foregroundStyle(AppTheme.ink)
-                            Text(tile.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.ink)
-                            Text(tile.detail)
-                                .font(.caption2)
-                                .foregroundStyle(AppTheme.secondaryText)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2, reservesSpace: true)
-                        }
-                        .padding(.horizontal, 8)
-                        .frame(maxWidth: .infinity, minHeight: 126)
-                        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 20)
-        .appScreen()
-    }
-}
