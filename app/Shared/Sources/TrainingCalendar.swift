@@ -12,9 +12,9 @@ import Foundation
 ///   the athlete can't train (or is sick or away).
 /// - Four kinds, four colours: workout, practice, game, mobility.
 public enum TrainingCalendar {
-    public struct Item: Equatable, Sendable, Identifiable {
-        public enum Kind: String, Sendable, CaseIterable { case game, workout, practice, mobility, off }
-        public enum State: String, Sendable {
+    public struct Item: Codable, Equatable, Sendable, Identifiable {
+        public enum Kind: String, Codable, Sendable, CaseIterable { case game, workout, practice, mobility, off }
+        public enum State: String, Codable, Sendable {
             /// It happened (logged, recorded or played).
             case done
             /// Still to come.

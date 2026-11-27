@@ -114,6 +114,17 @@ Reading files, CI logs or the GitHub API needs no lock.
   **Edit week** under it (not "Bend"), whose rows use the same words.
   The Workout tab's week strip reads the same model: seven tiles Mon–Sun, same marks and words; today = the card above;
   a workout day opens that workout, any other day the day sheet.
+- One plan everything reads (owner, 2026-11-27: "make the ecosystem way better", research `docs/PLAN-CHANGES-RESEARCH.md`):
+  `PlanStore.rebuild` (called by `MainTabView.regenerate` and Edit week) is the only place a plan is made: this week and
+  next (`WeeklyPlan.generate(weekOf:)`), then today + 7 days as `PlanRecord`/`PlannedDay` (calendar items, minutes,
+  because, `publicBecause`), saved in the App Group. Home's Tomorrow, the Lock Screen card, Edit week and the evening
+  message read it — never work a day out again. A day off or a game leads the day (`PlannedDay.main`); a record not
+  built today isn't used. **Plan changes** (`PlanChanges`): only a day after today gaining or losing a workout,
+  practice, game or day off is told (engine reshuffles stay silent), one line "Thursday: Legs → Match · match added",
+  merged per day, >3 days = one summary; Home's notices show `PlanChangeCard` until dismissed; Edit week rebuilds with
+  `announce: false`; after a gap of more than a day nothing is told. **One evening message**: the evening reflection
+  says "Tomorrow: <plan>" (+ practice time, + bedtime; wind-down folds in), game eves keep only the game note.
+  Lock Screen and notifications never show body, health or mood words (`PlanExplanation.privateReasons`; sick/away = "Rest day").
 - Workout volume (owner, 2026-11-27): experienced athletes 16+ (performance stage) get **6 gym days off-season**
   (`PlanGenerator.sessionsPerWeek`, Mon–Sat); others 3 off/pre-season, 2 in season. Gym-day placement
   (`WeeklyPlan.alignToSchedule`): free days away from games → practice days ≥ 2 days from a game → days next to a game.

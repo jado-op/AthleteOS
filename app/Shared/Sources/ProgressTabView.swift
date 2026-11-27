@@ -62,12 +62,20 @@ struct CalendarSource {
     let practiceFrom: Date
     let event: String
 
-    init(athlete: Athlete, sessions: [Session], week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar) {
+    /// `ahead`: planned days beyond this week (the plan of record passes next
+    /// week); by default only tomorrow from it, so Sunday's "tomorrow" isn't empty.
+    init(athlete: Athlete, sessions: [Session], week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar,
+         ahead: [GeneratedSession]? = nil) {
         self.calendar = calendar
         sessionsByDay = Dictionary(grouping: sessions.filter { $0.endedAt != nil || !$0.sets.isEmpty }) { DayKey.of($0.startedAt, calendar: calendar) }
         practiceLogs = Dictionary(PracticeLogStore.logs.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
         games = Dictionary(grouping: athlete.competitions) { DayKey.of($0.date, calendar: calendar) }
-        planned = Dictionary((week?.sessions ?? []).map { (DayKey.of($0.date, calendar: calendar), $0) }, uniquingKeysWith: { first, _ in first })
+        // This week's plan (the calendar's rule), plus tomorrow from next week
+        // so Sunday's "tomorrow" isn't empty; the rest of next week can still move.
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: .now) ?? .now
+        let extra = ahead ?? (PlanStore.shared.planned(on: tomorrow, calendar: calendar).map { [$0] } ?? [])
+        planned = Dictionary(((week?.sessions ?? []) + extra).map { (DayKey.of($0.date, calendar: calendar), $0) },
+                             uniquingKeysWith: { first, _ in first })
         // Today: the one workout Home, Workout, the Watch and the widgets show.
         todayPlan = catalogue.itemsBySlug.isEmpty ? nil : TodayEngine.todaysPick(athlete: athlete, week: week, catalogue: catalogue)?.session
         practiceFrom = athlete.activeSport?.seasonStart ?? calendar.date(byAdding: .year, value: -1, to: .now) ?? .now
@@ -104,7 +112,7 @@ struct CalendarSource {
             facts.plannedWorkout = (title: session.title, minutes: session.estimatedMinutes)
         }
         if BusyDays.contains(date, calendar: calendar) {
-            facts.off = "Can't train"
+            facts.off = PlanRecord.cantTrain
         } else {
             switch DayStatusStore.status(on: date, calendar: calendar) {
             case .sick: facts.off = "Sick"

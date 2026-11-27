@@ -106,29 +106,20 @@ enum WidgetSnapshotWriter {
         snapshot.doneToday = TodayEngine.workoutDone(athlete, calendar: calendar)
         let event = snapshot.eventWord ?? "Game"
         let pick = TodayEngine.todaysPick(athlete: athlete, week: week, catalogue: catalogue, calendar: calendar)
-        snapshot.why = pick?.session.decision.flatMap { PlanExplanation.because($0.reasons, event: event) }
+        // The Lock Screen shows no body, health or mood words (P13).
+        snapshot.why = pick?.session.decision.flatMap { PlanExplanation.lockScreenBecause($0.reasons, event: event) }
         // Tomorrow, decided tonight: the card is right when the athlete wakes up.
-        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: today)) {
+        // Read from the plan of record, the same day Home's Tomorrow shows.
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: today)),
+           let day = PlanStore.shared.day(on: tomorrow, calendar: calendar) {
             snapshot.tomorrowDay = tomorrow
-            if let game = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
-                snapshot.tomorrowIsGame = true
-                snapshot.tomorrowTitle = "\(event) day"
-                snapshot.tomorrowWhy = "\(game.date.formatted(date: .omitted, time: .shortened)) · save everything for it"
-            } else if BusyDays.contains(tomorrow, calendar: calendar) {
-                snapshot.tomorrowTitle = "Rest day"
-                snapshot.tomorrowWhy = "You said you can't train"
-            } else if DayStatusStore.status(on: tomorrow, calendar: calendar) == .active {
-                let practice = PracticeSchedule.hasPractice(on: tomorrow, calendar: calendar)
-                let planned = week?.sessions.contains { calendar.isDate($0.date, inSameDayAs: tomorrow) } ?? false
-                let built = TodayEngine.isAvailable(catalogue)
-                    ? TodayEngine.session(practice ? .afterPractice : nil, athlete: athlete, sessions: athlete.sessions,
-                                          catalogue: catalogue, date: tomorrow, plannedGymDay: planned)
-                    : nil
-                snapshot.tomorrowTitle = built?.title ?? (practice ? "Team practice" : "Rest day")
-                snapshot.tomorrowMinutes = built?.estimatedMinutes
-                snapshot.tomorrowWhy = built?.decision.flatMap { PlanExplanation.because($0.reasons, event: event) }
-                    ?? (practice ? "Practice day" : built == nil ? "Recovery is part of the plan" : nil)
-            }
+            snapshot.tomorrowIsGame = day.isGame ? true : nil
+            // The Lock Screen is seen by anyone nearby: a sick, paused or away
+            // day says only "Rest day" there (Home says the rest).
+            let off = day.kind == .off
+            snapshot.tomorrowTitle = off ? "Rest day" : day.isGame ? "\(day.title) day" : day.title
+            snapshot.tomorrowMinutes = day.minutes
+            snapshot.tomorrowWhy = off && day.title != PlanRecord.cantTrain ? nil : day.publicBecause
         }
         guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)

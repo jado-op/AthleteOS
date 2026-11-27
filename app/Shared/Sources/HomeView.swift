@@ -995,6 +995,15 @@ struct HomeView: View {
         if loaded {
             VStack(alignment: .leading, spacing: 14) {
                 painNote
+                // The plan moved since the athlete last looked: said once, cause first.
+                if !PlanStore.shared.changes.isEmpty {
+                    PlanChangeCard(changes: PlanStore.shared.changes, event: eventWord) {
+                        withAnimation { PlanStore.shared.changesSeen() }
+                    } onOpenWeek: {
+                        PlanStore.shared.changesSeen()
+                        selectedTab = .workout
+                    }
+                }
                 if let lowEnergy, !lowEnergySnoozed {
                     LowEnergyCard(warning: lowEnergy) {
                         LowEnergyCheck.snoozeForAWeek()
@@ -1768,11 +1777,12 @@ struct HomeView: View {
     /// strength session after it): the day's main item, then the rest.
     private var tomorrowLine: (title: String, detail: String?, kind: TrainingCalendar.Item.Kind?)? {
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: clock) else { return nil }
-        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: week, catalogue: catalogue, calendar: calendar)
-        let items = source.items(on: tomorrow)
-        guard let main = items.first else { return ("Rest day", "Recovery is part of the plan.", nil) }
-        let detail = items.count > 1 ? TrainingCalendar.line(Array(items.dropFirst())) : main.detail
-        return (main.title, detail, main.kind)
+        // The plan of record: the same saved day the Lock Screen card shows.
+        let day = PlanStore.shared.day(on: tomorrow, calendar: calendar) ?? {
+            let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: week, catalogue: catalogue, calendar: calendar)
+            return PlannedDay(date: tomorrow, items: source.items(on: tomorrow))
+        }()
+        return (day.title, day.detail, day.kind)
     }
 
     private var scheduleCard: some View {
@@ -2010,6 +2020,68 @@ struct SessionPreviewSheet: View {
 }
 
 
+
+/// "Your plan changed" (docs/PLAN-CHANGES-RESEARCH.md P3–P5): one line per
+/// day, before → after and the cause; more than three days fold into one
+/// line with the list behind a tap. Gone once seen.
+struct PlanChangeCard: View {
+    let changes: [PlanChange]
+    let event: String
+    let onClose: () -> Void
+    let onOpenWeek: () -> Void
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Plan changed", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Got it")
+            }
+            if changes.count > PlanChanges.summaryAfter && !expanded {
+                Button { withAnimation { expanded = true } } label: {
+                    HStack {
+                        Text(PlanChanges.headline(changes, event: event) ?? "")
+                            .font(.body)
+                            .foregroundStyle(AppTheme.ink)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.down")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
+                }
+                .buttonStyle(.pressable)
+            } else {
+                ForEach(changes) { change in
+                    Text(PlanChanges.line(change, event: event))
+                        .font(.body)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Button(action: onOpenWeek) {
+                Text("See your week")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.secondary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface()
+    }
+}
 
 /// A one-way message from the coach, until the athlete closes it.
 struct AnnouncementCard: View {

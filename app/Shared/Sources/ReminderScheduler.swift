@@ -37,6 +37,14 @@ public enum Bedtime {
     }
 }
 
+/// Tomorrow's plan for one evening's message (from the plan of record):
+/// "Strength after practice · 40 min" and "Practice 4:00–6:00 pm".
+public struct EveningPlan: Sendable, Equatable {
+    public var title: String
+    public var detail: String?
+    public init(title: String, detail: String?) { self.title = title; self.detail = detail }
+}
+
 /// Local notifications only — no push server, no third party (§0). A daily
 /// morning check-in nudge (§11: "a check-in nobody completes is worse than
 /// none") and a heads-up the evening before each game.
@@ -181,7 +189,13 @@ public enum ReminderScheduler {
 
     /// Replaces every reminder this app owns with ones matching `settings`
     /// and the given upcoming games. Safe to call as often as convenient.
-    public static func reschedule(games: [(date: Date, kind: String)]) async {
+    ///
+    /// One evening message (docs/PLAN-CHANGES-RESEARCH.md P8–P13): the
+    /// evening reflection says tomorrow's plan (`tomorrow`, keyed by the
+    /// evening's `DayKey`, from the plan of record) and the bedtime; on a game
+    /// eve the game note is the evening's one message. With the morning
+    /// check-in that is at most two a day. Never pain, mood or body words.
+    public static func reschedule(games: [(date: Date, kind: String)], tomorrow: [String: EveningPlan] = [:]) async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
         let ours = pending.map(\.identifier).filter {
@@ -216,13 +230,20 @@ public enum ReminderScheduler {
             }
         }
 
+        // Evenings that already have their one message.
+        var eveningsTold = Set<String>()
+        // The evening before each game (even once its 20:00 note has gone).
+        let gameEves: Set<String> = current.gameRemindersEnabled ? Set(games.prefix(20).compactMap { game in
+            Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: game.date)).map { DayKey.of($0) }
+        }) : []
         if current.reflectionEnabled {
             // Same two-week, day-by-day scheme; not on sick days.
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: .now)
             for offset in 0..<14 {
                 guard let day = calendar.date(byAdding: .day, value: offset, to: today),
-                      DayStatusStore.status(on: day) != .sick else { continue }
+                      DayStatusStore.status(on: day) != .sick,
+                      !gameEves.contains(DayKey.of(day, calendar: calendar)) else { continue }
                 let practice = PracticeSchedule.hasPractice(on: day) ? PracticeSchedule.time(on: day) : nil
                 let minutes = plan(for: day, settings: current, practice: practice, sessionTomorrowStart: nil).reflection ?? 0
                 var components = calendar.dateComponents([.year, .month, .day], from: day)
@@ -231,8 +252,24 @@ public enum ReminderScheduler {
                 guard let when = calendar.date(from: components), when > .now else { continue }
                 if offset == 0, MindsetStore.reflection(on: day) != nil { continue }
                 let content = UNMutableNotificationContent()
-                content.title = "Evening reflection"
-                content.body = "45 seconds: how today felt shapes tomorrow's plan."
+                let key = DayKey.of(day, calendar: calendar)
+                if let plan = tomorrow[key] {
+                    // The plan itself, as a when/what (P9), then the ask.
+                    content.title = "Tomorrow: \(plan.title)"
+                    content.body = (plan.detail.map { "\($0). " } ?? "") + "How did today feel? 45 seconds fine-tunes it."
+                } else {
+                    content.title = "Evening reflection"
+                    content.body = "45 seconds: how today felt shapes tomorrow's plan."
+                }
+                if current.bedtimeEnabled, let tomorrowDay = calendar.date(byAdding: .day, value: 1, to: day) {
+                    // The wind-down folds in here: one message, not two. Only a
+                    // bedtime still ahead of this message is worth saying.
+                    let bed = Bedtime.suggested(wakeMinutes: nextWake(after: day, settings: current, calendar: calendar),
+                                                firstSessionTomorrow: Bedtime.firstSessionStart(on: tomorrowDay, games: games.map(\.date), calendar: calendar))
+                    let bedAfterMidnightStart = bed < 12 * 60 ? bed + 24 * 60 : bed
+                    if bedAfterMidnightStart > minutes { content.body += " Bed by \(Bedtime.label(bed))." }
+                }
+                eveningsTold.insert(key)
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let id = "\(reflectionIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
@@ -247,7 +284,8 @@ public enum ReminderScheduler {
             for offset in 0..<14 {
                 guard let day = calendar.date(byAdding: .day, value: offset, to: today),
                       let tomorrow = calendar.date(byAdding: .day, value: 1, to: day),
-                      DayStatusStore.status(on: day) != .sick else { continue }
+                      DayStatusStore.status(on: day) != .sick,
+                      !eveningsTold.contains(DayKey.of(day, calendar: calendar)) else { continue }
                 let gameDates = games.map { $0.date }
                 // The game reminder already says "bed early": never two nudges in one evening.
                 if current.gameRemindersEnabled, gameDates.contains(where: { calendar.isDate($0, inSameDayAs: tomorrow) }) { continue }

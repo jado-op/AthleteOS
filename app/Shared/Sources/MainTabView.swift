@@ -362,14 +362,16 @@ public struct MainTabView: View {
     }
 
     private func regenerate() {
-        week = WeeklyPlan.generate(for: athlete)
+        // The one place the plan is made; every screen reads PlanStore.
+        week = PlanStore.shared.rebuild(for: athlete)
         WidgetSnapshotWriter.write(for: athlete, week: week)
         let settings = ReminderScheduler.settings
         if settings.anyEnabled {
             // The sport's own word ("Race", "Match"…) for a plain game.
             let event = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
             let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind == .game ? event : $0.kind.rawValue.capitalized) }
-            Task { await ReminderScheduler.reschedule(games: games) }
+            let tomorrow = PlanStore.shared.eveningLines()
+            Task { await ReminderScheduler.reschedule(games: games, tomorrow: tomorrow) }
         }
     }
 }
@@ -412,10 +414,10 @@ enum WeeklyPlan {
     /// current one when building a new plan, and exercises to leave out).
     @MainActor
     static func input(for athlete: Athlete, variant: Int = PlanVariant.current, avoid: Set<String> = [],
-                      catalogue: Catalogue? = nil, painAreas: Set<PainArea> = []) -> PlanGeneratorInput? {
+                      catalogue: Catalogue? = nil, painAreas: Set<PainArea> = [], weekOf reference: Date = .now) -> PlanGeneratorInput? {
         guard let athleteSport = athlete.activeSport, let sportInfo = allSportsBySlug[athleteSport.sportSlug] else { return nil }
         let calendar = Calendar.current
-        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)) ?? .now
+        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: reference)) ?? reference
         let basePosition = athleteSport.positionSlug.flatMap { slug in
             sportInfo.positions.first { $0.slug == slug }?.qualityProfile
         }
@@ -439,7 +441,9 @@ enum WeeklyPlan {
     }
 
     @MainActor
-    static func generate(for athlete: Athlete) -> GeneratedWeek? {
+    /// The week that contains `reference` (this week by default; the plan of
+    /// record also builds next week, so Sunday's "tomorrow" is real).
+    static func generate(for athlete: Athlete, weekOf reference: Date = .now, catalogue: Catalogue? = nil) -> GeneratedWeek? {
         guard
             let athleteSport = athlete.activeSport,
             let sportInfo = allSportsBySlug[athleteSport.sportSlug]
@@ -447,13 +451,13 @@ enum WeeklyPlan {
 
         let calendar = Calendar.current
         let weekStart = calendar.date(
-            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
-        ) ?? .now
+            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: reference)
+        ) ?? reference
 
         // The athlete's own say: how many gym days, which days, how long, and
         // their own version of any gym day.
         let custom = PlanCustomizationStore.load()
-        guard let planInput = Self.input(for: athlete) else { return nil }
+        guard let planInput = Self.input(for: athlete, catalogue: catalogue, weekOf: reference) else { return nil }
         let catalogue = planInput.catalogue
         let customized = PlanCustomizer.apply(custom, to: PlanGenerator.generate(planInput), catalogue: catalogue)
         // Every fifth week of the building phases is a planned deload.
@@ -473,7 +477,9 @@ enum WeeklyPlan {
         // Every game counts, whatever sport it's for: the body that plays a
         // basketball game on Friday shouldn't squat heavy on Thursday.
         // Free tapers for the next game; Pro for every game in the week.
-        let competitions = ProGate.competitionsForTaper(athlete.competitions.map(\.date), isPro: ProAccess.isPro)
+        // Next week (built ahead by the plan of record) tapers as that Monday will.
+        let competitions = ProGate.competitionsForTaper(athlete.competitions.map(\.date), isPro: ProAccess.isPro,
+                                                        now: max(reference, .now), calendar: calendar)
         let tapered = TaperApplier.apply(to: generated, competitions: competitions, contactLevel: sportInfo.contactLevel)
         // A practice cancelled today or later pulls a gym day onto that day.
         let startOfToday = calendar.startOfDay(for: .now)

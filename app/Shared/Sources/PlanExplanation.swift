@@ -324,6 +324,18 @@ public extension PlanExplanation {
     /// What shaped the day, in at most two short phrases, most important first:
     /// "Game in 2 days · legs tired". Nil when nothing in particular did.
     /// `event` is the athlete's word for a competition ("Game", "Match", "Race").
+    /// Reasons about the athlete's body, health or mood: never on a Lock
+    /// Screen anyone nearby can read (docs/PLAN-CHANGES-RESEARCH.md P13).
+    static let privateReasons: Set<PlanReason> = [
+        .reflectionSomethingHurt, .returnAfterIllness, .highLowerBodyFatigue, .lowerBodyFatigue,
+        .highUpperBodyFatigue, .lowReadiness, .belowNormalReadiness
+    ]
+
+    /// The same short because, without anything private.
+    static func lockScreenBecause(_ reasons: [PlanReason], event: String = "Game") -> String? {
+        because(reasons.filter { !privateReasons.contains($0) }, event: event)
+    }
+
     static func because(_ reasons: [PlanReason], event: String = "Game") -> String? {
         let r = Set(reasons)
         let ordered: [(PlanReason, String)] = [

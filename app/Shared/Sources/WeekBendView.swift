@@ -174,8 +174,10 @@ struct WeekBendView: View {
 
     /// Changes the week, rebuilds it and shows what moved; the undo puts it back.
     private func bend(_ label: String, _ change: () -> Void, undo reverse: @escaping () -> Void) {
-        let before = current()
+        let before = days
         change()
+        // One rebuild: the athlete sees this change here, so Home won't repeat it.
+        PlanStore.shared.rebuild(for: athlete, announce: false)
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         let after = current()
         withAnimation(.spring(response: 0.55, dampingFraction: 0.85)) {
@@ -185,6 +187,7 @@ struct WeekBendView: View {
         }
         undo = ("Undo: \(label.lowercased())", {
             reverse()
+            PlanStore.shared.rebuild(for: athlete, announce: false)
             NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
             days = current()
             words = describe(days)
@@ -195,14 +198,15 @@ struct WeekBendView: View {
 
     /// Each day in the strip's and the calendar's own words.
     private func describe(_ days: [WeekBend.Day]) -> [[TrainingCalendar.Item]] {
-        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: WeeklyPlan.generate(for: athlete),
+        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: PlanStore.shared.thisWeek,
                                     catalogue: catalogue, calendar: calendar)
         return days.map { source.items(on: $0.date) }
     }
 
     /// This week, Monday to Sunday as the planner built it.
     private func current() -> [WeekBend.Day] {
-        let week = WeeklyPlan.generate(for: athlete)
+        // The plan of record: what every other screen shows.
+        let week = PlanStore.shared.thisWeek ?? PlanStore.shared.rebuild(for: athlete, announce: false)
         let start = week.map { calendar.startOfDay(for: $0.weekStart) }
             ?? calendar.dateInterval(of: .weekOfYear, for: .now)?.start ?? calendar.startOfDay(for: .now)
         return (0..<7).compactMap { offset -> WeekBend.Day? in

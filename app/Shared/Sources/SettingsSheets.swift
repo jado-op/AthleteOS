@@ -34,7 +34,7 @@ struct RemindersSheet: View {
                         }
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.reflectionEnabled) {
-                            row("Evening reflection", "45 seconds: how today felt", "moon.stars.fill", AuraTone.mind.mark)
+                            row("Evening reflection", "Tomorrow's plan and 45 seconds on today", "moon.stars.fill", AuraTone.mind.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
@@ -53,7 +53,7 @@ struct RemindersSheet: View {
                         .padding(.vertical, 8)
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.bedtimeEnabled) {
-                            row("Bedtime", "Silent, 30 min before a 9-hour night", "bed.double.fill", AuraTone.body.mark)
+                            row("Bedtime", "In the evening message, or a silent nudge before bed", "bed.double.fill", AuraTone.body.mark)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
@@ -141,6 +141,7 @@ struct RemindersSheet: View {
         let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
         let wantsPush = PushSettings.hasTeam && (teamUpdates || (PushSettings.isStaff && healthNotes))
         let wantsAny = settings.anyEnabled || wantsPush
+        let tomorrow = PlanStore.shared.eveningLines()
         Task {
             if wantsAny {
                 let granted = await ReminderScheduler.requestAuthorization()
@@ -149,7 +150,7 @@ struct RemindersSheet: View {
                     return
                 }
             }
-            await ReminderScheduler.reschedule(games: games)
+            await ReminderScheduler.reschedule(games: games, tomorrow: tomorrow)
             if wantsPush { await PushSettings.enable() } else { await PushSettings.syncIfNeeded() }
             dismiss()
         }
