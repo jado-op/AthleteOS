@@ -673,7 +673,7 @@ struct AcademyHomeView: View {
         }
     }
 
-    private func evidencePage<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func evidencePage<Content: View>(_ title: String, @ViewBuilder content: @escaping () -> Content) -> some View {
         ScrollViewReader { scroller in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
