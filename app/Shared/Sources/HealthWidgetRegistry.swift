@@ -92,7 +92,7 @@ public enum HealthWidgetRegistry {
 }
 
 /// The morning's recovery word, from whichever of resting heart rate and HRV
-/// Health has — the check-in's thresholds (`WearableRead.recovery`). Not a
+/// Health has — the check-in's careful reading (`WearableRead.recovery`). Not a
 /// medical or validated score: the athlete against their own usual.
 public enum HealthRecovery {
     public struct Reading: Sendable, Equatable {
@@ -109,9 +109,16 @@ public enum HealthRecovery {
         }
     }
 
-    public static func read(_ snapshot: HealthSnapshot, now: Date = .now, calendar: Calendar = .current) -> Reading {
-        let heart = snapshot.series[.restingHeartRate].flatMap { WearableRead.reading($0.points, now: now, calendar: calendar) }
-        let hrv = snapshot.series[.heartRateVariability].flatMap { WearableRead.reading($0.points, now: now, calendar: calendar) }
-        return Reading(heartRate: heart, variability: hrv, recovery: WearableRead.recovery(heartRate: heart, variability: hrv))
+    /// `morning`: the app's device-aware reading (`HeartStore.morning`), the
+    /// same one the check-in uses; without it, read from Health's daily values.
+    public static func read(_ snapshot: HealthSnapshot, morning given: HeartMorning? = nil, now: Date = .now,
+                            calendar: Calendar = .current) -> Reading {
+        let morning = given ?? HeartSignals.morning(
+            restingHeartRate: (snapshot.series[.restingHeartRate]?.points ?? []).map { HeartNight(date: $0.date, value: $0.value) },
+            variability: (snapshot.series[.heartRateVariability]?.points ?? []).map { HeartNight(date: $0.date, value: $0.value) },
+            now: now, calendar: calendar)
+        let heart = morning.lastTwo.last.map { SignalReading(today: $0, usual: morning.usual) }
+        let hrv = morning.variabilityRecent.map { SignalReading(today: $0, usual: morning.variabilityUsual) }
+        return Reading(heartRate: heart, variability: hrv, recovery: WearableRead.recovery(morning))
     }
 }

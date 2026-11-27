@@ -52,13 +52,18 @@ final class HealthInsightsTests: XCTestCase {
         XCTAssertFalse(HealthWidgetRegistry.isAvailable(.metric(.flightsClimbed), in: snapshot, now: now, calendar: calendar))
     }
 
+    /// The recovery word reads the heart the check-in's careful way (owner,
+    /// 2026-11-27: one voice about the heart): a usual of 14+ days, two days not one.
     func testRecoveryNeedsAUsualToCompareWith() {
-        let short = HealthSnapshot(series: [.restingHeartRate: series(.restingHeartRate, [52, 53, 51])])
-        XCTAssertFalse(HealthWidgetRegistry.isAvailable(.recovery, in: short, now: now, calendar: calendar))
-        let enough = HealthSnapshot(series: [.restingHeartRate: series(.restingHeartRate, [52, 53, 51, 52, 50, 53, 52, 51, 58])])
-        XCTAssertTrue(HealthWidgetRegistry.isAvailable(.recovery, in: enough, now: now, calendar: calendar))
-        let reading = HealthRecovery.read(enough, now: now, calendar: calendar)
-        XCTAssertEqual(reading.recovery, .takeItEasy)
+        let short = HealthSnapshot(series: [.restingHeartRate: series(.restingHeartRate, [52, 53, 51, 52, 50, 53, 52, 51, 58])])
+        XCTAssertFalse(HealthWidgetRegistry.isAvailable(.recovery, in: short, now: now, calendar: calendar), "a week is not a usual")
+        let usual: [Double] = Array(repeating: 52, count: 20)
+        let oneDay = HealthSnapshot(series: [.restingHeartRate: series(.restingHeartRate, usual + [52, 58])])
+        XCTAssertEqual(HealthRecovery.read(oneDay, now: now, calendar: calendar).recovery, .recovered, "one high morning is noise")
+        let twoDays = HealthSnapshot(series: [.restingHeartRate: series(.restingHeartRate, usual + [58, 58])])
+        XCTAssertTrue(HealthWidgetRegistry.isAvailable(.recovery, in: twoDays, now: now, calendar: calendar))
+        let reading = HealthRecovery.read(twoDays, now: now, calendar: calendar)
+        XCTAssertEqual(reading.recovery, .slightlyTired, "one sign (no HRV): a bit tired, never take it easy")
         XCTAssertEqual(reading.lines, ["Resting heart rate 58, 6 above your usual."])
     }
 

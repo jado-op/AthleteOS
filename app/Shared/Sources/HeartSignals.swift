@@ -30,6 +30,9 @@ public struct HeartMorning: Sendable, Equatable {
     public var raised: Bool
     /// HRV's three-day average at least 10% under its own usual.
     public var variabilityLow: Bool
+    /// The three complete days' HRV average and its usual (nil: not enough data).
+    public var variabilityRecent: Double? = nil
+    public var variabilityUsual: Double? = nil
 
     /// The check-in's note, calm, with the numbers — only when two signs
     /// agree (T8: a raised resting heart rate *and* low variability). One
@@ -97,14 +100,17 @@ public enum HeartSignals {
         // partial daytime reading), all three needed, against the usual of
         // the 28 days before them — the same strictness as the heart rate.
         var low = false
+        var hrvRecent: Double?
         let hrvDays = (1...3).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
-        if let first = hrvDays.last, let hrvBase = usual(hrv, before: first, calendar: calendar) {
-            let recent = hrvDays.compactMap { value(hrv, on: $0) }
-            if recent.count == 3 {
-                low = recent.reduce(0, +) / 3 <= hrvBase.value * 0.9
-            }
+        let hrvBase = hrvDays.last.flatMap { usual(hrv, before: $0, calendar: calendar) }
+        let recent = hrvDays.compactMap { value(hrv, on: $0) }
+        if recent.count == 3 {
+            let average = recent.reduce(0, +) / 3
+            hrvRecent = average
+            if let hrvBase { low = average <= hrvBase.value * 0.9 }
         }
-        return HeartMorning(usual: base?.value, lastTwo: lastTwo, raised: raised, variabilityLow: low)
+        return HeartMorning(usual: base?.value, lastTwo: lastTwo, raised: raised, variabilityLow: low,
+                            variabilityRecent: hrvRecent, variabilityUsual: hrvBase?.value)
     }
 
     /// The check-in's energy guess from the heart: nothing without a usual

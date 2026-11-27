@@ -61,7 +61,7 @@ struct HealthWidgetView: View {
     var body: some View {
         switch kind {
         case .recovery:
-            HealthRecoveryWidget(reading: HealthRecovery.read(snapshot), readinessDays: readinessDays)
+            HealthRecoveryWidget(reading: HealthRecovery.read(snapshot, morning: HeartStore.morning()), readinessDays: readinessDays)
         case .sleep:
             HealthSleepWidget(nights: snapshot.nights)
         case .sleepSchedule:

@@ -28,13 +28,16 @@ final class WearableSignalsTests: XCTestCase {
         XCTAssertNil(WearableRead.reading(Array(old), now: now, calendar: calendar))
     }
 
-    func testRecoveryIsAWordFromTheCheckInThresholds() {
-        let calm = SignalReading(today: 52, usual: 51)
-        XCTAssertEqual(WearableRead.recovery(heartRate: calm, variability: SignalReading(today: 60, usual: 62)), .recovered)
-        XCTAssertEqual(WearableRead.recovery(heartRate: SignalReading(today: 55, usual: 51), variability: nil), .slightlyTired)
-        XCTAssertEqual(WearableRead.recovery(heartRate: calm, variability: SignalReading(today: 40, usual: 62)), .takeItEasy)
-        XCTAssertEqual(WearableRead.recovery(heartRate: SignalReading(today: 55, usual: nil), variability: nil), .learning)
-        XCTAssertNil(WearableRead.recovery(heartRate: nil, variability: nil))
+    func testRecoveryIsAWordFromTheCheckInsCarefulReading() {
+        // Owner, 2026-11-27: the same two-day, two-sign reading as the check-in.
+        let calm = HeartMorning(usual: 51, lastTwo: [52, 51], raised: false, variabilityLow: false, variabilityRecent: 60, variabilityUsual: 62)
+        XCTAssertEqual(WearableRead.recovery(calm), .recovered)
+        let oneSign = HeartMorning(usual: 51, lastTwo: [56, 57], raised: true, variabilityLow: false)
+        XCTAssertEqual(WearableRead.recovery(oneSign), .slightlyTired)
+        let twoSigns = HeartMorning(usual: 51, lastTwo: [56, 57], raised: true, variabilityLow: true, variabilityRecent: 50, variabilityUsual: 62)
+        XCTAssertEqual(WearableRead.recovery(twoSigns), .takeItEasy)
+        XCTAssertEqual(WearableRead.recovery(HeartMorning(usual: nil, lastTwo: [55], raised: false, variabilityLow: false)), .learning)
+        XCTAssertNil(WearableRead.recovery(HeartMorning(usual: 51, lastTwo: [], raised: false, variabilityLow: false)), "no reading, no word")
         XCTAssertEqual(WearableRead.Recovery.takeItEasy.word, "Take it easy.")
     }
 

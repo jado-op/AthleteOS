@@ -146,7 +146,8 @@ Reading files, CI logs or the GitHub API needs no lock.
   energy isn't pre-filled and the one-tap normal check-in isn't offered — the athlete's answer moves the plan, never the
   heart alone. Energy is pre-filled "good" only with a usual and both recent days measured. No push, no illness alert,
   no HRV value called good or bad. The twin says the usual resting HR and a 2-month change of 3+ bpm (same device only).
-  Still single-morning (needs the owner's OK to change its tests): the twin Health section's recovery word (`WearableRead.recovery`).
+  The twin Health section's recovery word reads the same (owner OK, 2026-11-27): two signs = "Take it easy", one = "A bit tired",
+  neither = "Recovered" (`WearableRead.recovery(HeartMorning)`, fed `HeartStore.morning()` in the app).
 - Practice data (P14–P17): Home asks about yesterday's unlogged scheduled practice once ("Went · normal / Went · hard
   / Didn't go"; `PracticeRoutine`, `PracticeCards.swift`) and offers a weekday logged in 3 of the last 4 weeks as a
   practice day (Yes / Not quite / No = 6 weeks quiet; never with a team calendar). A Health workout during practice

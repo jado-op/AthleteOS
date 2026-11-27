@@ -41,24 +41,18 @@ public enum WearableRead {
         }
     }
 
-    /// The same thresholds as the check-in's energy from a watch
-    /// (`WearablePrefill.energy`): heart rate 3+ above usual or variability
-    /// 10 % below = a bit tired; 6+ above or 25 % below = take it easy.
-    public static func recovery(heartRate: SignalReading?, variability: SignalReading?) -> Recovery? {
-        guard heartRate != nil || variability != nil else { return nil }
-        var level = 0
-        var compared = false
-        if let diff = heartRate?.difference {
-            compared = true
-            level = max(level, diff > 5 ? 2 : (diff > 2 ? 1 : 0))
-        }
-        if let hrv = variability, let usual = hrv.usual, usual > 0 {
-            compared = true
-            let drop = (usual - hrv.today) / usual
-            level = max(level, drop > 0.25 ? 2 : (drop > 0.1 ? 1 : 0))
-        }
-        guard compared else { return .learning }
-        return [.recovered, .slightlyTired, .takeItEasy][level]
+    /// The recovery word from the same careful reading as the check-in
+    /// (`HeartSignals`, owner 2026-11-27: one voice about the heart): two
+    /// signs (resting heart rate raised two days and HRV low) = take it easy;
+    /// one sign = a bit tired; neither, with both recent days measured =
+    /// recovered. Without 14 days of the athlete's own usual: learning.
+    public static func recovery(_ morning: HeartMorning) -> Recovery? {
+        let measured = !morning.lastTwo.isEmpty || morning.variabilityRecent != nil
+        guard measured else { return nil }
+        guard morning.usual != nil || morning.variabilityUsual != nil else { return .learning }
+        if morning.raised && morning.variabilityLow { return .takeItEasy }
+        if morning.raised || morning.variabilityLow { return .slightlyTired }
+        return morning.lastTwo.count == 2 || morning.variabilityRecent != nil ? .recovered : nil
     }
 
     /// "52 bpm, 3 below your usual" — the numbers behind the word.
