@@ -103,3 +103,31 @@ final class TwinPageTests: XCTestCase {
         XCTAssertEqual(TwinPage.stillLearning(items).map(\.id), ["d", "b", "c"])
     }
 }
+
+final class TwinLearnedTests: XCTestCase {
+    private func item(_ id: String, have: Int, need: Int = 10, checking: Bool = false) -> LearningItem {
+        LearningItem(id: id, area: .games, question: "What your best games have in common", have: have, need: need,
+                     unit: "rated games", checking: checking)
+    }
+
+    func testARatingMovesTheGamesCount() {
+        let before = TwinKnowledge(lines: [], learning: [item("games.best", have: 3)], legRecoveryDays: nil)
+        let after = TwinKnowledge(lines: [], learning: [item("games.best", have: 4)], legRecoveryDays: nil)
+        XCTAssertEqual(TwinLearned.line(before: before, after: after, input: .gameRating),
+                       "Your twin is learning what your best games have in common: 4 of 10 rated games so far.")
+        XCTAssertNil(TwinLearned.line(before: after, after: after, input: .gameRating), "nothing moved: nothing said")
+        XCTAssertNil(TwinLearned.line(before: before, after: after, input: .checkIn), "a check-in doesn't teach games")
+    }
+
+    func testANewLineIsSaidAndPainIsNot() {
+        let sleep = KnowledgeLine(id: "habits.sleep", area: .habits, text: "You usually sleep about 8 h.", basis: "7 nights")
+        let empty = TwinKnowledge(lines: [], learning: [], legRecoveryDays: nil)
+        XCTAssertEqual(TwinLearned.line(before: empty, after: TwinKnowledge(lines: [sleep], learning: [], legRecoveryDays: nil), input: .checkIn),
+                       "Your twin learned something new: You usually sleep about 8 h.")
+        let games = KnowledgeLine(id: "games.best.sleep", area: .games, text: "Your best games came after longer sleep.", basis: "15 games")
+        XCTAssertEqual(TwinLearned.line(before: empty, after: TwinKnowledge(lines: [games], learning: [], legRecoveryDays: nil), input: .gameRating),
+                       "Your twin learned something new: Your best games came after longer sleep.")
+        let pain = KnowledgeLine(id: "body.legs.pain", area: .body, text: "Your knee hurt again.", basis: "", safety: true)
+        XCTAssertNil(TwinLearned.line(before: empty, after: TwinKnowledge(lines: [pain], learning: [], legRecoveryDays: nil), input: .checkIn))
+    }
+}

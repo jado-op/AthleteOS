@@ -1098,6 +1098,8 @@ public struct LiveSessionView: View {
         endActivity()
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
+        // Home says what the twin makes of it ("legs ready again Sunday").
+        TwinPulse.afterWorkout(athlete, catalogue: catalogue)
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         let sessionRef = session
         let sportSlug = athlete.activeSport?.sportSlug

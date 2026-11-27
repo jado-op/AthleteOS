@@ -73,9 +73,16 @@ struct CompetitionHubView: View {
         return CompetitionCoach.focus(last: lastResult, insights: twinInsights ?? [], daysToNext: daysToNext, team: family.team)
     }
 
+    /// What the athlete's best-rated games have in common, once the twin
+    /// knows (≥ 10 rated, held twice; "goes with", never "because").
+    @State private var bestGames: String?
+
     private func loadTwinInsights() {
-        let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load())
+        let state = AcademyStore.load()
+        let input = TwinInputBuilder.input(athlete: athlete, state: state)
         twinInsights = TwinAnalysis.report(input).insights.map(\.kind)
+        bestGames = TwinKnowledgeStore.visible(TwinKnowledgeStore.current(athlete, state: state), state: state)
+            .first { $0.id.hasPrefix("games.best.") }?.text
     }
 
     /// Sections in the order they show; numbered by what is actually on screen.
@@ -104,6 +111,8 @@ struct CompetitionHubView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 34) {
+                    // What the rating just taught the twin; tap closes the hub and opens it.
+                    TwinPulseLine { dismiss(); AcademyNavigation.shared.openTwin("learning") }
                     ForEach(sections, id: \.self) { section in
                         switch section {
                         case .next: nextSection
@@ -155,7 +164,7 @@ struct CompetitionHubView: View {
             }
             .sheet(isPresented: $editingResult, onDismiss: { results = CompetitionStore.results() }) {
                 if let last {
-                    CompetitionResultForm(competition: last, existing: results[last.id], family: family)
+                    CompetitionResultForm(competition: last, existing: results[last.id], family: family, athlete: athlete)
                 }
             }
         }
@@ -210,6 +219,29 @@ struct CompetitionHubView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { editingGame = next }
                 .accessibilityAction(named: "Edit") { editingGame = next }
+                // The twin, where it helps: before the game, what your best ones share.
+                if let bestGames {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AuraTone.mind.mark)
+                            .padding(.top, 2)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("From your twin")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(AuraTone.mind.mark)
+                            Text(bestGames)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassSurface(cornerRadius: 18)
+                    .accessibilityElement(children: .combine)
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Your chance")
@@ -627,6 +659,8 @@ struct CompetitionResultForm: View {
     let competition: Competition
     let existing: CompetitionResult?
     let family: SportFamily
+    /// Whose twin learns from the rating ("Your twin is learning …").
+    var athlete: Athlete? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var outcome: CompetitionResult.Outcome = .win
@@ -704,12 +738,15 @@ struct CompetitionResultForm: View {
     }
 
     private func save() {
+        var twinBefore: TwinKnowledge?
+        if let athlete { twinBefore = TwinPulse.before(athlete) }
         CompetitionStore.save(CompetitionResult(
             id: competition.id, outcome: outcome, placement: outcome == .placed ? placement : nil,
             score: score.trimmingCharacters(in: .whitespaces).isEmpty ? nil : score.trimmingCharacters(in: .whitespaces),
             rating: rating, wentWell: EveningOptions.areas.filter(wentWell.contains), toImprove: EveningOptions.areas.filter(toImprove.contains),
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note))
         AcademyEvent.log(.reflectionSubmitted)
+        if let athlete, let twinBefore { TwinPulse.after(athlete, before: twinBefore, input: .gameRating) }
         dismiss()
     }
 

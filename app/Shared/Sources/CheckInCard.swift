@@ -541,6 +541,7 @@ struct CheckInSheet: View {
     private func save() {
         guard let sleepQuality, let energy, let soreness, let mood else { return }
         ReminderScheduler.markDone(checkIn: true)
+        let twinBefore = TwinPulse.before(athlete)
         let day = DayKey.of(.now)
         // The follow-ups: back to normal closes them; anything else keeps them open for tomorrow.
         for question in contextQuestions {
@@ -567,6 +568,7 @@ struct CheckInSheet: View {
         IllnessStore.set(illness)
         // "No pain" today: a pain reported on an earlier day is gone.
         if hasPain == false { PainFollowUp.markResolved() }
+        TwinPulse.after(athlete, before: twinBefore, input: .checkIn)
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         saveCount += 1
         withAnimation(.easeInOut(duration: 0.25)) { step = .result }
@@ -658,12 +660,14 @@ enum QuickCheckIn {
     static func save(_ athlete: Athlete, context: ModelContext) {
         guard let values = usual(athlete) else { return }
         ReminderScheduler.markDone(checkIn: true)
+        let twinBefore = TwinPulse.before(athlete)
         _ = try? CheckInStore(modelContext: context).submit(
             athlete: athlete, sleepQuality: values.sleepQuality, sleepHours: MeasuredSleepStore.recent()?.lastNight,
             soreness: values.soreness, energy: values.energy, stress: values.stress
         )
         IllnessStore.set(.no)
         PainFollowUp.markResolved()
+        TwinPulse.after(athlete, before: twinBefore, input: .checkIn)
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
     }
 }

@@ -15,6 +15,8 @@ struct WorkoutCheckSheet: View {
     let sports: [SportVisibility.Sport]
     /// Screenshots open later steps (`-sheet workoutCheckTrained|workoutCheckDone`).
     var startStep: Step = .effort
+    /// Whose twin learns from the answer ("Your twin is learning …").
+    var athlete: Athlete? = nil
     let onDone: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -163,7 +165,10 @@ struct WorkoutCheckSheet: View {
         case .done:
             QuestionPage(progress: 1, question: "Saved.", hint: "Here's what it changed.", buttonTitle: "Done",
                          onClose: finish, onButton: finish, tone: .training) {
-                summary
+                VStack(alignment: .leading, spacing: 16) {
+                    summary
+                    TwinPulseLine { finish(); AcademyNavigation.shared.openTwin("learning") }
+                }
             }
         }
     }
@@ -483,7 +488,10 @@ struct WorkoutCheckSheet: View {
 
     private func save() {
         if !DemoData.isEnabled {
+            var twinBefore: TwinKnowledge?
+            if let athlete { twinBefore = TwinPulse.before(athlete) }
             HealthWorkoutInbox.save(answer, for: session, painAreas: Array(painAreas), painLevel: painLevel, context: modelContext)
+            if let athlete, let twinBefore { TwinPulse.after(athlete, before: twinBefore, input: .workout) }
         }
         savedCount += 1
         go(.done)

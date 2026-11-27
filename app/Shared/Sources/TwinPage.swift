@@ -18,6 +18,15 @@ public struct TwinPlanEffect: Equatable, Sendable {
     public var text: String
     /// True while it changes a day this week (it can lead the page).
     public var now: Bool
+    /// A few words for a tile ("Legs ready Sunday"), only while `now`.
+    public var short: String? = nil
+
+    public init(id: String, text: String, now: Bool, short: String? = nil) {
+        self.id = id
+        self.text = text
+        self.now = now
+        self.short = short
+    }
 }
 
 public enum TwinPageEntry: Identifiable, Equatable, Sendable {
@@ -128,7 +137,7 @@ public enum TwinPage {
         if steers.contains(.loadSpike) {
             effects.append(TwinPlanEffect(id: TwinInsightKind.loadSpike.rawValue,
                                           text: "Your load jumped, so sessions are a little shorter and skip hard conditioning until it settles.",
-                                          now: true))
+                                          now: true, short: "Lighter while your load settles"))
         }
         if steers.contains(.slowGameRecovery) {
             // The light day a game brings (two days after it, as the planner
@@ -141,7 +150,7 @@ public enum TwinPage {
                     ? "tomorrow" : weekday(light, calendar: calendar)
                 effects.append(TwinPlanEffect(id: TwinInsightKind.recoveryAfterGames.rawValue,
                                               text: "You still feel a \(event) two days later, so after \(weekday(game, calendar: calendar))'s \(event), \(when) stays light on the legs too.",
-                                              now: true))
+                                              now: true, short: "\(when.prefix(1).uppercased() + when.dropFirst()) light on the legs"))
             } else {
                 effects.append(TwinPlanEffect(id: TwinInsightKind.recoveryAfterGames.rawValue,
                                               text: "You still feel a \(event) two days later, so that day stays light on the legs too.",
@@ -153,7 +162,7 @@ public enum TwinPage {
                 let when = left == 1 ? "tomorrow" : weekday(ready, calendar: calendar)
                 effects.append(TwinPlanEffect(id: "body.legs",
                                               text: "Your hard leg days get \(days) days to recover, so your legs are ready for hard work again \(when).",
-                                              now: true))
+                                              now: true, short: "Legs ready \(when)"))
             } else {
                 effects.append(TwinPlanEffect(id: "body.legs", text: "Your hard leg days get \(days) days to recover, not the usual 3.", now: false))
             }
@@ -203,5 +212,48 @@ public enum TwinPage {
     /// Fixed English day names (Foundation's names differ on Linux).
     static func weekday(_ date: Date, calendar: Calendar) -> String {
         ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][(calendar.component(.weekday, from: date) - 1) % 7]
+    }
+}
+
+/// "Your twin learned …" after an input (owner, 2026-11-27: "every button
+/// almost you tap everything turns into the twin"): what this one input
+/// added — a line known just now, else the progress of what it feeds. Never
+/// a score; nothing when the input changed nothing the twin tracks.
+public enum TwinLearned {
+    /// What each input teaches (the knowledge engine's line and item ids).
+    public enum Input: Sendable {
+        case checkIn, gameRating, practice, workout
+
+        var feeds: [String] {
+            switch self {
+            case .checkIn: ["habits.sleep", "training.sleep", "body.legs"]
+            case .gameRating: ["games.best"]
+            case .practice: ["training.sleep", "training.rhythm"]
+            case .workout: ["body.legs", "training.rhythm"]
+            }
+        }
+    }
+
+    public static func line(before: TwinKnowledge, after: TwinKnowledge, input: Input) -> String? {
+        let known = Set(before.lines.map(\.id))
+        // A new line from what this input feeds (pain has its own path and words).
+        if let new = after.lines.first(where: { line in
+            !known.contains(line.id) && !line.safety && input.feeds.contains { line.id == $0 || line.id.hasPrefix($0 + ".") }
+        }) {
+            return "Your twin learned something new: " + new.text
+        }
+        for id in input.feeds {
+            guard let now = after.learning.first(where: { $0.id == id }) else { continue }
+            let was = before.learning.first { $0.id == id }
+            let moved = was.map { now.have > $0.have || (now.checking && !$0.checking) } ?? true
+            guard moved else { continue }
+            return "Your twin is learning \(lowercasedFirst(now.question)): \(now.progress)."
+        }
+        return nil
+    }
+
+    static func lowercasedFirst(_ text: String) -> String {
+        guard let first = text.first else { return text }
+        return first.lowercased() + text.dropFirst()
     }
 }

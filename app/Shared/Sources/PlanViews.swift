@@ -124,6 +124,8 @@ struct BlockedSessionList: View {
 /// "More about this plan": the ten answers, in one glass panel.
 struct WhyThisPlanPanel: View {
     let explanation: PlanExplanation
+    /// Opens the Twin page at what it knows (the answer from the twin links there).
+    var openTwin: (() -> Void)? = nil
     @State private var open = false
 
     var body: some View {
@@ -154,6 +156,18 @@ struct WhyThisPlanPanel: View {
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
+                            if part.question == PlanExplanation.twinQuestion, let openTwin {
+                                Button(action: openTwin) {
+                                    HStack(spacing: 6) {
+                                        Text("See what your twin knows")
+                                        Image(systemName: "arrow.right")
+                                    }
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AuraTone.mind.mark)
+                                    .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.pressable)
+                            }
                         }
                     }
                 }

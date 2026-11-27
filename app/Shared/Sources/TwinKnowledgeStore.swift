@@ -92,6 +92,18 @@ enum TwinKnowledgeStore {
         return current(athlete, state: state, now: now, calendar: calendar).legRecoveryDays
     }
 
+    /// What the twin changes in the plan right now, worked out once for
+    /// every screen (the Twin page, Home's Body tile): only what the planner
+    /// really does — the gym planner's leg rest, the session planner's steers.
+    static func planEffects(_ athlete: Athlete, history: GymHistory?, now: Date = .now, calendar: Calendar = .current) -> [TwinPlanEffect] {
+        let state = AcademyStore.load()
+        let legDays = state.knowledgeHidden?["body.legs"] == nil ? current(athlete, state: state, now: now, calendar: calendar).legRecoveryDays : nil
+        let event = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).event
+        return TwinPage.effects(legRecoveryDays: legDays, legsReadyIn: legDays == nil ? nil : history?.legsHeldByTwin,
+                                steers: TodayEngine.twinSteers(athlete, date: now, calendar: calendar),
+                                games: athlete.competitions.map(\.date), event: event, now: now, calendar: calendar)
+    }
+
     /// Lines the athlete hasn't said were wrong.
     static func visible(_ knowledge: TwinKnowledge, state: AcademyState) -> [KnowledgeLine] {
         let hidden = state.knowledgeHidden ?? [:]

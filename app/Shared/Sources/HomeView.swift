@@ -61,6 +61,9 @@ struct HomeView: View {
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// Bumped when a practice card is answered, so the notices redraw.
     @State private var practiceRevision = 0
+    /// What the twin changes this week, in a few words, for the Body tile
+    /// ("Legs ready Sunday") — the same effects the Twin page shows.
+    @State private var twinTile: String?
     /// The coach's latest announcement (closed ones stay closed).
     @State private var announcement = TeamAnnouncements.current
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
@@ -258,6 +261,8 @@ struct HomeView: View {
         twinInterviewDue = state.intakeDoneAt == nil && !athlete.checkIns.isEmpty
         let report = TwinAnalysis.report(TwinInputBuilder.input(athlete: athlete, state: state))
         twinBriefing = report.insights.compactMap(\.briefing).first { state.read[$0.id] == nil }
+        let gym = catalogue.itemsBySlug.isEmpty ? nil : GymHistoryBuilder.history(athlete, catalogue: catalogue)
+        twinTile = TwinKnowledgeStore.planEffects(athlete, history: gym).first(where: \.now)?.short
     }
 
     private var reflectedToday: Bool {
@@ -437,7 +442,7 @@ struct HomeView: View {
                 case .workoutCheck:
                     if let checkSession {
                         WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete),
-                                          startStep: checkStartStep) {
+                                          startStep: checkStartStep, athlete: athlete) {
                             revision += 1
                             // The answer sets each region's rest: tomorrow's plan reads it.
                             onPlanInputsChanged()
@@ -997,6 +1002,8 @@ struct HomeView: View {
         if loaded {
             VStack(alignment: .leading, spacing: 14) {
                 painNote
+                // What the last input taught the twin (a check-in, a practice answer…).
+                TwinPulseLine()
                 // The plan moved since the athlete last looked: said once, cause first.
                 if !PlanStore.shared.changes.isEmpty {
                     PlanChangeCard(changes: PlanStore.shared.changes, event: eventWord) {
@@ -1021,7 +1028,9 @@ struct HomeView: View {
                 // Better practice data (P14–P17): yesterday in one tap, a routine offered, not assumed.
                 if let day = practiceToAsk {
                     PracticeAskCard(day: day) { answer in
+                        let twinBefore = TwinPulse.before(athlete)
                         PracticeAnswers.save(answer, on: day, sportSlug: athlete.activeSport?.sportSlug)
+                        TwinPulse.after(athlete, before: twinBefore, input: .practice)
                         withAnimation { practiceRevision += 1 }
                     }
                 }
@@ -1069,7 +1078,8 @@ struct HomeView: View {
         }
         guard todaysCheckIn != nil, let level = readiness?.level else { return ("Check in", "30 seconds") }
         switch level {
-        case .normal: return ("Ready", "Train as planned")
+        // Ready: the twin's change this week says more than "as planned".
+        case .normal: return ("Ready", twinTile ?? "Train as planned")
         case .reduced: return ("Lighter", "A bit less today")
         case .recovery: return ("Recover", "Easy day today")
         }
@@ -1980,7 +1990,10 @@ struct SessionPreviewSheet: View {
                     if let explanation = session.explanation {
                         PlanHero(session: session, explanation: explanation)
                         BlockedSessionList(session: session, catalogue: catalogue) { detailItem = $0 }
-                        WhyThisPlanPanel(explanation: explanation)
+                        WhyThisPlanPanel(explanation: explanation) {
+                            dismiss()
+                            AcademyNavigation.shared.openTwin()
+                        }
                     } else {
                         Text("Do them in this order. Tap one to watch how it's done.")
                             .font(.subheadline)

@@ -128,6 +128,18 @@ public struct GymHistory: Sendable, Equatable {
     /// When the region's last session was a workout from Health the athlete
     /// rated: the days it wants after that effort (`WorkoutTagging.recoveryDays`).
     public var recoveryOverride: [GymRegion: Int]
+    /// The twin lengthened leg rest after the newest hard leg session (T10):
+    /// the rest the legs would have had otherwise, and the twin's days. Lets
+    /// the advisor say *why* legs wait one more day.
+    public var legsUsualDays: Int? = nil
+    public var legsTwinDays: Int? = nil
+
+    /// Days until legs are ready, while only the twin's extra time holds them.
+    public var legsHeldByTwin: Int? {
+        guard let usual = legsUsualDays, let twin = legsTwinDays, let since = daysSince[.lower],
+              since >= usual, twin - since > 0 else { return nil }
+        return twin - since
+    }
 
     public init(daysSince: [GymRegion: Int] = [:], weekCount: [GymRegion: Int] = [:], stalledAnchors: Set<String> = [],
                 stalledRegions: Set<GymRegion> = [], lastAccessories: [GymFocus: Set<String>] = [:],
@@ -210,8 +222,13 @@ public enum GymAdvisor {
         else if day.context.lowerFatigue >= 2 { legsBlocked = "You said your legs are still tired" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }
+        else if let left = history.legsHeldByTwin, let days = history.legsTwinDays {
+            // The twin's own finding, said as such (one analyst, every why traceable).
+            legsBlocked = "Your legs usually need \(days) days after a hard session — ready \(left == 1 ? "tomorrow" : "in \(left) days")"
+        }
         else if let since = history.daysSince[.lower], since < history.recoveryDays(.lower) {
-            legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday" : "Legs trained two days ago — one more day to recover"
+            legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday"
+                : "Legs trained \(since == 2 ? "two" : "\(since)") days ago — one more day to recover"
         }
         else if let hours = history.measuredSleepHours, hours < 6 { legsBlocked = "Under 6 h of sleep — no heavy legs today" }
         else if let heavy = day.recent.daysSinceHeavyLower, heavy <= 1 { legsBlocked = "Legs trained yesterday" }

@@ -90,6 +90,8 @@ struct AcademyHomeView: View {
     @StateObject private var health = HealthInsightsViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var path: [TwinRoute] = []
+    /// A part of the page to bring into view ("know").
+    @State private var scrollTarget: String?
     @State private var openLift: LiftTrend?
     @State private var showingTests = false
     /// The last 30 days, sleep and load over time: the twin's one Trends page.
@@ -183,6 +185,14 @@ struct AcademyHomeView: View {
                 case "health", "health2": path = [.body]
                 case "healthAll": path = [.body, .allHealth]
                 default: break
+                }
+            }
+            .onChange(of: scrollTarget) {
+                guard let target = scrollTarget else { return }
+                // After the tab switch settles.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    withAnimation { scroller.scrollTo(target, anchor: .top) }
+                    scrollTarget = nil
                 }
             }
             .onAppear {
@@ -286,6 +296,10 @@ struct AcademyHomeView: View {
         switch sheet {
         case "trends": showingTrends = true
         case "tests": showingTests = true
+        // A "why" from the twin: the portrait, at the top of the screen.
+        case "know", "learning", "evidence":
+            path = []
+            scrollTarget = sheet
         default: break
         }
     }
@@ -329,18 +343,8 @@ struct AcademyHomeView: View {
             weekGroups = MuscleTraining.week(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
             weekSentence = weekGroups.isEmpty ? "A rested week so far. Your week's numbers are inside." : TwinHeat.sentence(weekGroups)
         }
-        // Only what the planner really uses: a hidden legs line steers nothing (T13).
-        let legDays = state.knowledgeHidden?["body.legs"] == nil ? knowledge.legRecoveryDays : nil
-        // Legs "ready again <day>" only while it's the twin's extra time
-        // holding them: its days applied, and the usual 3 already past.
-        var legsHeld: Int?
-        if let gym, let legDays, gym.recoveryOverride[.lower] == legDays, let since = gym.daysSince[.lower],
-           since >= GymRegion.lower.recoveryDays, legDays - since > 0 {
-            legsHeld = legDays - since
-        }
-        effects = TwinPage.effects(legRecoveryDays: legDays, legsReadyIn: legsHeld,
-                                   steers: TwinSteer.from((report?.insights ?? []).map(\.kind)),
-                                   games: athlete.competitions.map(\.date), event: family.event, now: now)
+        // One place works out what the twin changes (Home's Body tile reads the same).
+        effects = TwinKnowledgeStore.planEffects(athlete, history: gym, now: now)
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         readinessDays = (0..<7).reversed().compactMap { back -> (date: Date, band: ReadinessBand?)? in

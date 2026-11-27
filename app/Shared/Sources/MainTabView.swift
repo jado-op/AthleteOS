@@ -157,6 +157,8 @@ public struct MainTabView: View {
         // A check-in or a finished workout: the same week everywhere (Home,
         // Workout, widgets, Watch), not a throwaway copy for the widget.
         .onReceive(NotificationCenter.default.publisher(for: WeeklyPlan.inputsChanged)) { _ in regenerate() }
+        // A "why" from the twin, tapped anywhere: its home is the Twin page.
+        .onReceive(NotificationCenter.default.publisher(for: AcademyNavigation.openTwinRequested)) { _ in selectedTab = .academy }
         .proPaywall(isPresented: $demoPaywall, athlete: athlete, feature: .skillBlocks)
     }
 

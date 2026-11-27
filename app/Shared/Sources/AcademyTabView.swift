@@ -28,6 +28,16 @@ final class AcademyNavigation: ObservableObject {
     /// A page of the twin to open on arrival ("trends", "tests"): search
     /// lands in the one home of each thing, not in a copy on Home.
     @Published var pendingTwinSheet: String?
+
+    /// Every "why" that comes from the twin opens the twin line behind it:
+    /// the Academy's Twin page, scrolled to that part ("know").
+    static let openTwinRequested = Notification.Name("AcademyNavigation.openTwin")
+
+    func openTwin(_ part: String = "know") {
+        page = .twin
+        pendingTwinSheet = part
+        NotificationCenter.default.post(name: Self.openTwinRequested, object: nil)
+    }
 }
 
 /// The Workout tab's own routes: the training calendar (what you did lives

@@ -152,8 +152,12 @@ enum GymHistoryBuilder {
         // The twin (T10): when this athlete's legs usually need longer than
         // the planner's 3 days after their hardest sessions, a hard leg
         // session gets that time. Only ever longer, never shorter.
+        var legsUsual: Int?
+        var legsTwin: Int?
         if lastLegsHard, let legDays = TwinKnowledgeStore.legRecoveryDays(athlete, now: now, calendar: calendar) {
-            recoveryOverride[.lower] = max(recoveryOverride[.lower] ?? GymRegion.lower.recoveryDays, legDays)
+            let usual = recoveryOverride[.lower] ?? GymRegion.lower.recoveryDays
+            recoveryOverride[.lower] = max(usual, legDays)
+            if legDays > usual { (legsUsual, legsTwin) = (usual, legDays) }
         }
         // Stalled: four or more sessions of a lift, and the last three never beat the best before them.
         var stalled: Set<String> = []
@@ -167,10 +171,12 @@ enum GymHistoryBuilder {
         var lastAccessories: [GymFocus: Set<String>] = [:]
         for focus in GymFocus.choices { lastAccessories[focus] = recentSlugs }
         let sleep = MeasuredSleepStore.recent(now: now, calendar: calendar)
-        let history = GymHistory(daysSince: daysSince, weekCount: weekCount, stalledAnchors: stalled,
+        var history = GymHistory(daysSince: daysSince, weekCount: weekCount, stalledAnchors: stalled,
                                  stalledRegions: Set(stalled.compactMap { regionOf[$0] }), lastAccessories: lastAccessories,
                                  measuredSleepHours: sleep?.lastNight, measuredSleepAverage: sleep?.average,
                                  recoveryOverride: recoveryOverride.compactMapValues { $0 })
+        history.legsUsualDays = legsUsual
+        history.legsTwinDays = legsTwin
         cache = (key, history)
         return history
     }

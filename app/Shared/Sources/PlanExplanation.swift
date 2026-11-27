@@ -9,6 +9,9 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         public var answer: String
     }
 
+    /// The answer that comes from the twin (it links to the Twin page).
+    public static let twinQuestion = "What does your twin change?"
+
     /// One or two sentences shown on the workout.
     public var summary: String
     /// The ten questions, answered (§9), for "More about this plan".
@@ -186,7 +189,7 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         if r.contains(.twinSpeedFocus) { twin.append("your strength is rising faster than your speed, so power and acceleration come first") }
         if !twin.isEmpty {
             let text = twin.joined(separator: "; ")
-            add("What does your twin change?", "From your own data: " + text + ".")
+            add(twinQuestion, "From your own data: " + text + ".")
         }
         // The evidence-based rules that shaped this session.
         var behind: [String] = []
