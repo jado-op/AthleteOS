@@ -1695,8 +1695,8 @@ struct HomeView: View {
     }
 
     /// Tomorrow in one line: the activity's symbol in its colour, the words, the time dimmed.
-    private func tomorrowText(_ tomorrow: (title: String, detail: String?)) -> Text {
-        let style = tomorrowStyle(tomorrow.title)
+    private func tomorrowText(_ tomorrow: (title: String, detail: String?, kind: TrainingCalendar.Item.Kind?)) -> Text {
+        let style = tomorrowStyle(tomorrow.kind)
         var text = Text(Image(systemName: style.icon)).foregroundColor(style.color)
             + Text(" \(tomorrow.title)").foregroundColor(AppTheme.ink)
         if let detail = tomorrow.detail {
@@ -1706,12 +1706,13 @@ struct HomeView: View {
     }
 
     /// Activity colours (V8): game green, practice blue, gym ember, rest calm.
-    private func tomorrowStyle(_ title: String) -> (icon: String, color: Color) {
-        switch title {
-        case "Team practice": ("person.3.fill", AuraTone.body.mark)
-        case "Gym day": ("dumbbell.fill", AuraTone.training.mark)
-        case "Rest day": ("moon.fill", AuraTone.calm.mark)
-        default: ("trophy.fill", AuraTone.game.mark)
+    private func tomorrowStyle(_ kind: TrainingCalendar.Item.Kind?) -> (icon: String, color: Color) {
+        switch kind {
+        case .practice: ("person.3.fill", ProgressColors.practice)
+        case .workout: ("dumbbell.fill", ProgressColors.workout)
+        case .mobility: ("figure.flexibility", ProgressColors.mobility)
+        case .game: ("trophy.fill", ProgressColors.game)
+        case .off, nil: ("moon.fill", AuraTone.calm.mark)
         }
     }
 
@@ -1762,19 +1763,16 @@ struct HomeView: View {
         return "A steady day. Tomorrow builds on it."
     }
 
-    /// Tomorrow's first thing: a game, practice, a gym day or rest.
-    private var tomorrowLine: (title: String, detail: String?)? {
+    /// Tomorrow in the week strip's and the calendar's own words (owner,
+    /// 2026-11-27: Home said "Team practice" while the week showed the
+    /// strength session after it): the day's main item, then the rest.
+    private var tomorrowLine: (title: String, detail: String?, kind: TrainingCalendar.Item.Kind?)? {
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: clock) else { return nil }
-        if let game = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
-            return (gameTitle(game), game.date.formatted(date: .omitted, time: .shortened))
-        }
-        if PracticeSchedule.hasPractice(on: tomorrow) {
-            return ("Team practice", PracticeSchedule.time(on: tomorrow).map(\.label))
-        }
-        if let gym = week?.sessions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
-            return ("Gym day", "\(gym.estimatedMinutes) min")
-        }
-        return ("Rest day", "Recovery is part of the plan.")
+        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: week, catalogue: catalogue, calendar: calendar)
+        let items = source.items(on: tomorrow)
+        guard let main = items.first else { return ("Rest day", "Recovery is part of the plan.", nil) }
+        let detail = items.count > 1 ? TrainingCalendar.line(Array(items.dropFirst())) : main.detail
+        return (main.title, detail, main.kind)
     }
 
     private var scheduleCard: some View {
