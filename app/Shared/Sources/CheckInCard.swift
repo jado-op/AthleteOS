@@ -406,8 +406,10 @@ struct CheckInSheet: View {
                 // Nothing measured: this morning's sleep and energy as taps, right here.
                 compactRow("Sleep", hint: nil, CheckInOptions.sleepHours, selection: $sleepHours)
                 compactRow("Sleep quality", hint: nil, CheckInOptions.sleepQuality, selection: $sleepQuality)
-                compactRow("Energy", hint: heart?.note, CheckInOptions.energy, selection: $energy)
+                if let note = heart?.note { heartNote(note) }
+                compactRow("Energy", hint: nil, CheckInOptions.energy, selection: $energy)
             } else {
+            if let note = heart?.note { heartNote(note) }
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
                     ListRow(systemImage: "moon.fill", color: AppTheme.purple,
@@ -419,7 +421,7 @@ struct CheckInSheet: View {
                 Button { edit(from: .energy) } label: {
                     ListRow(systemImage: "bolt.fill", color: AppTheme.amber,
                             title: energy.map { "Energy · \($0.title)" } ?? "Energy",
-                            detail: heart?.note ?? (energyFromWatch ? energyDetail : "Tap to answer")) { editMark }
+                            detail: heart?.note != nil ? "Tap to answer" : (energyFromWatch ? energyDetail : "Tap to answer")) { editMark }
                 }
                 .buttonStyle(.plain)
             }
@@ -481,6 +483,25 @@ struct CheckInSheet: View {
         Text("Edit")
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(AppTheme.secondaryText)
+    }
+
+    /// The heart's two signs, said where the athlete answers how they feel:
+    /// a sentence to read, not fine print next to a title.
+    private func heartNote(_ note: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "heart.fill")
+                .font(.subheadline)
+                .foregroundStyle(AuraTone.body.mark)
+                .padding(.top, 2)
+                .accessibilityHidden(true)
+            Text(note)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface()
     }
 
     private func compactRow(_ title: String, hint: String?, _ options: [CheckInOption], selection: Binding<CheckInOption?>) -> some View {
