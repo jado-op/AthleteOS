@@ -110,4 +110,21 @@ final class ReadinessEngineTests: XCTestCase {
         XCTAssertEqual(score(CheckInAnswers(date: day(0), sleepQuality: 3, soreness: 2, energy: 3, stress: 5))?.band, .amber,
                        "stress 1 → 5 alone: amber, not red")
     }
+
+    /// Four steady weeks with one earlier one-point wobble: the spread is tiny
+    /// (about 0.2), and dividing by it made a one-point dip read red. It's read
+    /// like a history that never moved: one point off stays green, and one item
+    /// alone never makes red.
+    func testOneEarlierWobbleDoesntMakeADipRed() {
+        let history = (1...27).map { i in
+            CheckInAnswers(date: day(-i), sleepQuality: i == 12 ? 3 : 4, soreness: 2, energy: 4, stress: 2)
+        }
+        func score(_ answers: CheckInAnswers) -> (band: ReadinessBand, z: Double)? {
+            ReadinessEngine.score(today: answers, history: history, now: referenceNow, calendar: calendar)
+        }
+        XCTAssertEqual(score(CheckInAnswers(date: day(0), sleepQuality: 3, soreness: 2, energy: 4, stress: 2))?.band, .green)
+        let crash = score(CheckInAnswers(date: day(0), sleepQuality: 1, soreness: 2, energy: 4, stress: 2))
+        XCTAssertEqual(crash?.band, .amber, "one item alone: amber at most")
+        XCTAssertEqual(crash?.z ?? 0, -0.5, accuracy: 0.001)
+    }
 }

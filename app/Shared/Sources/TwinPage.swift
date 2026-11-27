@@ -136,8 +136,8 @@ public enum TwinPage {
         let today = calendar.startOfDay(for: now)
         if steers.contains(.loadSpike) {
             effects.append(TwinPlanEffect(id: TwinInsightKind.loadSpike.rawValue,
-                                          text: "Your load jumped, so sessions are a little shorter and skip hard conditioning until it settles.",
-                                          now: true, short: "Lighter while your load settles"))
+                                          text: "This week was bigger than your usual, so sessions are a little shorter and skip hard conditioning until it settles.",
+                                          now: true, short: "Lighter after a big week"))
         }
         if steers.contains(.slowGameRecovery) {
             // The light day a game brings (two days after it, as the planner

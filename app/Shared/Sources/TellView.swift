@@ -493,7 +493,7 @@ struct TellView: View {
             return "\(minutes >= 90 ? "Plenty of time" : "\(minutes) minutes") · \(day(date, time: false))"
         case .result(let date, let outcome, let score, let placement, let rating):
             let result = CompetitionResult(id: "", outcome: CompetitionResult.Outcome(rawValue: outcome) ?? .win, placement: placement,
-                                           score: score, rating: rating ?? 3)
+                                           score: score, rating: rating ?? 0)
             let played = rating.map { $0 >= 5 ? "played great" : $0 == 4 ? "played well" : $0 <= 2 ? "not your best game" : "played okay" }
             return (["Result: \(result.summary)"] + (played.map { [$0] } ?? []) + [relative(date)]).joined(separator: " · ")
         }
@@ -600,7 +600,7 @@ struct TellView: View {
             target = created
         }
         var result = CompetitionStore.results()[target.id]
-            ?? CompetitionResult(id: target.id, outcome: .win, rating: rating ?? 3)
+            ?? CompetitionResult(id: target.id, outcome: CompetitionResult.Outcome(rawValue: outcome) ?? .win, rating: rating ?? 0)
         result.outcome = CompetitionResult.Outcome(rawValue: outcome) ?? result.outcome
         if let score { result.score = score }
         if let placement { result.placement = placement }

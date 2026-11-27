@@ -274,6 +274,22 @@ final class TwinAnalysisTests: XCTestCase {
 
     // MARK: Deeper patterns
 
+    /// A28: a big week is said in hours the athlete can picture — never a
+    /// percent, a ratio or an injury-risk claim.
+    func testABigWeekIsSaidInHoursNotAPercentOrRisk() {
+        var loads: [TwinInput.Load] = []
+        for back in stride(from: 22, through: 8, by: -2) { loads.append(.init(date: day(back), minutes: 60, rpe: 6)) }
+        for back in [6, 5, 4, 3, 2, 1] { loads.append(.init(date: day(back), minutes: 90, rpe: 8)) }
+        let spike = TwinAnalysis.report(TwinInput(loads: loads, now: now), calendar: calendar).insights.first { $0.kind == .loadSpike }
+        let text = [spike?.headline, spike?.detail, spike?.reason, spike?.measureText].compactMap { $0 }.joined(separator: " ")
+        XCTAssertTrue(text.contains("9 h"), text)
+        XCTAssertTrue(text.contains("usual week is about 2½ h"), text)
+        XCTAssertFalse(text.contains("%"), text)
+        XCTAssertFalse(text.lowercased().contains("injur"), text)
+        XCTAssertEqual(TwinAnalysis.hours(45), "45 min")
+        XCTAssertEqual(TwinAnalysis.hours(270), "4½ h")
+    }
+
     func testALoadSpikeIsFound() {
         // Three steady weeks of 60 min at RPE 6, then a week of long hard sessions.
         var loads: [TwinInput.Load] = []

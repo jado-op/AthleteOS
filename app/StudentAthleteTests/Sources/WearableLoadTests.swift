@@ -36,6 +36,7 @@ final class WearableLoadTests: XCTestCase {
         XCTAssertEqual(log?.minutes, 100)
         XCTAssertEqual(log?.day, "2026-09-22")
         XCTAssertEqual(log?.note, "From your watch")
+        XCTAssertEqual(log?.went, 0, "how it went is the athlete's to say, never made up")
         XCTAssertNil(WearableLoad.practiceLog(from: [at(9, minutes: 60, heartRate: 150)], practice: practice, day: day,
                                               sportSlug: "soccer", age: 16, calendar: calendar), "a morning run isn't practice")
     }

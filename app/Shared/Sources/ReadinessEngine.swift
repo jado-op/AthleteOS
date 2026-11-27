@@ -33,11 +33,15 @@ public enum ReadinessEngine {
     private static let amberThreshold = -0.3
     private static let redThreshold = -1.0
     private static let minimumHistoryDays = 7
-    /// The swing assumed for an item whose history never moved: one point off
+    /// The swing assumed for an item whose history never (or barely) moved: one point off
     /// stays at baseline-ish (green), two points read amber.
     private static let priorSpread = 1.0
-    /// An item whose history never moved counts at most this far: on its own it
-    /// can tip the day amber, never red.
+    /// Below this spread a history counts as "barely moved" and is read with the
+    /// assumed swing: one earlier one-point wobble mustn't turn a one-point dip
+    /// into red (it used to: a spread of 0.2 made the dip −5).
+    private static let minimumSpread = 0.5
+    /// An item read with the assumed swing counts at most this far: on
+    /// its own it can tip the day amber, never red (four items averaged: ±0.5).
     private static let priorCap = 2.0
 
     /// `history` is every PRIOR check-in (never including the one being
@@ -71,10 +75,14 @@ public enum ReadinessEngine {
         let mean = doubles.reduce(0, +) / Double(doubles.count)
         let variance = doubles.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(doubles.count)
         let standardDeviation = variance.squareRoot()
-        // When every prior answer was the same, a change still means something:
-        // assume a usual swing of one point (a design prior, not a norm —
-        // priors research) instead of ignoring it. Today at the usual stays 0.
-        guard standardDeviation > 0 else { return min(max((Double(value) - mean) / priorSpread, -priorCap), priorCap) }
+        // When every prior answer was the same — or barely moved, one wobble in
+        // four weeks — a change still means something, but the history says
+        // little about the athlete's usual swing: assume one point (a design
+        // prior, not a norm — priors research), capped, instead of dividing by
+        // almost nothing. Today at the usual stays 0. A real spread is read as it is.
+        guard standardDeviation >= minimumSpread else {
+            return min(max((Double(value) - mean) / priorSpread, -priorCap), priorCap)
+        }
         return (Double(value) - mean) / standardDeviation
     }
 }

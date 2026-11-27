@@ -33,7 +33,7 @@ enum TwinInputBuilder {
         }
         let practices = PracticeLogStore.logs.compactMap { log -> TwinInput.Practice? in
             guard let date = day(log.day, calendar: calendar) else { return nil }
-            return TwinInput.Practice(date: date.addingTimeInterval(17 * 3600), went: log.went, hard: log.hard, minutes: log.minutes)
+            return TwinInput.Practice(date: date.addingTimeInterval(17 * 3600), went: log.saidWent, hard: log.hard, minutes: log.minutes)
         }
         let loads = athlete.sessions.map { TwinInput.Load(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE) }
         return TwinInput(mornings: mornings, games: athlete.competitions.map(\.date), sessions: athlete.sessions.map(\.startedAt),

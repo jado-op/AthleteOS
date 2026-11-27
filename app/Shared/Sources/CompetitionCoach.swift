@@ -22,7 +22,8 @@ public struct CompetitionResult: Codable, Equatable, Sendable, Identifiable {
     public var placement: Int?
     /// "2–1", "6–4 3–6 7–5", "11.84 s".
     public var score: String?
-    /// How the athlete played: 1 (poorly) … 5 (great).
+    /// How the athlete played: 1 (poorly) … 5 (great); 0 = not said (never assumed,
+    /// so the twin only learns from ratings the athlete gave).
     public var rating: Int
     public var wentWell: [String]
     public var toImprove: [String]
@@ -193,7 +194,7 @@ public enum CompetitionCoach {
                                briefingID: "reset-after-mistakes", goal: "focus"))
             case .loadSpike:
                 add(CompetitionFocus(id: "load", title: "Keep the week steady",
-                               detail: "Your load jumped. Don't cram before the {event} — steady sessions, longer sleep.",
+                               detail: "This week was bigger than your usual. Don't cram before the {event} — steady sessions, longer sleep.",
                                briefingID: nil, goal: nil))
             default:
                 break

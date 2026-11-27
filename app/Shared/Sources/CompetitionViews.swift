@@ -432,12 +432,12 @@ struct CompetitionHubView: View {
                         Text(result.summary)
                             .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(AppTheme.ink)
-                        HStack(spacing: 6) {
+                        if (1...5).contains(result.rating) { HStack(spacing: 6) {
                             ForEach(1...5, id: \.self) { n in
                                 Circle().fill(n <= result.rating ? AppTheme.brightRed : Color.white.opacity(0.12)).frame(width: 8, height: 8)
                             }
                             Text("how you played").font(.caption).foregroundStyle(AppTheme.secondaryText)
-                        }
+                        } }
                         if !result.wentWell.isEmpty {
                             Text("Went well: \(result.wentWell.joined(separator: ", "))")
                                 .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
@@ -668,10 +668,11 @@ struct CompetitionResultForm: View {
     var athlete: Athlete? = nil
 
     @Environment(\.dismiss) private var dismiss
-    @State private var outcome: CompetitionResult.Outcome = .win
+    /// Nothing is preset: the twin learns only from what the athlete picks.
+    @State private var outcome: CompetitionResult.Outcome?
     @State private var placement = 1
     @State private var score = ""
-    @State private var rating = 3
+    @State private var rating = 0
     @State private var wentWell: Set<String> = []
     @State private var toImprove: Set<String> = []
     @State private var note = ""
@@ -720,6 +721,8 @@ struct CompetitionResultForm: View {
                     }
                     Button(action: save) { HeroCTALabel("Save") }
                         .buttonStyle(.primary)
+                        .disabled(outcome == nil)
+                        .opacity(outcome == nil ? 0.5 : 1)
                 }
                 .padding(24)
             }
@@ -745,6 +748,7 @@ struct CompetitionResultForm: View {
     private func save() {
         var twinBefore: TwinKnowledge?
         if let athlete { twinBefore = TwinPulse.before(athlete) }
+        guard let outcome else { return }
         CompetitionStore.save(CompetitionResult(
             id: competition.id, outcome: outcome, placement: outcome == .placed ? placement : nil,
             score: score.trimmingCharacters(in: .whitespaces).isEmpty ? nil : score.trimmingCharacters(in: .whitespaces),

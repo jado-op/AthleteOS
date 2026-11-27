@@ -54,7 +54,7 @@ public enum WearableLoad {
         else { return nil }
         let effort = effort(averageHeartRate: workout.averageHeartRate, minutes: workout.minutes, age: age)
         let hard = min(5, max(1, (effort + 1) / 2))
-        return PracticeLog(day: DayKey.of(day, calendar: calendar), sportSlug: sportSlug, types: [], hard: hard, went: 3, mood: 3,
+        return PracticeLog(day: DayKey.of(day, calendar: calendar), sportSlug: sportSlug, types: [], hard: hard, went: 0, mood: 0,
                            minutes: workout.minutes, note: "From your \(workout.device)")
     }
 }

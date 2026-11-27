@@ -1040,6 +1040,17 @@ export const EXTRA_EXERCISES = [
     defaultDose: R(3, 10), restSeconds: 45, startPose: 'vertical-pull', endPose: 'trunk-flexion',
   }),
   ex({
+    slug: 'sit-up', name: 'Sit-Up',
+    qualities: { 'trunk-anti-rotation': 0.5, 'hip-mobility': 0.1 },
+    muscles: { 'rectus-abdominis': 0.9, iliopsoas: 0.6, 'obliques-external': 0.4 },
+    equipment: ['none'],
+    setup: ['Lie on your back, knees bent, feet flat on the floor. Cross your arms on your chest.'],
+    execution: ['Curl up one segment at a time until you sit tall over your hips.', 'Lower back down slowly, the same way.'],
+    cues: ['Chin tucked, ribs to hips', 'Slow on the way down'],
+    mistakes: ['Pulling on the neck or throwing the arms to get up.'],
+    defaultDose: R(3, 12), restSeconds: 45, startPose: 'trunk-flexion', endPose: 'trunk-flexion',
+  }),
+  ex({
     slug: 'stir-the-pot', name: 'Plank Stir-the-Pot',
     qualities: { 'trunk-anti-rotation': 0.9 },
     muscles: { 'rectus-abdominis': 0.8, 'obliques-external': 0.7, 'serratus-anterior': 0.5 },

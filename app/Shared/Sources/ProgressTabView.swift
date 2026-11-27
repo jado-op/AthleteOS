@@ -138,7 +138,7 @@ struct CalendarSource {
     static func practiceSummary(_ log: PracticeLog) -> String {
         let types = log.types.isEmpty ? "" : log.types.joined(separator: ", ") + " · "
         let minutes = log.minutes.map { "\($0) min · " } ?? ""
-        return "\(types)\(minutes)effort \(log.hard)/5" + (log.went > 0 ? " · went \(log.went)/5" : "")
+        return "\(types)\(minutes)effort \(log.hard)/5" + (log.saidWent > 0 ? " · went \(log.saidWent)/5" : "")
     }
 }
 
@@ -756,7 +756,7 @@ struct PracticeLogSheet: View {
         if let log {
             _types = State(initialValue: Set(log.types))
             _hard = State(initialValue: log.hard)
-            _went = State(initialValue: log.went > 0 ? log.went : 3)
+            _went = State(initialValue: log.saidWent > 0 ? log.saidWent : 3)
             _mood = State(initialValue: log.mood > 0 ? log.mood : 3)
             _minutes = State(initialValue: log.minutes ?? 90)
             _tiredMuscles = State(initialValue: Set(log.tiredMuscles))

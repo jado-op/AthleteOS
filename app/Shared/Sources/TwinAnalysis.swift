@@ -546,22 +546,29 @@ public enum TwinAnalysis {
 
     /// Training load: minutes × effort (RPE 1–10; practice "how hard" 1–5 doubled; a
     /// competition counts as an hour at 8). This week against the three before.
-    static func weeklyLoads(_ c: Context, weeks: Int = 4) -> [Double] {
+    /// Minutes and minutes × effort per week, oldest first (the current week last).
+    static func weeklyTraining(_ c: Context, weeks: Int = 4) -> [(minutes: Double, load: Double)] {
         let today = c.day(c.input.now)
-        return (0..<weeks).reversed().map { week -> Double in
+        return (0..<weeks).reversed().map { week -> (minutes: Double, load: Double) in
             guard let end = c.calendar.date(byAdding: .day, value: -7 * week + 1, to: today),
-                  let begin = c.calendar.date(byAdding: .day, value: -7, to: end) else { return 0 }
+                  let begin = c.calendar.date(byAdding: .day, value: -7, to: end) else { return (0, 0) }
             func inWeek(_ d: Date) -> Bool { d >= begin && d < end }
-            let sessions = c.input.loads.filter { inWeek($0.date) }.map { Double($0.minutes) * Double($0.rpe ?? 5) }
-            let practices = c.input.practices.filter { inWeek($0.date) }.map { Double($0.minutes ?? 90) * Double($0.hard * 2) }
-            let games = c.gameDays.filter { inWeek($0) }.map { _ in 60.0 * 8 }
-            return (sessions + practices + games).reduce(0, +)
+            let sessions = c.input.loads.filter { inWeek($0.date) }.map { (Double($0.minutes), Double($0.minutes) * Double($0.rpe ?? 5)) }
+            let practices = c.input.practices.filter { inWeek($0.date) }.map { (Double($0.minutes ?? 90), Double($0.minutes ?? 90) * Double($0.hard * 2)) }
+            let games = c.gameDays.filter { inWeek($0) }.map { _ in (60.0, 60.0 * 8) }
+            let all = sessions + practices + games
+            return (all.map(\.0).reduce(0, +), all.map(\.1).reduce(0, +))
         }
     }
 
+    static func weeklyLoads(_ c: Context, weeks: Int = 4) -> [Double] { weeklyTraining(c, weeks: weeks).map(\.load) }
+
+    /// A week much bigger than the athlete's own usual. Said in hours they can
+    /// picture — never a ratio or an injury-risk claim (A28).
     static func loadSpike(_ c: Context) -> TwinInsight? {
-        let loads = weeklyLoads(c)
-        guard let current = loads.last else { return nil }
+        let weeks = weeklyTraining(c)
+        let loads = weeks.map(\.load)
+        guard let current = loads.last, let currentWeek = weeks.last else { return nil }
         let before = loads.dropLast()
         let active = before.filter { $0 > 0 }
         guard active.count >= 2 else { return nil }
@@ -569,22 +576,34 @@ public enum TwinAnalysis {
         guard usual > 0 else { return nil }
         let ratio = current / usual
         guard ratio >= 1.5 else { return nil }
-        let percent = Int(((ratio - 1) * 100).rounded())
+        let usualMinutes = mean(weeks.dropLast().map(\.minutes))
         let today = c.day(c.input.now)
-        let points = loads.enumerated().map { index, load in
-            TwinPoint(date: c.calendar.date(byAdding: .day, value: -7 * (loads.count - 1 - index), to: today) ?? today,
-                      value: load, marked: index == loads.count - 1)
+        let points = weeks.enumerated().map { index, week in
+            TwinPoint(date: c.calendar.date(byAdding: .day, value: -7 * (weeks.count - 1 - index), to: today) ?? today,
+                      value: week.minutes, marked: index == weeks.count - 1)
         }
+        let now = hours(currentWeek.minutes), was = hours(usualMinutes)
+        // About the usual minutes, much more effort: the sessions were harder, not longer.
+        let harder = currentWeek.minutes < usualMinutes * 1.2
         return TwinInsight(
             kind: .loadSpike,
-            headline: "Your training load jumped \(percent)% this week.",
-            detail: "Big jumps are when injuries happen most. Sleep a little more, keep the next few days lighter if you can, and tell your coach if anything starts to hurt.",
+            headline: harder ? "This week was a lot harder than your usual." : "This week was a big one: about \(now) of training.",
+            detail: (harder ? "About \(now) of training, like a usual week, but much harder sessions. "
+                            : "Your usual week is about \(was). ")
+                + "A bigger week builds you when the next few days stay steady. Sleep a little more, and tell your coach if anything starts to hurt.",
             strength: ratio >= 1.8 ? .strong : .emerging,
             basis: "4 weeks of sessions",
-            evidence: TwinEvidence(style: .bars, points: points, unit: "",
-                                   caption: "Training load each week (minutes × effort) · highlighted: this week"),
-            values: c.family.tokens, reason: "Your load jumped \(percent)% this week.", positive: false,
-            measure: ratio - 1, measureText: "+\(percent)%")
+            evidence: TwinEvidence(style: .bars, points: points, unit: "min",
+                                   caption: "Training minutes each week · highlighted: this week"),
+            values: c.family.tokens, reason: "This week was bigger than your usual.", positive: false,
+            measure: ratio - 1, measureText: "about \(now)")
+    }
+
+    /// "4 h", "4½ h", "45 min".
+    static func hours(_ minutes: Double) -> String {
+        if minutes < 60 { return "\(Int(minutes.rounded())) min" }
+        let halves = Int((minutes / 30).rounded())
+        return halves.isMultiple(of: 2) ? "\(halves / 2) h" : "\(halves / 2)½ h"
     }
 
     static func sleepAffectsPractice(_ c: Context) -> TwinInsight? {

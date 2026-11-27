@@ -173,6 +173,7 @@ ab-wheel-rollout: anti-rotation trunk tu 2 0 2 0 anti-extension
 half-kneeling-chop: rotation trunk t 1 0 1 0 rotation
 hanging-knee-raise: anti-rotation trunk tu 2 0 1 0 anti-extension
 stir-the-pot: anti-rotation trunk t 2 0 1 0 anti-extension
+sit-up: isolation trunk t 1 0 1 0 trunk-flexion
 back-extension: hinge accessory lt 2 0 1 1 hinge-hip-extension
 superman-hold: hinge trunk t 1 0 1 0 back-extension
 copenhagen-plank: anti-rotation accessory lt 2 0 2 1 hip-adductor
@@ -448,6 +449,7 @@ hollow-hold: stability | abs | hip-flexors
 ab-wheel-rollout: stability | abs | lats serratus
 half-kneeling-chop: stability | obliques | glutes
 hanging-knee-raise: stability | abs hip-flexors | forearms
+sit-up: strength-endurance | abs | hip-flexors obliques
 stir-the-pot: stability | abs obliques | serratus
 back-extension: strength-endurance | lower-back | glutes hamstrings
 superman-hold: stability | lower-back | glutes upper-back

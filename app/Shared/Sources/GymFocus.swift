@@ -403,7 +403,7 @@ enum GymSlots {
         case .upper:
             return [["pull-vertical"], ["push-vertical", "push-incline"], ["shoulder-health"], ["arm-isolation"], ["grip"], ["neck"]]
         case .core:
-            return [["anti-lateral", "carry"], ["rotation"], ["back-extension"], ["balance"]]
+            return [["anti-lateral", "carry"], ["rotation"], ["trunk-flexion"], ["back-extension"], ["balance"]]
         case .full:
             return [["single-leg-knee", "single-leg-hip"], ["pull-vertical"], ["hamstring-eccentric", "single-leg-lateral"], ["shoulder-health"], ["carry"]]
         }

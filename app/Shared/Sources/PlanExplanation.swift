@@ -185,7 +185,7 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         // What the twin knows about this athlete that changed today.
         var twin: [String] = []
         if r.contains(.twinSlowGameRecovery) { twin.append("you usually still feel a game two days later, so today stays light on the legs") }
-        if r.contains(.twinLoadSpike) { twin.append("your training load jumped this week, so there's a little less volume and no hard conditioning") }
+        if r.contains(.twinLoadSpike) { twin.append("this week was bigger than your usual, so there's a little less volume and no hard conditioning") }
         if r.contains(.twinSpeedFocus) { twin.append("your strength is rising faster than your speed, so power and acceleration come first") }
         if !twin.isEmpty {
             let text = twin.joined(separator: "; ")

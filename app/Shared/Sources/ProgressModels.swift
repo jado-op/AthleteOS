@@ -107,6 +107,12 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
     /// Optional: 1 not much … 3 a lot.
     public var enjoyment: Int?
 
+    /// How it went as the athlete said it (0: not said). Logs made from a watch
+    /// workout used to carry an invented "3, 3"; those count as not said.
+    public var saidWent: Int {
+        note?.hasPrefix("From your ") == true && went == 3 && mood == 3 ? 0 : went
+    }
+
     public init(id: String = UUID().uuidString, day: String, sportSlug: String, types: [String], hard: Int, went: Int, mood: Int,
                 minutes: Int? = nil, tiredMuscles: [String] = [], ratings: [String: Int] = [:], note: String? = nil,
                 intent: String? = nil, enjoyment: Int? = nil) {

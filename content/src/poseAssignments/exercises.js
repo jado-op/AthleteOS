@@ -71,7 +71,7 @@ Object.assign(EXERCISE_POSES, {
   'dumbbell-curl': 'biceps-curl', 'triceps-extension-band': 'triceps-pressdown', 'dead-hang': 'dead-hang', 'suitcase-carry': 'suitcase-carry-kettlebell',
   'overhead-carry': 'overhead-carry-single', 'plate-pinch': 'plate-pinch-hold', 'wrist-roller': 'wrist-roller', 'band-wrist-extension': 'wrist-curl-band',
   'dead-bug': 'dead-bug', 'bird-dog': 'bird-dog', 'side-plank': 'side-plank', 'hollow-hold': 'hollow-hold', 'ab-wheel-rollout': 'ab-rollout',
-  'half-kneeling-chop': 'half-kneeling-lift', 'hanging-knee-raise': 'hanging-knee-raise', 'stir-the-pot': 'plank', 'back-extension': 'back-extension',
+  'half-kneeling-chop': 'half-kneeling-lift', 'hanging-knee-raise': 'hanging-knee-raise', 'sit-up': 'sit-up', 'stir-the-pot': 'plank', 'back-extension': 'back-extension',
   'superman-hold': 'superman', 'copenhagen-plank': 'copenhagen-plank', 'adductor-squeeze': 'adductor-squeeze', 'tibialis-raise': 'tibialis-raise',
   'standing-calf-raise': 'calf-raise-step-straight', 'bent-knee-calf-raise': 'seated-calf-raise-dumbbells', 'ankle-alphabet': 'breathing-seated', 'short-foot-drill': 'single-leg-balance',
   'towel-toe-curls': 'breathing-seated', 'single-leg-balance-eyes-closed': 'single-leg-balance', 'star-excursion-reach': 'star-excursion',
