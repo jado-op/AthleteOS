@@ -64,6 +64,14 @@ public struct LiveSessionView: View {
     @State private var bestNote: String?
     @State private var bestCount = 0
     @State private var heartRate: HeartRateSummary?
+    /// Talking mid-workout (owner, 2026-11-27): what was heard, shown for a moment.
+    @State private var voiceNote: String?
+    @State private var voiceNoteCount = 0
+    /// "My knee hurts": the stop-and-get-checked prompt for that place.
+    @State private var painHeard: PainArea?
+    #if os(iOS) && !APP_EXTENSION
+    @StateObject private var voice = WorkoutVoiceListener()
+    #endif
     @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
@@ -143,6 +151,42 @@ public struct LiveSessionView: View {
         .onDisappear {
             restTask?.cancel()
             setIdleTimerDisabled(false)
+            #if os(iOS) && !APP_EXTENSION
+            voice.stop()
+            #endif
+        }
+        #if os(iOS) && !APP_EXTENSION
+        .onAppear { voice.onCommand = { applyVoice($0) } }
+        #endif
+        .overlay(alignment: .top) {
+            if let voiceNote {
+                Label(voiceNote, systemImage: "waveform")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 40)
+                    .background(Color.black.opacity(0.85), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                    .padding(.top, 64)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .accessibilityAddTraits(.isStaticText)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: voiceNote)
+        .alert(painHeard == .head ? "Stop training now" : "Stop this exercise", isPresented: Binding(
+            get: { painHeard != nil }, set: { if !$0 { painHeard = nil } })) {
+            if painHeard != .head {
+                Button("Skip this exercise") { recordPain(); skipCurrent() }
+            }
+            Button("End the workout", role: .destructive) {
+                recordPain()
+                if totalLogged == 0 { discard() } else { showingRPE = true }
+            }
+            Button("It's fine, keep going", role: .cancel) { painHeard = nil }
+        } message: {
+            Text(painHeard == .head
+                 ? "A knock to the head or feeling dizzy means no more training today. Tell a coach or parent now."
+                 : "Pain means stop. Tell a coach, athletic trainer or parent, and get it checked if it doesn't go away. Today's plan will leave it alone.")
         }
         .sheet(isPresented: $showingPicker) {
             ExercisePickerSheet(catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) { item in
@@ -204,6 +248,17 @@ public struct LiveSessionView: View {
                 }
                 .accessibilityLabel("Time")
                 Spacer()
+                #if os(iOS) && !APP_EXTENSION
+                CircleIconButton(systemImage: voice.isListening ? "mic.fill" : "mic",
+                                 accessibilityLabel: voice.isListening ? "Stop listening" : "Talk to AthleteOS") {
+                    let wasListening = voice.isListening
+                    voice.toggle()
+                    if !wasListening { showVoiceNote("Listening: say \u{201C}that was heavy\u{201D}, \u{201C}two more\u{201D}, \u{201C}skip\u{201D}") }
+                }
+                .onChange(of: voice.status) { _, status in
+                    if case .unavailable(let reason) = status { showVoiceNote(reason) }
+                }
+                #endif
                 if !queue.isEmpty {
                     CircleIconButton(systemImage: "list.bullet", accessibilityLabel: "All exercises") { showingList = true }
                 }
@@ -767,6 +822,73 @@ public struct LiveSessionView: View {
         #if os(iOS) && !APP_EXTENSION
         WorkoutActivity.end()
         #endif
+    }
+
+    // MARK: - Voice
+
+    /// What the athlete said, done: the next set lighter or heavier, more sets,
+    /// skip, log the set — and pain always stops the exercise first.
+    private func applyVoice(_ command: WorkoutVoiceCommand) {
+        guard let current else { return }
+        let kind = current.dose.kind
+        switch command {
+        case .lighter, .heavier:
+            let up = command == .heavier
+            if kind == "reps", weightKg > 0 {
+                weightKg = max(0, weightKg + (up ? 1 : -2) * unit.stepKg)
+                showVoiceNote((up ? "A step up: " : "Lighter: ") + unit.format(kg: weightKg))
+            } else if kind == "reps" {
+                reps = max(1, reps + (up ? 2 : -2))
+                showVoiceNote((up ? "More: " : "Fewer: ") + "\(reps) reps")
+            } else if kind == "time" {
+                seconds = max(5, seconds + (up ? 10 : -10))
+                showVoiceNote((up ? "Longer: " : "Shorter: ") + "\(seconds) s")
+            } else {
+                showVoiceNote(command.heard)
+            }
+        case .moreSets(let n):
+            let old = queue[index]
+            var dose = old.dose
+            dose.sets = min(dose.sets + n, 10)
+            var item = GeneratedPlannedItem(itemSlug: old.itemSlug, order: old.order, dose: dose, restSec: old.restSec,
+                                            rationale: old.rationale, quality: old.quality)
+            item.block = old.block
+            item.effort = old.effort
+            queue[index] = item
+            updateActivity()
+            showVoiceNote(command.heard)
+        case .skip:
+            skipCurrent()
+            showVoiceNote(command.heard)
+        case .logSet:
+            guard restRemaining == 0, !allDone else { return }
+            logSet(current)
+            showVoiceNote(command.heard)
+        case .pain(let area):
+            painHeard = area
+            showVoiceNote(command.heard)
+        }
+    }
+
+    private func showVoiceNote(_ text: String) {
+        voiceNote = text
+        voiceNoteCount += 1
+        let shown = voiceNoteCount
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            if voiceNoteCount == shown { voiceNote = nil }
+        }
+    }
+
+    /// Pain said out loud is saved like pain in the check-in: today's plan
+    /// and the next workouts leave that place alone.
+    private func recordPain() {
+        guard let area = painHeard else { return }
+        let today = DayKey.of(.now)
+        let existing = PainStore.report()
+        let areas = Array(Set((existing?.areas ?? []) + [area]))
+        PainStore.set(PainReport(day: today, areas: PainArea.allCases.filter { areas.contains($0) }, level: existing?.level ?? .some))
+        painHeard = nil
     }
 
     /// Replaces the current exercise (nothing logged on it yet): same number

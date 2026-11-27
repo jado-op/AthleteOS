@@ -18,6 +18,8 @@ struct WorkoutTabView: View {
     @State private var showingGym = false
     @State private var showingImprove = false
     @State private var showingLibrary = false
+    /// The week as a timeline that bends when a day changes (owner, 2026-11-27).
+    @State private var showingBend = false
     @ObservedObject private var navigation = WorkoutNavigation.shared
     /// The recommended session's exercises, opened from the card (details one tap away).
     @State private var showingContents = false
@@ -101,6 +103,7 @@ struct WorkoutTabView: View {
             // The same decision Home, the Watch and the widgets show.
             if let pick { return (pick.mode, pickReason(for: pick)) }
             if TodayEngine.said(on: .now)?.choices.contains(.rest) == true { return (nil, "You chose a rest day. Rest is part of the plan.") }
+            if BusyDays.contains(.now) { return (nil, "You said you can't train today. Rest is part of the plan.") }
             if TodayEngine.gameOn(athlete, date: .now) { return (.mobility, "\(eventWord) day: just loosen up and save your energy.") }
             return (.mobility, "A rest day: a few minutes of movement keeps you fresh.")
         }
@@ -134,6 +137,7 @@ struct WorkoutTabView: View {
                         .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
                     skillDrillsToday
                     weekSection
+                    bendRow
                     calendarRow
                     moreWorkouts
                     // What the athlete's training has done to their body so far (gym second).
@@ -546,6 +550,16 @@ struct WorkoutTabView: View {
     }
 
     // MARK: - Week, more
+
+    /// "Bend your week": a game moved, a day you can't train — and the plan adapts in front of you.
+    private var bendRow: some View {
+        Button { showingBend = true } label: {
+            ListRow(systemImage: "arrow.triangle.swap", color: AuraTone.training.mark, title: "Bend your week",
+                    detail: "A game moved, a day you can't train: watch the plan adapt")
+        }
+        .buttonStyle(.pressable)
+        .sheet(isPresented: $showingBend) { WeekBendView(athlete: athlete) }
+    }
 
     /// What was done, next to what to do: the month, season and year, practice
     /// logged, every workout (moved here from the Academy, owner 2026-11-26).

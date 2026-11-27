@@ -481,10 +481,13 @@ enum WeeklyPlan {
             ScheduleStore.imported.cancelledPracticeDays(in: $0, calendar: calendar).filter { $0 >= startOfToday }
         } ?? []
         // Days the athlete picked win over the automatic placement.
-        let aligned = custom.settings.weekdays.isEmpty
+        let placed = custom.settings.weekdays.isEmpty
             ? alignToSchedule(tapered, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
                               preferredDays: cancelled, gameDays: athlete.competitions.map(\.date), calendar: calendar)
             : PlanCustomizer.place(tapered, weekdays: custom.settings.weekdays, calendar: calendar)
+        // Days the athlete can't train: the workout moves to the nearest free day.
+        let aligned = BusyDays.moveOff(placed, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
+                                       gameDays: athlete.competitions.map(\.date), calendar: calendar)
         // V6: each gym day of the week is built by the engine for that day
         // (its games, school and season); the athlete's own versions stay theirs.
         if let aligned, TodayEngine.isAvailable(catalogue) {

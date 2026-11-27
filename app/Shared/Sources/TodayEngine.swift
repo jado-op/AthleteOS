@@ -399,7 +399,7 @@ enum TodayEngine {
         let status = DayStatusStore.status()
         let said = Self.said(on: .now, calendar: calendar)
         guard status != .sick, status != .concussion, !gameOn(athlete, date: .now, calendar: calendar),
-              said?.choices.contains(.rest) != true else { return nil }
+              said?.choices.contains(.rest) != true, !BusyDays.contains(.now, calendar: calendar) else { return nil }
         // The safety rules first (e.g. head pain: no added training anywhere).
         guard PlanningRules.today(athlete, sessions: sessions).decision.allowsAddedTraining else { return nil }
         let planned = week?.sessions.first { calendar.isDateInToday($0.date) }

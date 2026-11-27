@@ -114,6 +114,9 @@ enum WidgetSnapshotWriter {
                 snapshot.tomorrowIsGame = true
                 snapshot.tomorrowTitle = "\(event) day"
                 snapshot.tomorrowWhy = "\(game.date.formatted(date: .omitted, time: .shortened)) · save everything for it"
+            } else if BusyDays.contains(tomorrow, calendar: calendar) {
+                snapshot.tomorrowTitle = "Rest day"
+                snapshot.tomorrowWhy = "You said you can't train"
             } else if DayStatusStore.status(on: tomorrow, calendar: calendar) == .active {
                 let practice = PracticeSchedule.hasPractice(on: tomorrow, calendar: calendar)
                 let planned = week?.sessions.contains { calendar.isDate($0.date, inSameDayAs: tomorrow) } ?? false

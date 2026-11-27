@@ -57,6 +57,10 @@
 	</dict>
 
 	<!-- The jump test films at the camera's highest frame rate (no sound). -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AthleteOS listens only while you tap the microphone during a workout, so you can say things like "that was heavy" or "two more". What you say is recognised on your phone and never recorded or sent anywhere.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AthleteOS turns what you say during a workout into commands, like a lighter next set or skipping an exercise. Recognition happens on your phone only.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AthleteOS uses the camera only when you film your vertical jump test, to measure how long you were in the air. The video stays on your phone.</string>
 

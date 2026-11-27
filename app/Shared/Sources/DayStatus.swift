@@ -237,3 +237,51 @@ public enum NoGymDays {
         defaults.set((defaults.stringArray(forKey: key) ?? []).filter { $0 != day }, forKey: key)
     }
 }
+
+/// Days the athlete can't train at all (a family day, a trip, a long exam):
+/// set from the week view (owner, 2026-11-27: "a plan you can see bend").
+/// The week's gym days move off them; today on one is a rest day.
+public enum BusyDays {
+    static let key = "schedule.busyDays"
+
+    public static func contains(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
+        (defaults.stringArray(forKey: key) ?? []).contains(DayKey.of(date, calendar: calendar))
+    }
+
+    public static func toggle(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        let day = DayKey.of(date, calendar: calendar)
+        var all = Set(defaults.stringArray(forKey: key) ?? [])
+        if all.contains(day) { all.remove(day) } else { all.insert(day) }
+        let oldest = DayKey.of(calendar.date(byAdding: .day, value: -14, to: Date()) ?? Date(), calendar: calendar)
+        defaults.set(all.filter { $0 >= oldest }.sorted(), forKey: key)
+    }
+
+    /// The week with no workout on a busy day: each moves to the nearest free
+    /// day of the same week (no practice, no game, not busy, nothing planned),
+    /// or drops when there is none — rest is part of the plan.
+    public static func moveOff(_ week: GeneratedWeek?, isPracticeDay: (Date) -> Bool, gameDays: [Date],
+                               calendar: Calendar = .current) -> GeneratedWeek? {
+        guard let week else { return nil }
+        let blocked = week.sessions.filter { contains($0.date, calendar: calendar) }
+        guard !blocked.isEmpty else { return week }
+        let games = Set(gameDays.map { calendar.startOfDay(for: $0) })
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: calendar.startOfDay(for: week.weekStart)) }
+        var taken = Set(week.sessions.filter { !contains($0.date, calendar: calendar) }.map { calendar.startOfDay(for: $0.date) })
+        var sessions = week.sessions.filter { !contains($0.date, calendar: calendar) }
+        for session in blocked {
+            let from = calendar.startOfDay(for: session.date)
+            let free = days.filter { day in
+                !taken.contains(day) && !games.contains(day) && !isPracticeDay(day) && !contains(day, calendar: calendar)
+                    && day >= calendar.startOfDay(for: .now)
+            }
+            guard let to = free.min(by: { abs($0.timeIntervalSince(from)) < abs($1.timeIntervalSince(from)) }) else { continue }
+            taken.insert(to)
+            var moved = GeneratedSession(date: to, title: session.title, focusQualities: session.focusQualities,
+                                         estimatedMinutes: session.estimatedMinutes, items: session.items, slot: session.slot)
+            moved.decision = session.decision
+            moved.explanation = session.explanation
+            sessions.append(moved)
+        }
+        return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: sessions.sorted { $0.date < $1.date })
+    }
+}

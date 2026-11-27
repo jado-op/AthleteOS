@@ -91,6 +91,17 @@ Reading files, CI logs or the GitHub API needs no lock.
   hub, this week → training calendar; `GlanceTile`), today's plan + tomorrow + why, then notices (pain, low energy, coach
   note, schedule) — slots never move, only their content changes. Told practice saves a `PracticeLog` (went 0 = not
   said). Deleted: "Muscle workouts" (MuscleBuilderView, its Pro allowance), the exercise-minutes % ring, Home's week bar.
+- "Invention" pass (owner, 2026-11-27, picked from a list): **Morning card** — a Lock Screen widget (`MorningCardWidget`,
+  rectangular/inline/small) with today's pick and a short because (`PlanExplanation.because`); the app writes tomorrow's
+  card the evening before (`WidgetSnapshot.tomorrow*`), so it's right at wake-up; taps open `athleteos://checkin` /
+  `athleteos://workout` (`IntentRoute.open`). **Decided before you look** — Home's check-in moment shows the plan already
+  made; on a usual day one tap "Feeling normal, no pain" (`QuickCheckIn`: the athlete's own median answers of the last two
+  weeks, watch sleep, illness no) — only when no pain is open, no follow-up waits, status active, ≥3 recent check-ins.
+  **Bend your week** — Workout → `WeekBendView`: tap a day (can't train → `BusyDays`, add/remove a game) and the week
+  rebuilds with each changed day labelled (`WeekBend.changes`), one-tap undo; gym days move off busy days
+  (`BusyDays.moveOff` in `WeeklyPlan.generate`). **Talk mid-workout** — mic in the workout (`WorkoutVoiceListener`,
+  on-device speech only, no fallback to a server): "that was heavy", "too easy", "two more", "skip", "done"; any pain
+  word stops the exercise with the stop-and-get-checked prompt and saves today's pain (`WorkoutVoiceCommand`, EN + DE).
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
