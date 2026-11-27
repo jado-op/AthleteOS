@@ -1,103 +1,143 @@
 import SwiftData
 import SwiftUI
 
-/// The calendar's colours: what each day was.
+/// The calendar's colours: four kinds, one colour each (V8 activity colours).
 enum ProgressColors {
-    /// A completed workout.
-    static let workout = AppTheme.red
+    /// A workout of any kind: gym, after practice, travel, the athlete's own.
+    static let workout = AuraTone.training.mark
     /// Team practice.
-    static let practice = AppTheme.orange
-    /// The extra workout after practice.
-    static let afterPractice = AppTheme.yellow
+    static let practice = AuraTone.body.mark
+    /// The extra workout after practice is a workout too: same colour (owner, 2026-11-27: fewer colours).
+    static let afterPractice = AuraTone.training.mark
     /// Stretching and mobility.
     static let mobility = AppTheme.cyan
     /// A game or competition.
-    static let game = AppTheme.green
+    static let game = AuraTone.game.mark
+
+    static func color(_ kind: TrainingCalendar.Item.Kind) -> Color {
+        switch kind {
+        case .workout: workout
+        case .practice: practice
+        case .game: game
+        case .mobility: mobility
+        case .off: AppTheme.mutedText
+        }
+    }
 }
 
-/// Everything on one day of the calendar.
-struct DayMarks: Equatable {
-    var workouts = 0
-    var practiceDone = false
-    var practiceScheduled = false
-    var afterPractice = 0
-    var mobility = 0
-    var game = false
-    /// A game still to come (outlined).
-    var gameUpcoming = false
-    var plannedWorkout = false
-
-    /// Filled segments: things that happened.
-    var done: [Color] {
-        var colors: [Color] = []
-        if workouts > 0 { colors.append(ProgressColors.workout) }
-        if practiceDone { colors.append(ProgressColors.practice) }
-        if afterPractice > 0 { colors.append(ProgressColors.afterPractice) }
-        if mobility > 0 { colors.append(ProgressColors.mobility) }
-        if game { colors.append(ProgressColors.game) }
-        return colors
-    }
-
-    /// Outlined segments: planned or scheduled, not (yet) logged.
-    var planned: [Color] {
-        var colors: [Color] = []
-        if plannedWorkout && workouts == 0 { colors.append(ProgressColors.workout) }
-        if practiceScheduled && !practiceDone { colors.append(ProgressColors.practice) }
-        if gameUpcoming { colors.append(ProgressColors.game) }
-        return colors
-    }
-
-    var isEmpty: Bool { done.isEmpty && planned.isEmpty }
-}
-
-/// A dot split into one slice per thing that happened that day (red gym,
-/// orange practice, yellow after practice, cyan mobility, green game);
-/// planned things are outlined.
-struct PieDot: View {
-    let marks: DayMarks
-    var size: CGFloat = 16
+/// One mark under a day: filled when it happened, a ring when it's still to
+/// come, half-filled for a practice from the schedule nobody logged, a short
+/// dash for a day off.
+struct CalendarMark: View {
+    let item: TrainingCalendar.Item
+    var size: CGFloat = 7
 
     var body: some View {
-        let done = marks.done
-        let planned = marks.planned
-        Canvas { context, canvasSize in
-            let inset: CGFloat = 1
-            let rect = CGRect(origin: .zero, size: canvasSize).insetBy(dx: inset, dy: inset)
-            let center = CGPoint(x: rect.midX, y: rect.midY)
-            let radius = min(rect.width, rect.height) / 2
-            func slice(_ index: Int, of count: Int) -> Path {
-                var path = Path()
-                let start = Angle.degrees(-90 + 360 * Double(index) / Double(count))
-                let end = Angle.degrees(-90 + 360 * Double(index + 1) / Double(count))
-                path.move(to: center)
-                path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
-                path.closeSubpath()
-                return path
-            }
-            if !done.isEmpty {
-                for (index, color) in done.enumerated() {
-                    context.fill(done.count == 1 ? Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)) : slice(index, of: done.count),
-                                 with: .color(color))
-                }
-            } else if !planned.isEmpty {
-                for (index, color) in planned.enumerated() {
-                    var arc = Path()
-                    let start = Angle.degrees(-90 + 360 * Double(index) / Double(planned.count))
-                    let end = Angle.degrees(-90 + 360 * Double(index + 1) / Double(planned.count))
-                    arc.addArc(center: center, radius: radius - 1, startAngle: start, endAngle: end, clockwise: false)
-                    context.stroke(arc, with: .color(color), lineWidth: 2)
+        let color = ProgressColors.color(item.kind)
+        Group {
+            if item.kind == .off {
+                Capsule().fill(color).frame(width: size * 1.4, height: 2)
+            } else {
+                switch item.state {
+                case .done: Circle().fill(color)
+                case .planned: Circle().strokeBorder(color, lineWidth: max(1.4, size / 5))
+                case .fromSchedule: Circle().fill(color.opacity(0.45))
                 }
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: item.kind == .off ? size * 1.4 : size, height: size)
         .accessibilityHidden(true)
     }
 }
 
-/// The Progress section: a motivating look back (and ahead) — a calendar
-/// that zooms from a month out to the season and the year, team practice
-/// logged as simply or as exactly as the athlete likes, what they practised
-/// most and least, and their schedule and events.
+/// Everything the calendar needs, gathered once per draw and indexed by day.
+@MainActor
+struct CalendarSource {
+    let calendar: Calendar
+    let sessionsByDay: [String: [Session]]
+    let practiceLogs: [String: PracticeLog]
+    let games: [String: [Competition]]
+    let planned: [String: GeneratedSession]
+    let todayPlan: GeneratedSession?
+    let practiceFrom: Date
+    let event: String
+
+    init(athlete: Athlete, sessions: [Session], week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar) {
+        self.calendar = calendar
+        sessionsByDay = Dictionary(grouping: sessions.filter { $0.endedAt != nil || !$0.sets.isEmpty }) { DayKey.of($0.startedAt, calendar: calendar) }
+        practiceLogs = Dictionary(PracticeLogStore.logs.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
+        games = Dictionary(grouping: athlete.competitions) { DayKey.of($0.date, calendar: calendar) }
+        planned = Dictionary((week?.sessions ?? []).map { (DayKey.of($0.date, calendar: calendar), $0) }, uniquingKeysWith: { first, _ in first })
+        // Today: the one workout Home, Workout, the Watch and the widgets show.
+        todayPlan = catalogue.itemsBySlug.isEmpty ? nil : TodayEngine.todaysPick(athlete: athlete, week: week, catalogue: catalogue)?.session
+        practiceFrom = athlete.activeSport?.seasonStart ?? calendar.date(byAdding: .year, value: -1, to: .now) ?? .now
+        event = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"] ?? "Game"
+    }
+
+    func items(on date: Date) -> [TrainingCalendar.Item] {
+        TrainingCalendar.items(facts(on: date))
+    }
+
+    func facts(on date: Date) -> TrainingCalendar.Facts {
+        let day = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: .now)
+        var facts = TrainingCalendar.Facts(when: day < today ? .past : day == today ? .today : .future)
+        let key = DayKey.of(date, calendar: calendar)
+        let kinds = SessionKinds.all
+        for session in sessionsByDay[key] ?? [] {
+            let kind = kinds[session.clientId] ?? .gym
+            facts.workoutsDone.append((title: Self.title(kind, session), detail: HealthWorkoutInbox.historyLine(session, effort: false),
+                                       mobility: kind == .mobility))
+        }
+        if let log = practiceLogs[key] {
+            facts.practiceLogged = Self.practiceSummary(log)
+        } else if date >= practiceFrom, PracticeSchedule.hasPractice(on: date, calendar: calendar) {
+            facts.practiceScheduled = PracticeSchedule.time(on: date, calendar: calendar)?.label ?? ""
+        }
+        for game in games[key] ?? [] {
+            let title = game.kind == .game ? event : game.kind.rawValue.capitalized
+            facts.games.append((title: title, detail: "\(game.date.formatted(date: .omitted, time: .shortened)) · \(game.isHome ? "home" : "away")"))
+        }
+        if facts.when == .today {
+            facts.plannedWorkout = todayPlan.map { (title: $0.title, minutes: $0.estimatedMinutes) }
+        } else if facts.when == .future, let session = planned[key] {
+            facts.plannedWorkout = (title: session.title, minutes: session.estimatedMinutes)
+        }
+        if BusyDays.contains(date, calendar: calendar) {
+            facts.off = "Can't train"
+        } else {
+            switch DayStatusStore.status(on: date, calendar: calendar) {
+            case .sick: facts.off = "Sick"
+            case .concussion: facts.off = "Training paused"
+            case .travel: facts.off = facts.when == .past ? nil : "Away"
+            case .holiday: facts.off = facts.when == .past ? nil : "Holiday"
+            case .active: break
+            }
+        }
+        return facts
+    }
+
+    static func title(_ kind: WorkoutKind, _ session: Session) -> String {
+        switch kind {
+        case .afterPractice: "After-practice workout"
+        case .mobility: "Stretching & mobility"
+        case .travel: "Travel workout"
+        case .coach: "Workout from your coach"
+        case .gym: HealthWorkoutInbox.isTold(session) || session.source != .phone ? "Workout" : "Gym workout"
+        }
+    }
+
+    static func practiceSummary(_ log: PracticeLog) -> String {
+        let types = log.types.isEmpty ? "" : log.types.joined(separator: ", ") + " · "
+        let minutes = log.minutes.map { "\($0) min · " } ?? ""
+        return "\(types)\(minutes)effort \(log.hard)/5" + (log.went > 0 ? " · went \(log.went)/5" : "")
+    }
+}
+
+/// The training calendar (owner, 2026-11-27: reworked to be clear): this
+/// week in three numbers, the next seven days in words, the month with one
+/// mark per kind of thing on each day — done filled, still to come as a
+/// ring — then the practice log, what you practised, and the history.
 struct ProgressTabView: View {
     let athlete: Athlete
     let week: GeneratedWeek?
@@ -145,57 +185,21 @@ struct ProgressTabView: View {
 
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
 
-    // MARK: Marks
-
-    /// What happened (and is planned) on every day, by YYYY-MM-DD.
-    private var marksByDay: [String: DayMarks] {
+    private var source: CalendarSource {
         _ = revision
-        var marks: [String: DayMarks] = [:]
-        let kinds = SessionKinds.all
-        for session in sessions {
-            let key = DayKey.of(session.startedAt, calendar: calendar)
-            switch kinds[session.clientId] ?? .gym {
-            case .afterPractice: marks[key, default: DayMarks()].afterPractice += 1
-            case .mobility: marks[key, default: DayMarks()].mobility += 1
-            default: marks[key, default: DayMarks()].workouts += 1
-            }
-        }
-        for log in PracticeLogStore.logs { marks[log.day, default: DayMarks()].practiceDone = true }
-        for game in athlete.competitions {
-            let key = DayKey.of(game.date, calendar: calendar)
-            if calendar.startOfDay(for: game.date) > calendar.startOfDay(for: .now) {
-                marks[key, default: DayMarks()].gameUpcoming = true
-            } else {
-                marks[key, default: DayMarks()].game = true
-            }
-        }
-        for session in week?.sessions ?? [] where session.date >= calendar.startOfDay(for: .now) {
-            marks[DayKey.of(session.date, calendar: calendar), default: DayMarks()].plannedWorkout = true
-        }
-        return marks
-    }
-
-    private func marks(on date: Date, from all: [String: DayMarks]) -> DayMarks {
-        var day = all[DayKey.of(date, calendar: calendar)] ?? DayMarks()
-        // Scheduled practice, from the season start (or a year back) on.
-        if !day.practiceDone, date >= practiceScheduleStart, PracticeSchedule.hasPractice(on: date, calendar: calendar) {
-            day.practiceScheduled = true
-        }
-        return day
-    }
-
-    private var practiceScheduleStart: Date {
-        athlete.activeSport?.seasonStart ?? calendar.date(byAdding: .year, value: -1, to: .now) ?? .now
+        return CalendarSource(athlete: athlete, sessions: Array(sessions), week: week, catalogue: catalogue, calendar: calendar)
     }
 
     // MARK: Body
 
     var body: some View {
+        let source = source
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
-                    summaryCard
-                    calendarCard
+                    summaryCard(source)
+                    agenda(source)
+                    calendarCard(source)
                     practiceSection
                     statsSection
                     workoutsSection
@@ -216,7 +220,7 @@ struct ProgressTabView: View {
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .sheet(item: $selectedDay, onDismiss: { revision += 1 }) { box in
-                DayDetailSheet(athlete: athlete, date: box.date, marks: marks(on: box.date, from: marksByDay), week: week) {
+                DayDetailSheet(athlete: athlete, date: box.date, items: source.items(on: box.date)) {
                     let date = box.date
                     selectedDay = nil
                     Task { @MainActor in
@@ -239,119 +243,96 @@ struct ProgressTabView: View {
         }
     }
 
-    // MARK: Summary
+    // MARK: This week
 
-    /// This week at a glance: how many of each, Monday to Sunday.
-    /// V8: the total big on the ember (training) card with what it was made
-    /// of in one line; the colour-coded split (the calendar's key) underneath.
-    private var summaryCard: some View {
-        let all = marksByDay
-        let week = weekTotals(all)
-        let parts: [(value: Int, label: String, color: Color)] = [
-            (week.gym, "Gym", ProgressColors.workout), (week.practices, "Practice", ProgressColors.practice),
-            (week.afterPractice, "After", ProgressColors.afterPractice), (week.mobility, "Mobility", ProgressColors.mobility),
-            (week.games, "Games", ProgressColors.game),
-        ]
-        let total = parts.reduce(0) { $0 + $1.value }
-        let madeOf: String = parts.filter { $0.value > 0 }.map { (part: (value: Int, label: String, color: Color)) -> String in
-            let word = part.label == "After" ? "after practice" : part.label.lowercased()
-            return "\(part.value) \(word)"
-        }.joined(separator: " · ")
-        return VStack(alignment: .leading, spacing: 18) {
-            AuraCard(.training, focus: UnitPoint(x: 0.2, y: 0.55), radius: 200) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("This week")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.8))
-                        .accessibilityAddTraits(.isHeader)
-                    BigFigure("\(total)", unit: total == 1 ? "session" : "sessions", size: 88)
-                    Text(total == 0 ? "Nothing logged this week yet." : madeOf)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink.opacity(0.8))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .accessibilityElement(children: .combine)
-            GeometryReader { proxy in
-                HStack(spacing: 3) {
-                    if total == 0 {
-                        Capsule().fill(Color.white.opacity(0.10))
-                    } else {
-                        ForEach(parts.indices, id: \.self) { index in
-                            let part = parts[index]
-                            if part.value > 0 {
-                                Capsule()
-                                    .fill(part.color)
-                                    .frame(width: max(4, (proxy.size.width - 12) * CGFloat(part.value) / CGFloat(total)))
-                            }
-                        }
+    /// This week in three plain numbers: workouts against the plan, practices, games.
+    private func summaryCard(_ source: CalendarSource) -> some View {
+        var workouts = 0, practices = 0, games = 0, mobility = 0
+        if let interval = calendar.dateInterval(of: .weekOfYear, for: .now) {
+            for offset in 0..<7 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: interval.start), day <= .now else { continue }
+                for item in source.items(on: day) where item.state != .planned {
+                    switch item.kind {
+                    case .workout: workouts += 1
+                    case .practice: practices += 1
+                    case .game: games += 1
+                    case .mobility: mobility += 1
+                    case .off: break
                     }
                 }
             }
-            .frame(height: 4)
-            .accessibilityHidden(true)
-            HStack(spacing: 6) {
-                ForEach(parts.indices, id: \.self) { index in
-                    stat(parts[index].value, parts[index].label, parts[index].color)
-                }
-            }
         }
+        let planned = week?.sessions.count ?? 0
+        var rest: [String] = []
+        if practices > 0 { rest.append(countedNoun(practices, "practice")) }
+        if games > 0 { rest.append(countedNoun(games, source.event.lowercased())) }
+        if mobility > 0 { rest.append("\(mobility) mobility") }
+        return AuraCard(.training, focus: UnitPoint(x: 0.2, y: 0.55), radius: 200) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("This week")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    .accessibilityAddTraits(.isHeader)
+                BigFigure("\(workouts)", unit: planned > 0 ? "of \(planned) workouts" : (workouts == 1 ? "workout" : "workouts"), size: 76)
+                Text(rest.isEmpty ? "Practice and games show up here as they happen." : rest.joined(separator: " · "))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
         .padding(.top, 16)
     }
 
-    private func stat(_ value: Int, _ label: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(value)")
-                .font(.system(size: 26, weight: .bold).monospacedDigit())
-                .foregroundStyle(value == 0 ? AppTheme.mutedText : AppTheme.ink)
-            Text(label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+    // MARK: Next seven days
+
+    /// Today and the six days after it, each in one line of words.
+    private func agenda(_ source: CalendarSource) -> some View {
+        let start = calendar.startOfDay(for: .now)
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Next 7 days")
+            VStack(spacing: 0) {
+                ForEach(days, id: \.self) { day in
+                    let items = source.items(on: day)
+                    Button { selectedDay = DayBox(date: day) } label: {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text(dayName(day))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(calendar.isDateInToday(day) ? AuraTone.training.mark : AppTheme.secondaryText)
+                                .frame(width: 78, alignment: .leading)
+                            HStack(spacing: 3) {
+                                ForEach(TrainingCalendar.marks(items)) { CalendarMark(item: $0, size: 8) }
+                            }
+                            .frame(width: 32, alignment: .leading)
+                            Text(TrainingCalendar.line(items))
+                                .font(.subheadline)
+                                .foregroundStyle(items.isEmpty ? AppTheme.mutedText : AppTheme.ink)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel("\(dayName(day)): \(TrainingCalendar.line(items))")
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 
-    private func weekTotals(_ all: [String: DayMarks]) -> (gym: Int, practices: Int, afterPractice: Int, mobility: Int, games: Int) {
-        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return (0, 0, 0, 0, 0) }
-        var result = (gym: 0, practices: 0, afterPractice: 0, mobility: 0, games: 0)
-        var day = interval.start
-        while day < interval.end {
-            if let marks = all[DayKey.of(day, calendar: calendar)] {
-                result.gym += marks.workouts
-                result.practices += marks.practiceDone ? 1 : 0
-                result.afterPractice += marks.afterPractice
-                result.mobility += marks.mobility
-                result.games += marks.game ? 1 : 0
-            }
-            day = calendar.date(byAdding: .day, value: 1, to: day) ?? interval.end
-        }
-        return result
-    }
-
-    private func monthTotals(for date: Date, _ all: [String: DayMarks]) -> (workouts: Int, practices: Int, mobility: Int) {
-        guard let interval = calendar.dateInterval(of: .month, for: date) else { return (0, 0, 0) }
-        var result = (workouts: 0, practices: 0, mobility: 0)
-        var day = interval.start
-        while day < interval.end {
-            if let marks = all[DayKey.of(day, calendar: calendar)] {
-                result.workouts += marks.workouts + marks.afterPractice
-                result.practices += marks.practiceDone ? 1 : 0
-                result.mobility += marks.mobility
-            }
-            day = calendar.date(byAdding: .day, value: 1, to: day) ?? interval.end
-        }
-        return result
+    private func dayName(_ day: Date) -> String {
+        if calendar.isDateInToday(day) { return "Today" }
+        if calendar.isDateInTomorrow(day) { return "Tomorrow" }
+        return day.formatted(.dateTime.weekday(.abbreviated).day())
     }
 
     // MARK: Calendar
 
-    private var calendarCard: some View {
-        let all = marksByDay
-        return VStack(alignment: .leading, spacing: 14) {
+    private func calendarCard(_ source: CalendarSource) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 ForEach(Zoom.allCases) { value in
                     // Month is free; the whole season and year are Pro.
@@ -370,45 +351,37 @@ struct ProgressTabView: View {
                 }
             }
             switch zoom {
-            case .month: monthView(all)
-            case .season: overview(months: seasonMonths, all)
-            case .year: overview(months: yearMonths, all)
+            case .month: monthView(source)
+            case .season: overview(months: seasonMonths, source)
+            case .year: overview(months: yearMonths, source)
             }
             legend
         }
         .cardStyle(padding: 16)
-        #if os(iOS)
-        .gesture(MagnifyGesture().onEnded { value in
-            // Pinch out to see more, in to see less (the season and year are Pro).
-            guard ProAccess.isPro else {
-                if value.magnification < 0.8 { paywall = .fullSeasonCalendar }
-                return
-            }
-            withAnimation {
-                if value.magnification < 0.8 { zoom = zoom == .month ? .season : .year }
-                if value.magnification > 1.25 { zoom = zoom == .year ? .season : .month }
-            }
-        })
-        #endif
     }
 
     private var legend: some View {
-        let items: [(Color, String)] = [(ProgressColors.workout, "Gym"), (ProgressColors.practice, "Team practice"),
-                                          (ProgressColors.afterPractice, "After practice"), (ProgressColors.mobility, "Mobility"),
-                                          (ProgressColors.game, "Game")]
-        return VStack(alignment: .leading, spacing: 6) {
-            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 6) {
-                ForEach(items, id: \.1) { item in
-                    HStack(spacing: 6) {
-                        Circle().fill(item.0).frame(width: 10, height: 10)
-                        Text(item.1).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.secondaryText).lineLimit(1)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                ForEach([TrainingCalendar.Item.Kind.workout, .practice, .game, .mobility], id: \.self) { kind in
+                    HStack(spacing: 5) {
+                        Circle().fill(ProgressColors.color(kind)).frame(width: 8, height: 8)
+                        Text(kind == .workout ? "Workout" : kind == .practice ? "Practice" : kind == .game ? "Game" : "Mobility")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .lineLimit(1)
                     }
                 }
             }
-            Text("Outlined: planned. Tap a day for details.")
-                .font(.caption2)
-                .foregroundStyle(AppTheme.secondaryText)
+            HStack(spacing: 14) {
+                HStack(spacing: 5) { Circle().fill(AppTheme.ink).frame(width: 8, height: 8); Text("Done") }
+                HStack(spacing: 5) { Circle().strokeBorder(AppTheme.ink, lineWidth: 1.5).frame(width: 8, height: 8); Text("Coming up") }
+                HStack(spacing: 5) { Capsule().fill(AppTheme.mutedText).frame(width: 11, height: 2); Text("Day off") }
+            }
+            .font(.caption)
+            .foregroundStyle(AppTheme.secondaryText)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private var weekdaySymbols: [String] {
@@ -426,7 +399,7 @@ struct ProgressTabView: View {
         return range.compactMap { calendar.date(byAdding: .day, value: $0 - 1, to: monthStart) }
     }
 
-    private func monthView(_ all: [String: DayMarks]) -> some View {
+    private func monthView(_ source: CalendarSource) -> some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
         let blanks = leadingBlanks(month)
         let monthDays = days(in: month)
@@ -454,20 +427,24 @@ struct ProgressTabView: View {
                 ForEach(0..<blanks, id: \.self) { _ in Color.clear.frame(height: 48) }
                 ForEach(monthDays, id: \.self) { day in
                     let isToday = calendar.isDateInToday(day)
+                    let items = source.items(on: day)
                     Button { selectedDay = DayBox(date: day) } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 5) {
                             Text("\(calendar.component(.day, from: day))")
                                 .font(.subheadline.weight(isToday ? .heavy : .semibold))
                                 .foregroundStyle(isToday ? AppTheme.onAccent : AppTheme.ink)
                                 .frame(width: 30, height: 26)
                                 .background(isToday ? AppTheme.accent : Color.clear, in: Capsule())
-                            PieDot(marks: marks(on: day, from: all), size: 16)
+                            HStack(spacing: 2) {
+                                ForEach(TrainingCalendar.marks(items)) { CalendarMark(item: $0, size: 7) }
+                            }
+                            .frame(height: 8)
                         }
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.pressable)
-                    .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
+                    .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + ". " + TrainingCalendar.line(items))
                 }
             }
             .gesture(DragGesture(minimumDistance: 30).onEnded { value in
@@ -494,8 +471,8 @@ struct ProgressTabView: View {
         return (1...12).compactMap { calendar.date(from: DateComponents(year: year, month: $0, day: 1)) }
     }
 
-    /// Zoomed out: every month as a small grid of dots.
-    private func overview(months: [Date], _ all: [String: DayMarks]) -> some View {
+    /// Zoomed out: every month as a small grid, one mark per day (its most important thing).
+    private func overview(months: [Date], _ source: CalendarSource) -> some View {
         let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
         return VStack(alignment: .leading, spacing: 10) {
             if zoom == .year {
@@ -529,11 +506,10 @@ struct ProgressTabView: View {
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 3) {
                                 ForEach(0..<leadingBlanks(monthStart), id: \.self) { _ in Color.clear.frame(height: 10) }
                                 ForEach(days(in: monthStart), id: \.self) { day in
-                                    let dayMarks = marks(on: day, from: all)
-                                    if dayMarks.isEmpty {
-                                        Circle().fill(AppTheme.fill).frame(width: 5, height: 5).frame(height: 10)
+                                    if let first = TrainingCalendar.marks(source.items(on: day)).first {
+                                        CalendarMark(item: first, size: 8).frame(height: 10)
                                     } else {
-                                        PieDot(marks: dayMarks, size: 10)
+                                        Circle().fill(AppTheme.fill).frame(width: 4, height: 4).frame(height: 10)
                                     }
                                 }
                             }
@@ -737,76 +713,84 @@ struct ProgressTabView: View {
 
 // MARK: - A day
 
+/// One day, in the calendar's own words: what happened, what's coming, the
+/// check-in. Never a plan on a past day.
 struct DayDetailSheet: View {
     let athlete: Athlete
     let date: Date
-    let marks: DayMarks
-    let week: GeneratedWeek?
+    let items: [TrainingCalendar.Item]
     let onLogPractice: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Session.startedAt) private var sessions: [Session]
 
     private var calendar: Calendar { .current }
-    private var dayKey: String { DayKey.of(date) }
     private var isFuture: Bool { calendar.startOfDay(for: date) > calendar.startOfDay(for: .now) }
+    private var done: [TrainingCalendar.Item] { items.filter { $0.state != .planned } }
+    private var coming: [TrainingCalendar.Item] { items.filter { $0.state == .planned } }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScreenTitle(date.formatted(.dateTime.weekday(.wide).month(.wide).day()), subtitle: isFuture ? "Coming up" : nil)
-                    let kinds = SessionKinds.all
-                    let done = sessions.filter { calendar.isDate($0.startedAt, inSameDayAs: date) }
-                    ForEach(done) { session in
-                        let kind = kinds[session.clientId] ?? .gym
-                        item(kind == .afterPractice ? "After-practice workout" : (kind == .mobility ? "Stretching & mobility" : "Workout"),
-                             HealthWorkoutInbox.historyLine(session, effort: true),
-                             color: kind == .afterPractice ? ProgressColors.afterPractice : (kind == .mobility ? ProgressColors.mobility : ProgressColors.workout))
-                    }
-                    if let log = PracticeLogStore.log(on: dayKey) {
-                        item("Team practice", practiceSummary(log), color: ProgressColors.practice)
-                    } else if marks.practiceScheduled {
-                        let time = PracticeSchedule.time(on: date).map { " · \($0.label)" } ?? ""
-                        item("Team practice\(time)", isFuture ? "Scheduled" : "Not logged yet", color: ProgressColors.practice, outlined: true)
-                    }
-                    ForEach(athlete.competitions.filter { calendar.isDate($0.date, inSameDayAs: date) }, id: \.id) { game in
-                        item(game.kind.rawValue.capitalized, "\(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")", color: ProgressColors.game, outlined: isFuture)
-                    }
-                    if let planned = week?.sessions.first(where: { calendar.isDate($0.date, inSameDayAs: date) }), isFuture || done.isEmpty {
-                        item("Planned: \(planned.title)", "About \(planned.estimatedMinutes) min · \(planned.items.count) exercises", color: ProgressColors.workout, outlined: true)
-                    }
-                    if let checkIn = athlete.checkIns.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
-                        item("Check-in", checkInSummary(checkIn), color: AppTheme.ink)
-                    }
-                    if marks.isEmpty && done.isEmpty {
-                        Text(isFuture ? "Nothing planned yet." : "Nothing logged on this day.")
+                    ScreenTitle(date.formatted(.dateTime.weekday(.wide).month(.wide).day()),
+                                subtitle: calendar.isDateInToday(date) ? "Today" : isFuture ? "Coming up" : nil)
+                    if items.isEmpty {
+                        Text(isFuture ? "Nothing on this day yet. Rest is part of the plan." : "Nothing on this day.")
                             .font(.body)
                             .foregroundStyle(AppTheme.secondaryText)
                     }
+                    if !done.isEmpty {
+                        group(isFuture ? "" : "What happened", done)
+                    }
+                    if !coming.isEmpty {
+                        group(calendar.isDateInToday(date) ? "Still to come" : "Planned", coming)
+                    }
+                    if let checkIn = athlete.checkIns.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+                        row(TrainingCalendar.Item(kind: .off, state: .done, title: "Check-in", detail: checkInSummary(checkIn)), mark: false)
+                    }
                     if !isFuture {
-                        Button {
-                            onLogPractice()
-                        } label: {
-                            Label(PracticeLogStore.log(on: dayKey) == nil ? "Log a team practice on this day" : "Edit this practice", systemImage: "square.and.pencil")
+                        Button { onLogPractice() } label: {
+                            Label(PracticeLogStore.log(on: DayKey.of(date)) == nil ? "Log a team practice on this day" : "Edit this practice",
+                                  systemImage: "square.and.pencil")
                         }
-                        .buttonStyle(.primary)
+                        .buttonStyle(.secondary)
                     }
                 }
                 .padding(20)
             }
             .appScreen()
-            .toolbar {
-                CloseToolbarItem { dismiss() }
-            }
+            .toolbar { CloseToolbarItem { dismiss() } }
         }
         .presentationDetents([.medium, .large])
     }
 
-    private func practiceSummary(_ log: PracticeLog) -> String {
-        let types = log.types.isEmpty ? "" : log.types.joined(separator: ", ") + " · "
-        let minutes = log.minutes.map { "\($0) min · " } ?? ""
-        return "\(types)\(minutes)effort \(log.hard)/5" + (log.went > 0 ? " · result \(log.went)/5" : "")
+    @ViewBuilder
+    private func group(_ title: String, _ items: [TrainingCalendar.Item]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !title.isEmpty {
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
+            }
+            ForEach(items) { row($0, mark: true) }
+        }
+    }
+
+    private func row(_ item: TrainingCalendar.Item, mark: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            if mark {
+                CalendarMark(item: item, size: 14).padding(.top, 4)
+            } else {
+                Image(systemName: "sun.max.fill").font(.footnote).foregroundStyle(AppTheme.secondaryText).frame(width: 14).padding(.top, 3)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).font(.headline).foregroundStyle(AppTheme.ink)
+                if let detail = item.detail {
+                    Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondaryText).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .cardStyle(padding: 14)
+        .accessibilityElement(children: .combine)
     }
 
     private func checkInSummary(_ checkIn: CheckIn) -> String {
@@ -815,22 +799,6 @@ struct DayDetailSheet: View {
         if let energy = CheckInOptions.nearest(Double(checkIn.energy), in: CheckInOptions.energy) { parts.append("energy \(energy.title.lowercased())") }
         if let soreness = CheckInOptions.nearest(Double(checkIn.soreness), in: CheckInOptions.soreness) { parts.append("soreness \(soreness.title.lowercased())") }
         return parts.joined(separator: " · ")
-    }
-
-    private func item(_ title: String, _ detail: String, color: Color, outlined: Bool = false) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Circle()
-                .strokeBorder(color, lineWidth: outlined ? 3 : 0)
-                .background(Circle().fill(outlined ? Color.clear : color))
-                .frame(width: 18, height: 18)
-                .padding(.top, 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline).foregroundStyle(AppTheme.ink)
-                Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondaryText).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .cardStyle(padding: 14)
     }
 }
 

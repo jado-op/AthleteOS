@@ -102,6 +102,13 @@ Reading files, CI logs or the GitHub API needs no lock.
   (`BusyDays.moveOff` in `WeeklyPlan.generate`). **Talk mid-workout** — mic in the workout (`WorkoutVoiceListener`,
   on-device speech only, no fallback to a server): "that was heavy", "too easy", "two more", "skip", "done"; any pain
   word stops the exercise with the stop-and-get-checked prompt and saves today's pain (`WorkoutVoiceCommand`, EN + DE).
+- Training calendar (owner, 2026-11-27: "rework the whole calendar feed… it is pretty confusing"): one per-day model,
+  `TrainingCalendar.items(Facts)` (Foundation, harness), read by the month grid, the "Next 7 days" agenda and the day sheet
+  (`CalendarSource` gathers the facts once per draw). Rules: the past shows only what happened (never "planned"; an
+  unlogged scheduled practice shows half-filled "from your schedule"); today = done + `todaysPick` (one brain); ahead =
+  games, scheduled practice, this week's planned workouts, days off (`BusyDays`, sick, away). Four kinds, four colours
+  (workout ember incl. after-practice, practice blue, game green, mobility cyan); one mark per kind under a day: filled
+  done, ring coming up, dash day off. "This week" = workouts of planned + practices · games, no mixed total.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
