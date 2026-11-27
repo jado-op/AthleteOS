@@ -5,5 +5,5 @@ together", before you start. Use `tools/work-lock.sh`; do not edit this by hand.
 
 - status: in-use
 - by: claude-fb3e2636
-- since: 2026-11-27T19:29:29Z
-- task: Twin across the app: gym reason, Home tile, why link
+- since: 2026-11-27T19:39:27Z
+- task: Twin across the app: review fixes
