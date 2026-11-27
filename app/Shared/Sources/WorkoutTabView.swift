@@ -20,6 +20,8 @@ struct WorkoutTabView: View {
     @State private var showingLibrary = false
     /// The week as a timeline that bends when a day changes (owner, 2026-11-27).
     @State private var showingBend = false
+    /// A day of the week strip opened as the calendar shows it.
+    @State private var weekDay: ProgressTabView.DayBox?
     @ObservedObject private var navigation = WorkoutNavigation.shared
     /// The recommended session's exercises, opened from the card (details one tap away).
     @State private var showingContents = false
@@ -573,75 +575,117 @@ struct WorkoutTabView: View {
         .buttonStyle(.pressable)
     }
 
-    /// V8: the week as a strip of tiles — today's in ember, the rest calm —
-    /// each with its day, the workout and its length. Swipe sideways.
-    @ViewBuilder
+    /// The week as a strip of seven tiles, Monday to Sunday, read from the
+    /// same per-day model as the training calendar (owner, 2026-11-27: "make
+    /// the week strip match the calendar"): the same marks — filled done, ring
+    /// coming up, dash day off — the same words, and today's tile is the
+    /// workout on the card above. A workout day opens that workout; any other
+    /// day opens the day as the calendar shows it.
     private var weekSection: some View {
-        if let week, !week.sessions.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                SectionHeader("This week", subtitle: isDeloadWeek(week)
-                              ? "Deload week: lighter on purpose, so you come back stronger." : nil)
+        var mondayFirst = Calendar.current
+        mondayFirst.firstWeekday = 2
+        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: week, catalogue: catalogue, calendar: mondayFirst)
+        let start = mondayFirst.dateInterval(of: .weekOfYear, for: .now)?.start ?? mondayFirst.startOfDay(for: .now)
+        let days = (0..<7).compactMap { mondayFirst.date(byAdding: .day, value: $0, to: start) }
+        return VStack(alignment: .leading, spacing: 14) {
+            SectionHeader("This week", subtitle: week.map { isDeloadWeek($0) } == true
+                          ? "Deload week: lighter on purpose, so you come back stronger." : nil)
+            ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
-                    HStack(spacing: 12) {
-                        ForEach(Array(week.sessions.enumerated()), id: \.offset) { _, planned in
-                            let session = rowSession(planned)
-                            let isToday = calendar.isDateInToday(planned.date)
-                            let isPast = !isToday && planned.date < .now
-                            Button { preview = PreviewBox(session: session, kind: .gym, slot: planned.slot.map { PlanSlot.gym($0) }) } label: {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack(spacing: 6) {
-                                        Text(isToday ? "Today" : planned.date.formatted(.dateTime.weekday(.wide)))
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(AppTheme.ink.opacity(isToday ? 0.92 : 0.6))
-                                        if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil {
-                                            Text("· yours").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink.opacity(0.6))
-                                        }
-                                    }
-                                    Spacer(minLength: 0)
-                                    Text(session.title)
-                                        .font(.system(size: 20, weight: .bold))
-                                        .tracking(-0.3)
-                                        .foregroundStyle(AppTheme.ink)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                                        Text("\(session.estimatedMinutes)")
-                                            .font(.system(size: 30, weight: .light).monospacedDigit())
-                                        Text("min · \(session.items.count) exercises")
-                                            .font(.footnote.weight(.semibold))
-                                            .foregroundStyle(AppTheme.ink.opacity(0.65))
-                                    }
-                                    .foregroundStyle(AppTheme.ink)
-                                }
-                                .frame(width: 172, height: 150, alignment: .leading)
-                                .padding(16)
-                                .background(AuraBackground(isToday ? .training : .calm, focus: UnitPoint(x: 0.2, y: 0.85), radius: 150))
-                                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                                        .strokeBorder(Color.white.opacity(isToday ? 0.14 : 0.06), lineWidth: 1)
-                                }
-                                .opacity(isPast ? 0.55 : 1)
-                            }
-                            .buttonStyle(.pressable)
-                            .accessibilityLabel("\(isToday ? "Today" : planned.date.formatted(.dateTime.weekday(.wide))): \(session.title), about \(session.estimatedMinutes) minutes")
+                    HStack(spacing: 10) {
+                        ForEach(days, id: \.self) { day in
+                            weekTile(day, items: source.items(on: day))
+                                .id(DayKey.of(day))
                         }
                     }
                     .padding(.horizontal, 20)
                 }
                 .scrollIndicators(.hidden)
                 .padding(.horizontal, -20)
+                .onAppear { proxy.scrollTo(DayKey.of(.now), anchor: .center) }
+            }
+        }
+        .sheet(item: $weekDay) { box in
+            DayDetailSheet(athlete: athlete, date: box.date, items: source.items(on: box.date)) {
+                weekDay = nil
+                WorkoutNavigation.shared.showingCalendar = true
             }
         }
     }
 
-    /// What a row of the week opens. Today's row opens the very session the
-    /// card above shows, so the screen never offers two different "todays".
-    private func rowSession(_ planned: GeneratedSession) -> GeneratedSession {
-        guard calendar.isDateInToday(planned.date) else { return adjusted(planned) }
-        if recommendation.mode == .gymDay, let today = recommendedSession { return today }
-        if let today = gymSession, today.isToday { return today.session }
-        return adjusted(planned)
+    private func weekTile(_ day: Date, items: [TrainingCalendar.Item]) -> some View {
+        let isToday = calendar.isDateInToday(day)
+        let isPast = calendar.startOfDay(for: day) < calendar.startOfDay(for: .now)
+        let workout = tileWorkout(day, items: items)
+        let main = items.first
+        return Button {
+            if let workout {
+                preview = PreviewBox(session: workout.session, kind: workout.kind, slot: workout.slot)
+            } else {
+                weekDay = ProgressTabView.DayBox(date: day)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text(isToday ? "Today" : day.formatted(.dateTime.weekday(.abbreviated).day()))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(isToday ? 0.92 : 0.6))
+                    if workout?.yours == true {
+                        Text("· yours").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink.opacity(0.6))
+                    }
+                }
+                HStack(spacing: 3) {
+                    ForEach(TrainingCalendar.marks(items)) { CalendarMark(item: $0, size: 8) }
+                }
+                .frame(height: 8)
+                Spacer(minLength: 0)
+                Text(main?.title ?? "Rest")
+                    .font(.system(size: 18, weight: .bold))
+                    .tracking(-0.3)
+                    .foregroundStyle(main == nil ? AppTheme.secondaryText : AppTheme.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if let workout, main?.kind == .workout, main?.state == .planned {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text("\(workout.session.estimatedMinutes)")
+                            .font(.system(size: 26, weight: .light).monospacedDigit())
+                        Text("min · \(workout.session.items.count) exercises")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink.opacity(0.65))
+                    }
+                    .foregroundStyle(AppTheme.ink)
+                } else {
+                    Text(items.count > 1 ? TrainingCalendar.line(Array(items.dropFirst())) : (main?.detail ?? (isPast ? "Nothing logged" : "Recovery is part of the plan")))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.65))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .frame(width: 150, height: 140, alignment: .leading)
+            .padding(14)
+            .background(AuraBackground(isToday ? .training : .calm, focus: UnitPoint(x: 0.2, y: 0.85), radius: 150))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Color.white.opacity(isToday ? 0.14 : 0.06), lineWidth: 1)
+            }
+            .opacity(isPast ? 0.7 : 1)
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel("\(isToday ? "Today" : day.formatted(.dateTime.weekday(.wide))): \(TrainingCalendar.line(items))")
+    }
+
+    /// The workout a tile opens: today's is the card's own; another day's, the
+    /// week plan's (never on a past day). Nil: the tile opens the day instead.
+    private func tileWorkout(_ day: Date, items: [TrainingCalendar.Item]) -> (session: GeneratedSession, kind: WorkoutKind, slot: PlanSlot?, yours: Bool)? {
+        guard items.contains(where: { $0.kind == .workout && $0.state == .planned }) else { return nil }
+        if calendar.isDateInToday(day), let mode = recommendation.mode, let session = recommendedSession {
+            return (session, kind(mode), slot(for: mode, session: session), false)
+        }
+        guard let planned = week?.sessions.first(where: { calendar.isDate($0.date, inSameDayAs: day) }) else { return nil }
+        let yours = planned.slot.map { custom.workout(for: .gym($0)) != nil } ?? false
+        return (adjusted(planned), .gym, planned.slot.map { PlanSlot.gym($0) }, yours)
     }
 
     private func isDeloadWeek(_ week: GeneratedWeek) -> Bool {

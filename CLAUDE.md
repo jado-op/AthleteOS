@@ -109,6 +109,8 @@ Reading files, CI logs or the GitHub API needs no lock.
   games, scheduled practice, this week's planned workouts, days off (`BusyDays`, sick, away). Four kinds, four colours
   (workout ember incl. after-practice, practice blue, game green, mobility cyan); one mark per kind under a day: filled
   done, ring coming up, dash day off. "This week" = workouts of planned + practices · games, no mixed total.
+  The Workout tab's week strip reads the same model: seven tiles Mon–Sun, same marks and words; today = the card above;
+  a workout day opens that workout, any other day the day sheet.
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview
