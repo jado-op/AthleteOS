@@ -57,9 +57,9 @@ struct CheckInSheet: View {
     @State private var healthHours: Double?
     /// Where `healthHours` came from, named in the sleep question's hint.
     /// Recovery signals from a watch or band, against the athlete's normal.
-    @State private var restingHeartRate: (today: Double, usual: Double?)?
-    @State private var hrv: (today: Double, usual: Double?)?
     @State private var energyFromWatch = false
+    /// Resting heart rate read the careful way (two nights, own usual; `HeartSignals`).
+    @State private var heart: HeartMorning?
     /// Confirmed on the summary with pain: ask where, then save.
     @State private var saveAfterPain = false
     /// The summary exists: the step-by-step flow can go back to it.
@@ -177,7 +177,7 @@ struct CheckInSheet: View {
         case .sleepQuality:
             question("How well did you sleep?", options: CheckInOptions.sleepQuality, selection: $sleepQuality)
         case .energy:
-            question("How is your energy?", options: CheckInOptions.energy, selection: $energy)
+            question("How is your energy?", hint: heart?.note, options: CheckInOptions.energy, selection: $energy)
         case .soreness:
             question("How sore are you?", hint: "Normal muscle soreness from training.", options: CheckInOptions.soreness, selection: $soreness)
         case .pain:
@@ -358,15 +358,20 @@ struct CheckInSheet: View {
     private func loadHealth() async {
         healthHours = await HealthKitManager.shared.sleepHours()
         if let healthHours { MeasuredSleepStore.save(healthHours) }
-        restingHeartRate = await HealthKitManager.shared.restingHeartRate()
-        hrv = await HealthKitManager.shared.heartRateVariability()
+        // The heart, read one way everywhere (`HeartSignals`): one device, two
+        // nights, the athlete's own 28-night usual.
+        await HeartStore.refresh()
+        heart = HeartStore.morning()
         if sleepHours == nil, let healthHours {
             sleepHours = CheckInOptions.nearest(healthHours, in: CheckInOptions.sleepHours)
         }
         if sleepQuality == nil, let healthHours {
             sleepQuality = CheckInOptions.nearest(Double(WearablePrefill.sleepQuality(hours: healthHours)), in: CheckInOptions.sleepQuality)
         }
-        if let level = WearablePrefill.energy(restingHeartRate: restingHeartRate, hrv: hrv) {
+        // One morning is noise (research T3): energy is guessed from the heart
+        // only against 14+ nights of the athlete's own usual, and never when
+        // it has been raised two nights — then the athlete is asked (T12).
+        if let heart, let level = HeartSignals.energyPrefill(heart) {
             energyFromWatch = true
             if energy == nil { energy = CheckInOptions.nearest(Double(level), in: CheckInOptions.energy) }
         }
@@ -386,14 +391,8 @@ struct CheckInSheet: View {
     // MARK: Summary (a watch or band filled it in)
 
     private var energyDetail: String? {
-        var parts: [String] = []
-        if let rhr = restingHeartRate, let usual = rhr.usual {
-            parts.append("Resting heart rate \(Int(rhr.today.rounded())) (usually \(Int(usual.rounded())))")
-        }
-        if let hrv, let usual = hrv.usual {
-            parts.append("HRV \(Int(hrv.today.rounded())) ms (usually \(Int(usual.rounded())))")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        guard let heart, let usual = heart.usual, let latest = heart.lastTwo.last else { return nil }
+        return "Resting heart rate \(Int(latest.rounded())) (usually \(Int(usual.rounded())))"
     }
 
     private var summaryPage: some View {
@@ -407,7 +406,7 @@ struct CheckInSheet: View {
                 // Nothing measured: this morning's sleep and energy as taps, right here.
                 compactRow("Sleep", hint: nil, CheckInOptions.sleepHours, selection: $sleepHours)
                 compactRow("Sleep quality", hint: nil, CheckInOptions.sleepQuality, selection: $sleepQuality)
-                compactRow("Energy", hint: nil, CheckInOptions.energy, selection: $energy)
+                compactRow("Energy", hint: heart?.note, CheckInOptions.energy, selection: $energy)
             } else {
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
@@ -420,7 +419,7 @@ struct CheckInSheet: View {
                 Button { edit(from: .energy) } label: {
                     ListRow(systemImage: "bolt.fill", color: AppTheme.amber,
                             title: energy.map { "Energy · \($0.title)" } ?? "Energy",
-                            detail: energyFromWatch ? energyDetail : "Tap to answer") { editMark }
+                            detail: heart?.note ?? (energyFromWatch ? energyDetail : "Tap to answer")) { editMark }
                 }
                 .buttonStyle(.plain)
             }
@@ -620,6 +619,8 @@ enum QuickCheckIn {
         DayStatusStore.status() == .active
             && PainStore.report() == nil
             && AthleteContextStore.questions().isEmpty
+            // A heart raised two nights running: ask, don't assume "normal".
+            && !HeartStore.morning(now: now).raised
             && usual(athlete, now: now) != nil
     }
 

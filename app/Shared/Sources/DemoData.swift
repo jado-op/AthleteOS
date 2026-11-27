@@ -62,7 +62,10 @@ public enum DemoData {
         let playedGames = [4, 11, 18]
         for days in playedGames {
             if let date = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: now))?.addingTimeInterval(16 * 3600) {
-                context.insert(Competition(sportSlug: "soccer", date: date, kind: .game, isHome: days != 11, notes: nil, athlete: athlete))
+                let game = Competition(sportSlug: "soccer", date: date, kind: .game, isHome: days != 11, notes: nil, athlete: athlete)
+                context.insert(game)
+                // Rated by the athlete, so the twin counts them ("3 of 10 rated games").
+                CompetitionStore.save(CompetitionResult(id: game.id, outcome: days == 11 ? .loss : .win, rating: days == 18 ? 3 : 4, savedAt: date))
             }
         }
 
@@ -184,6 +187,24 @@ public enum DemoData {
             }
         }
         MindsetStore.logRoutine(.breathing, on: now)
+
+        // The twin's heart line and the check-in's careful note: 90 nights
+        // from a watch, the usual coming down over the season, the last two raised.
+        var resting: [String: [String: Double]] = [:], variability: [String: [String: Double]] = [:]
+        for back in 0..<90 {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: now) else { continue }
+            let base = back > 56 ? 58.0 : 53.0
+            resting[DayKey.of(day, calendar: calendar)] = ["com.apple.health.demo": back <= 1 ? 58 : base + Double(back % 3) - 1]
+            variability[DayKey.of(day, calendar: calendar)] = ["com.apple.health.demo": back <= 3 && back >= 1 ? 52 : 62 + Double(back % 5) - 2]
+        }
+        defaults.set(resting, forKey: "health.heart.resting.v2")  // HeartStore.restingKey
+        defaults.set(variability, forKey: "health.heart.variability.v2")  // HeartStore.variabilityKey
+        // A knee that hurt twice: the twin's "show it to someone" line.
+        for back in [30, 9] {
+            if let day = calendar.date(byAdding: .day, value: -back, to: now) {
+                PainStore.set(PainReport(day: DayKey.of(day, calendar: calendar), areas: [.knee], level: .little), on: day, calendar: calendar)
+            }
+        }
 
         let firstTest = calendar.date(byAdding: .day, value: -44, to: now) ?? now
         let secondTest = calendar.date(byAdding: .day, value: -2, to: now) ?? now

@@ -43,9 +43,13 @@ public struct KnowledgeInput: Sendable {
     /// Days the athlete said were exams, travel or sick: left out of the
     /// sleep comparisons (they shorten sleep and lower practice alike).
     public var excludedDays: Set<Date>
+    /// Resting heart rate per day from Apple Health (any watch or band).
+    public var restingHeart: [HeartNight]
 
-    public init(base: TwinInput, ratedGames: [RatedGame] = [], pains: [Pain] = [], efforts: [RegionEffort] = [], excludedDays: Set<Date> = []) {
+    public init(base: TwinInput, ratedGames: [RatedGame] = [], pains: [Pain] = [], efforts: [RegionEffort] = [], excludedDays: Set<Date> = [],
+                restingHeart: [HeartNight] = []) {
         self.base = base
+        self.restingHeart = restingHeart
         self.ratedGames = ratedGames
         self.pains = pains
         self.efforts = efforts
@@ -136,6 +140,7 @@ public enum TwinKnowledgeEngine {
         let recovery = legRecovery(input, calendar: calendar)
         add(recovery.result)
         add(painReturns(input, calendar: calendar))
+        add(restingHeart(input, calendar: calendar))
         add(sleepAndPractice(input, calendar: calendar))
         return TwinKnowledge(lines: lines, learning: learning,
                              legRecoveryDays: recovery.days.flatMap { $0 > defaultLegRecoveryDays ? $0 : nil })
@@ -408,6 +413,25 @@ public enum TwinKnowledgeEngine {
             : "After your hardest leg days your legs usually feel normal again by day \(days) (\(agree) of \(episodes.count) times). Your plan still keeps \(defaultLegRecoveryDays) days between heavy leg sessions."
         return (.line(KnowledgeLine(id: "body.legs", area: .body, text: text,
                                     basis: "\(episodes.count) hard leg sessions and your soreness answers on the days after")), longer ? days : nil)
+    }
+
+    /// The athlete's usual resting heart rate and how it moved over two months
+    /// (research §3, T2, T7): their own numbers only, never a norm or a verdict.
+    static func restingHeart(_ input: KnowledgeInput, calendar: Calendar) -> Result {
+        guard !input.restingHeart.isEmpty else { return .none }  // No watch or band: nothing to learn here.
+        let heart = HeartSignals.knowledge(input.restingHeart, now: input.base.now, calendar: calendar)
+        guard let usual = heart.usual else {
+            return .learning(LearningItem(id: "body.heart", area: .body, question: "Your usual resting heart rate",
+                                          have: heart.nights, need: HeartSignals.minimumNights, unit: "nights from your watch"))
+        }
+        var text = "Your usual resting heart rate is about \(Int(usual.rounded())) beats a minute."
+        if let was = heart.was {
+            text += was > usual
+                ? " It has come down from about \(Int(was.rounded())) two months ago — that often goes with getting fitter."
+                : " It's up from about \(Int(was.rounded())) two months ago. That can go with hard training, short sleep, stress or being run down."
+        }
+        return .line(KnowledgeLine(id: "body.heart", area: .body, text: text,
+                                   basis: "Middle value of your last \(heart.nights) nights from Apple Health. Compared only with you."))
     }
 
     /// Pain in the same area on two separate occasions within 8 weeks (T9).

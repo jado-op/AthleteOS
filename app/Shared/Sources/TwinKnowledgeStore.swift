@@ -20,7 +20,8 @@ enum TwinKnowledgeStore {
         let mornings = athlete.checkIns.map { "\($0.date.timeIntervalSince1970)\($0.soreness)\($0.energy)\($0.sleepHours ?? 0)" }.joined()
         let key = [DayKey.of(now, calendar: calendar), "\(mornings.hashValue)", "\(athlete.sessions.count)",
                    "\(athlete.competitions.count)", "\(results.hashValue)", "\(pains.hashValue)",
-                   "\(practices.hashValue)", "\(HealthWorkoutInbox.revision)", "\(AthleteContextStore.revision)"].joined(separator: "|")
+                   "\(practices.hashValue)", "\(HealthWorkoutInbox.revision)", "\(AthleteContextStore.revision)",
+                   "\(HeartStore.resting.count)\(HeartStore.resting.last?.value ?? 0)"].joined(separator: "|")
         if let cache, cache.key == key { return cache.knowledge }
         let knowledge = TwinKnowledgeEngine.build(input(athlete, state: state, now: now, calendar: calendar), calendar: calendar)
         cache = (key, knowledge)
@@ -40,7 +41,7 @@ enum TwinKnowledgeStore {
             return KnowledgeInput.Pain(date: day, areas: report.areas.map(\.rawValue))
         }
         return KnowledgeInput(base: base, ratedGames: rated, pains: pains, efforts: legEfforts(athlete),
-                              excludedDays: excludedDays(now: now, calendar: calendar))
+                              excludedDays: excludedDays(now: now, calendar: calendar), restingHeart: HeartStore.resting)
     }
 
     /// How hard each session worked the legs (CR-10): the athlete's own

@@ -136,6 +136,17 @@ Reading files, CI logs or the GitHub API needs no lock.
   check-ins after; a longer personal recovery lengthens the gym planner's leg rest (`GymHistoryBuilder`, T10: only
   ever longer). "Not right?" hides a line (`AcademyState.knowledgeHidden`); a monthly letter (first 10 days) lists
   what was learned. Not built on purpose: "you progress better on 3 vs 4 days" (T11), illness alerts from heart data.
+- Heart data (owner, 2026-11-27: "heart data is important information"; `docs/TWIN-RESEARCH.md` §3): `HeartStore` keeps
+  daily resting HR and HRV from Health **per device** on the phone only (`health.` keys, never backed up); `HeartSignals`
+  (harness) compares one device with itself (the source with most days this week — a new watch learns its own usual).
+  Usual = median of 28 days, needs 14. Raised = resting HR ≥ usual + max(3 bpm, 5%) on the two latest days (today +
+  yesterday, else the two before). HRV low = the 3 complete days to yesterday ≥ 10% under its usual. **Two signs (raised +
+  HRV low)** → a calm note in the check-in ("…higher than your usual for two nights (58, usually 52). That often comes
+  with hard training, short sleep, stress or a cold starting. How do you feel?"). One sign alone stays quiet. Either way
+  energy isn't pre-filled and the one-tap normal check-in isn't offered — the athlete's answer moves the plan, never the
+  heart alone. Energy is pre-filled "good" only with a usual and both recent days measured. No push, no illness alert,
+  no HRV value called good or bad. The twin says the usual resting HR and a 2-month change of 3+ bpm (same device only).
+  Still single-morning (needs the owner's OK to change its tests): the twin Health section's recovery word (`WearableRead.recovery`).
 - Practice data (P14–P17): Home asks about yesterday's unlogged scheduled practice once ("Went · normal / Went · hard
   / Didn't go"; `PracticeRoutine`, `PracticeCards.swift`) and offers a weekday logged in 3 of the last 4 weeks as a
   practice day (Yes / Not quite / No = 6 weeks quiet; never with a team calendar). A Health workout during practice

@@ -140,6 +140,38 @@ public final class HealthKitManager: @unchecked Sendable {
         return perDay.sorted { $0.key < $1.key }.map { TwinPoint(date: $0.key, value: $0.value.reduce(0, +) / Double($0.value.count)) }
     }
 
+    /// One value per day **per device** (the day's average from that source),
+    /// so a new watch or a second band never looks like a change in the body
+    /// (`HeartSignals` compares one device with itself).
+    public func dailyBySource(resting: Bool, days: Int, calendar: Calendar = .current) async -> [HeartNight] {
+        guard isAvailable else { return [] }
+        let type = resting ? HKQuantityType(.restingHeartRate) : HKQuantityType(.heartRateVariabilitySDNN)
+        let unit = resting ? HKUnit.count().unitDivided(by: .minute()) : HKUnit.secondUnit(with: .milli)
+        let today = calendar.startOfDay(for: .now)
+        guard let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
+        let samples: [(Date, String, Double)] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKQuantitySample] ?? []).map {
+                    ($0.startDate, $0.sourceRevision.source.bundleIdentifier, $0.quantity.doubleValue(for: unit))
+                })
+            }
+            store.execute(query)
+        }
+        var perDay: [String: [Double]] = [:]
+        var dates: [String: Date] = [:]
+        for (date, source, value) in samples {
+            let day = calendar.startOfDay(for: date)
+            let key = "\(day.timeIntervalSince1970)|\(source)"
+            perDay[key, default: []].append(value)
+            dates[key] = day
+        }
+        return perDay.compactMap { key, values -> HeartNight? in
+            guard let day = dates[key], let source = key.split(separator: "|", maxSplits: 1).last else { return nil }
+            return HeartNight(date: day, value: values.reduce(0, +) / Double(values.count), source: String(source))
+        }.sorted { $0.date < $1.date }
+    }
+
     /// Today's latest value and the median of the daily values over the 4
     /// weeks before (from 7 days of data).
     private func todayAndUsual(_ type: HKQuantityType, unit: HKUnit, on day: Date, calendar: Calendar) async -> (today: Double, usual: Double?)? {

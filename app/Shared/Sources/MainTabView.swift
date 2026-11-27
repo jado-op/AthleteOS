@@ -234,6 +234,7 @@ public struct MainTabView: View {
                 StreakFreeze.protectTodayIfResting()
                 Task {
                     await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+                    await HeartStore.refresh()
                     // A workout from Health counts as today's training straight away.
                     if !athlete.isDeleted, HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext) > 0 { regenerate() }
                 }
@@ -248,6 +249,7 @@ public struct MainTabView: View {
             StreakFreeze.protectTodayIfResting()
             if !DemoData.isEnabled {
                 await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+                await HeartStore.refresh()
                 HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext)
             }
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
