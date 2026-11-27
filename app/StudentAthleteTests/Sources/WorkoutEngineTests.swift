@@ -294,6 +294,26 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertEqual(TwinSteer.from([.strengthNotSpeed, .sleepBase]), [.strengthNotSpeed])
     }
 
+    /// Two games a week: day two after Saturday is the only heavy-leg slot before
+    /// Wednesday. Without heavy legs for a week the twin's caution steps aside;
+    /// with recent heavy legs it holds.
+    func testTwinGameCautionKeepsTheOnlyLegSlotOfATwoGameWeek() {
+        var crowded = day("soccer", phase: .inSeason, nextGame: 2, lastGame: 2)
+        crowded.twin = [.slowGameRecovery]
+        XCTAssertFalse(crowded.twinHoldsLegsAfterGame)
+        XCTAssertFalse(SessionPlanner.decide(crowded).reasons.contains(.twinSlowGameRecovery))
+
+        var trained = day("soccer", phase: .inSeason, nextGame: 2, lastGame: 2,
+                          recent: RecentLoad(days: [DayLoad(daysAgo: 4, heavyLower: true)]))
+        trained.twin = [.slowGameRecovery]
+        XCTAssertTrue(trained.twinHoldsLegsAfterGame)
+        XCTAssertTrue(SessionPlanner.decide(trained).avoids(.heavyLowerBody))
+
+        var free = day("soccer", phase: .inSeason, nextGame: 5, lastGame: 2)
+        free.twin = [.slowGameRecovery]
+        XCTAssertTrue(free.twinHoldsLegsAfterGame)
+    }
+
     func testTravelAndGameDaysRespectRecovery() {
         let tired = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
                                 demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["soccer"], position: nil),

@@ -219,6 +219,7 @@ public enum GymAdvisor {
         if day.gameToday { legsBlocked = "Game today" }
         else if day.daysToNextGame == 1 { legsBlocked = "Game tomorrow — legs stay fresh" }
         else if day.daysSinceLastGame == 1 { legsBlocked = "You played yesterday" }
+        else if day.twinHoldsLegsAfterGame { legsBlocked = "You usually still feel a game two days later" }
         else if day.context.lowerFatigue >= 2 { legsBlocked = "You said your legs are still tired" }
         else if day.soreLegs { legsBlocked = "Your legs are sore" }
         else if day.practice == .hard { legsBlocked = "Hard practice today already loads your legs" }

@@ -156,6 +156,14 @@ Reading files, CI logs or the GitHub API needs no lock.
   the plan's "What does your twin change?" links to the Twin page (`AcademyNavigation.openTwin`); the gym advisor's legs
   reason names the twin's days (`GymHistory.legsHeldByTwin`). The games hub shows what the athlete's best games share
   before the next one, once known. Pain never goes through these lines (its own safety path).
+- Twin priors (owner, 2026-11-27: "make the algorithm crazy good… the app not busy"; research + second opinion
+  `docs/TWIN-PRIORS-RESEARCH.md`, its review section wins): research sets **starting values and noise widths, never the
+  athlete's level**; personal data only ever adds rest (floors never move); no population value is shown. Done: no peer
+  copy in the sleep card; a check-in item whose history never moved gets an assumed swing of 0.75 (`ReadinessEngine`);
+  the day-two game caution needs the athlete's own day-two mornings (`TwinSteer.from([TwinInsight])`) and is one rule
+  read by the planner and the gym advisor (`TrainingDay.twinHoldsLegsAfterGame`; steps aside in a two-games week when
+  legs haven't been heavy for a week). The leg-recovery blend was dropped on purpose. Still to come (research order):
+  sleep safety floor vs personal "short for you", lighter first sessions after a break, heart widths, load-spike width.
 - Heart data (owner, 2026-11-27: "heart data is important information"; `docs/TWIN-RESEARCH.md` §3): `HeartStore` keeps
   daily resting HR and HRV from Health **per device** on the phone only (`health.` keys, never backed up); `HeartSignals`
   (harness) compares one device with itself (the source with most days this week — a new watch learns its own usual).

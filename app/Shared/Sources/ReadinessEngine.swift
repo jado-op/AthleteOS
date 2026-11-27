@@ -33,6 +33,8 @@ public enum ReadinessEngine {
     private static let amberThreshold = -0.3
     private static let redThreshold = -1.0
     private static let minimumHistoryDays = 7
+    /// The swing assumed for an item whose history never moved.
+    private static let priorSpread = 0.75
 
     /// `history` is every PRIOR check-in (never including the one being
     /// scored) — the baseline is computed from history, then today's
@@ -65,10 +67,10 @@ public enum ReadinessEngine {
         let mean = doubles.reduce(0, +) / Double(doubles.count)
         let variance = doubles.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(doubles.count)
         let standardDeviation = variance.squareRoot()
-        // A baseline with zero spread (e.g. every prior day scored the same)
-        // can't produce a meaningful z-score — treat today as "at baseline"
-        // rather than dividing by zero.
-        guard standardDeviation > 0 else { return 0 }
-        return (Double(value) - mean) / standardDeviation
+        // When every prior answer was the same, a change still means something:
+        // assume a usual swing of about ¾ of a point (a design prior, not a norm —
+        // priors research) instead of ignoring it. Today at the usual stays 0.
+        let spread = standardDeviation > 0 ? standardDeviation : priorSpread
+        return (Double(value) - mean) / spread
     }
 }

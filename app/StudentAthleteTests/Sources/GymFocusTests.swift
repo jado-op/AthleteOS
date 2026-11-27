@@ -236,4 +236,18 @@ final class GymFocusTests: XCTestCase {
             }
         }
     }
+
+    /// The advisor and the planner read the same twin caution: no legs suggested
+    /// that the session would then make light.
+    func testAdvisorFollowsTheTwinsGameCaution() {
+        var steered = day(phase: .inSeason, nextGame: 5, gym: nil)
+        steered.daysSinceLastGame = 2
+        steered.twin = [.slowGameRecovery]
+        let advice = GymAdvisor.advise(day: steered, history: GymHistory(daysSince: [.lower: 9, .upper: 9]))
+        XCTAssertEqual(advice.notToday[.lower], "You usually still feel a game two days later")
+        XCTAssertNotEqual(advice.focus, .lower)
+
+        steered.twin = []
+        XCTAssertNil(GymAdvisor.advise(day: steered, history: GymHistory(daysSince: [.lower: 9, .upper: 9])).notToday[.lower])
+    }
 }

@@ -94,4 +94,16 @@ final class ReadinessEngineTests: XCTestCase {
         // misfires as anything worse than green.
         XCTAssertEqual(result?.band, .green)
     }
+
+    /// A week of the same answers, then one item a point lower: that's a dip,
+    /// not "nothing changed" (the assumed swing for a history that never moved).
+    func testADipAfterIdenticalAnswersStillShows() {
+        let history = (1...7).map { i in
+            CheckInAnswers(date: day(-i), sleepQuality: 3, soreness: 3, energy: 3, stress: 3)
+        }
+        let today = CheckInAnswers(date: day(0), sleepQuality: 3, soreness: 3, energy: 2, stress: 3)
+        let result = ReadinessEngine.score(today: today, history: history, now: referenceNow, calendar: calendar)
+        XCTAssertEqual(result?.band, .amber)
+        XCTAssertEqual(result?.z ?? 0, -1.0 / 3.0, accuracy: 0.001)
+    }
 }

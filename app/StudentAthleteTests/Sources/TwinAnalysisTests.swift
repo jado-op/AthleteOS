@@ -59,6 +59,26 @@ final class TwinAnalysisTests: XCTestCase {
         XCTAssertTrue(insight?.detail.contains("get it checked") == true)
     }
 
+    /// Day-one soreness says nothing about day two: the plan's day-two caution
+    /// needs the athlete's own day-two mornings (priors research, second opinion).
+    func testGameCautionOnDayTwoNeedsDayTwoMornings() {
+        let dayOneOnly = TwinAnalysis.report(season(games: [3, 10, 17]), calendar: calendar).insights
+        XCTAssertNotNil(dayOneOnly.first { $0.kind == .recoveryAfterGames })
+        XCTAssertFalse(TwinSteer.from(dayOneOnly).contains(.slowGameRecovery))
+
+        var input = season(games: [3, 10, 17])
+        input.mornings = input.mornings.map { morning in
+            let back = calendar.dateComponents([.day], from: calendar.startOfDay(for: morning.date), to: calendar.startOfDay(for: now)).day ?? 0
+            guard [1, 8, 15].contains(back) else { return morning }
+            var sore = morning
+            sore.soreness = 4
+            return sore
+        }
+        let both = TwinAnalysis.report(input, calendar: calendar).insights
+        XCTAssertEqual(both.first { $0.kind == .recoveryAfterGames }?.values["sorenessDays"], "two days")
+        XCTAssertTrue(TwinSteer.from(both).contains(.slowGameRecovery))
+    }
+
     func testLowGameDayEnergyOrTheInterviewFlagsFuel() {
         let tired = TwinAnalysis.report(season(games: [3, 10, 17], gameEnergy: 2), calendar: calendar)
         XCTAssertEqual(tired.insights.first { $0.kind == .gameDayFuel }?.values["energyGap"], "2.0 points")

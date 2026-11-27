@@ -267,7 +267,7 @@ enum TodayEngine {
                    "\(HealthWorkoutInbox.revision)", AthleteStats.todaysCheckIn(athlete).map { "\($0.soreness)\($0.energy)\($0.stress)\($0.sleepQuality)" } ?? ""].joined(separator: "|")
         if let twinCache, twinCache.key == key { return twinCache.steers }
         let input = TwinInputBuilder.input(athlete: athlete, state: AcademyStore.load(), now: now, calendar: calendar)
-        let steers = TwinSteer.from(TwinAnalysis.report(input, calendar: calendar).insights.map(\.kind))
+        let steers = TwinSteer.from(TwinAnalysis.report(input, calendar: calendar).insights)
         twinCache = (key, steers)
         return steers
     }

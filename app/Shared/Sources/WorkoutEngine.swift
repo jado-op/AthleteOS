@@ -285,6 +285,19 @@ public struct ReflectionSignal: Sendable, Equatable, Codable {
 }
 
 /// Everything the engine knows about today.
+public extension TrainingDay {
+    /// The twin's game-recovery caution today: two days after a game, for an
+    /// athlete whose own day-two mornings still show it. Not when it would take
+    /// the only heavy-leg slot of a two-games week — a game within two days and
+    /// no heavy legs for a week (in-season legs need a heavy exposure, Part 2 A4);
+    /// the game-eve rules still hold then. The planner and the gym advisor both read this.
+    var twinHoldsLegsAfterGame: Bool {
+        guard daysSinceLastGame == 2, twin.contains(.slowGameRecovery) else { return false }
+        if let next = daysToNextGame, next <= 2, (recent.daysSinceHeavyLower ?? 8) >= 7 { return false }
+        return true
+    }
+}
+
 public struct TrainingDay: Sendable {
     public var date: Date
     public var phase: SeasonPhase
@@ -457,7 +470,7 @@ public enum SessionPlanner {
         if day.tapering, !day.gameToday { add(.taper); avoid.insert(.hardConditioning) }
         if day.daysSinceLastGame == 1 { add(.gameYesterday); avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting]) }
         // The twin: this athlete still feels a game two days later.
-        if day.daysSinceLastGame == 2, day.twin.contains(.slowGameRecovery) {
+        if day.twinHoldsLegsAfterGame {
             add(.twinSlowGameRecovery)
             avoid.formUnion([.heavyLowerBody, .highImpact, .maxSprinting])
         }

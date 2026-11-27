@@ -368,7 +368,7 @@ public enum TwinAnalysis {
         guard dayOne.count >= 2, usual.count >= 4 else { return nil }
         let after = mean(dayOne.map { Double($0.soreness) }), normal = mean(usual.map { Double($0.soreness) })
         guard after >= 3, after - normal >= 1 else { return nil }
-        let twoDays = !dayTwo.isEmpty && mean(dayTwo.map { Double($0.soreness) }) - normal >= 0.7
+        let twoDays = dayTwo.count >= 2 && mean(dayTwo.map { Double($0.soreness) }) - normal >= 0.7
         let span = twoDays ? "two days" : "a day"
         return TwinInsight(
             kind: .recoveryAfterGames,
@@ -672,7 +672,7 @@ public enum TwinAnalysis {
         let average = mean(recent)
         guard average >= 8 else { return nil }
         return TwinInsight(kind: .sleepBase, headline: "You average \(one(average)) h of sleep — a strong base.",
-                           detail: "Most teenage athletes don't get there. It's where your training turns into progress.",
+                           detail: "It's where your training turns into progress.",
                            strength: .strong, basis: "\(recent.count) nights", evidence: nil, values: [:], reason: "", positive: true)
     }
 
@@ -711,5 +711,18 @@ public enum TwinAnalysis {
         let second = text.dropFirst().first
         if second.map({ $0.isUppercase }) == true { return text }
         return first.lowercased() + text.dropFirst()
+    }
+}
+
+public extension TwinSteer {
+    /// The plan's steers from the twin's insights. Game recovery steers day two
+    /// only when the athlete's own day-two mornings still show it — day-one
+    /// soreness alone says nothing about day two (priors research, second opinion).
+    static func from(_ insights: [TwinInsight]) -> Set<TwinSteer> {
+        var steers = from(insights.map(\.kind))
+        if let games = insights.first(where: { $0.kind == .recoveryAfterGames }), games.values["sorenessDays"] != "two days" {
+            steers.remove(.slowGameRecovery)
+        }
+        return steers
     }
 }
