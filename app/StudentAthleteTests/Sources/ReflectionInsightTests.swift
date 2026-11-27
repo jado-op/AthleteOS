@@ -56,4 +56,16 @@ final class ReflectionInsightTests: XCTestCase {
         XCTAssertEqual(EveningOptions.practiceHard(dayHardness: nil), 3)
         XCTAssertEqual(EveningOptions.practice.count + 1, EveningOptions.didntGo, "Didn't go is the fifth answer")
     }
+
+    /// "Didn't go" in the evening is remembered for that day, so reopening
+    /// shows it and it can still be changed.
+    func testTheEveningsDidntGoIsRemembered() {
+        let defaults = UserDefaults(suiteName: "evening-practice-\(UUID().uuidString)")!
+        XCTAssertFalse(EveningPractice.skipped(on: "2026-11-27", defaults))
+        EveningPractice.setSkipped(true, on: "2026-11-27", defaults)
+        XCTAssertTrue(EveningPractice.skipped(on: "2026-11-27", defaults))
+        XCTAssertFalse(EveningPractice.skipped(on: "2026-11-26", defaults))
+        EveningPractice.setSkipped(false, on: "2026-11-27", defaults)
+        XCTAssertFalse(EveningPractice.skipped(on: "2026-11-27", defaults))
+    }
 }

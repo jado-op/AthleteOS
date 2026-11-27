@@ -214,3 +214,22 @@ public enum GameDayVisualization {
         ]
     }
 }
+
+/// What the evening said about a scheduled practice (backed up under `mindset.`).
+public enum EveningPractice {
+    /// The note on a practice log made from the evening's answer alone.
+    public static let note = "Told in the evening"
+    static let skippedKey = "mindset.eveningNoPractice"
+
+    /// The evening said "Didn't go" for this day (YYYY-MM-DD): reopened, the
+    /// question stays and shows that answer, so it can still be changed.
+    public static func skipped(on day: String, _ defaults: UserDefaults = .standard) -> Bool {
+        (defaults.stringArray(forKey: skippedKey) ?? []).contains(day)
+    }
+
+    public static func setSkipped(_ skipped: Bool, on day: String, _ defaults: UserDefaults = .standard) {
+        var days = (defaults.stringArray(forKey: skippedKey) ?? []).filter { $0 != day }
+        if skipped { days.append(day) }
+        defaults.set(Array(days.sorted().suffix(30)), forKey: skippedKey)
+    }
+}

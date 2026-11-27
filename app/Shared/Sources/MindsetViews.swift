@@ -60,6 +60,7 @@ struct ReflectionSheet: View {
     @State private var painAreas: Set<PainArea> = []
     @State private var painLevel: PainLevel?
     @State private var paused = DayStatusStore.status() == .concussion
+    @State private var saved = false
 
     init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToday: Bool = false, sportSlug: String? = nil,
          restDay: Bool = false, onSaved: @escaping () -> Void) {
@@ -72,7 +73,8 @@ struct ReflectionSheet: View {
         let existing = MindsetStore.reflection(on: Self.reflectionDay())
         _hardness = State(initialValue: existing?.hardness)
         _bodyFeel = State(initialValue: existing?.body)
-        _practice = State(initialValue: existing?.practice)
+        _practice = State(initialValue: existing?.practice
+            ?? (EveningPractice.skipped(on: DayKey.of(Self.reflectionDay())) ? EveningOptions.didntGo : nil))
         // Chips are the known areas; anything else is the athlete's own note.
         let areas = Set(EveningOptions.areas)
         _wentWell = State(initialValue: Set((existing?.wentWell ?? []).filter { areas.contains($0) }))
@@ -98,10 +100,19 @@ struct ReflectionSheet: View {
     /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
     /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
-        // What went well / what to improve follow practice or a game — not a
-        // rest day or a gym session that already asked its effort (research C-rules).
-        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.pain] : []) + (practiceToday ? [.practice] : [])
-            + (practiceToday || gameToday ? [.wentWell, .needsWork] : [])
+        var steps: [Step] = []
+        if !restDay { steps.append(.hardness) }
+        steps.append(.body)
+        if bodyFeel == 4 { steps.append(.pain) }
+        if practiceToday { steps.append(.practice) }
+        // What went well / what to improve follow a practice that happened or a
+        // game the games hub hasn't asked about — not a rest day or a gym
+        // session that already asked its effort (research C-rules).
+        if (practiceToday && practice != EveningOptions.didntGo) || gameToday {
+            steps.append(.wentWell)
+            steps.append(.needsWork)
+        }
+        return steps
     }
 
     private var progress: Double {
@@ -351,16 +362,27 @@ struct ReflectionSheet: View {
     /// `PracticeLog`, so the morning doesn't ask again and the twin reads how it
     /// went. A log from a watch or Tell keeps its minutes and effort.
     private func savePractice() {
-        guard practiceToday, let practice, let sportSlug else { return }
+        guard practiceToday, let practice else { return }
         let key = DayKey.of(Self.reflectionDay())
-        let existing = PracticeLogStore.log(on: key, sportSlug: sportSlug)
         if practice == EveningOptions.didntGo {
-            // Didn't go: no practice that day (a logged one stands — it happened).
-            if existing == nil { PracticeOverride.set(false, on: key) }
+            // Didn't go: an answer this evening gave earlier goes; a log from a
+            // watch or Tell stands (something happened then), else no practice that day.
+            for log in PracticeLogStore.logs where log.day == key && log.note == EveningPractice.note { PracticeLogStore.delete(log) }
+            if PracticeLogStore.log(on: key) == nil {
+                PracticeOverride.set(false, on: key)
+                EveningPractice.setSkipped(true, on: key)
+            }
             return
         }
+        // Went after all: the evening's own "didn't go" is undone.
+        if EveningPractice.skipped(on: key) {
+            EveningPractice.setSkipped(false, on: key)
+            if PracticeOverride.hasPractice(on: key) == false { PracticeOverride.set(nil, on: key) }
+        }
+        guard let sportSlug else { return }
+        let existing = PracticeLogStore.log(on: key, sportSlug: sportSlug)
         var log = existing ?? PracticeLog(day: key, sportSlug: sportSlug, types: [], hard: EveningOptions.practiceHard(dayHardness: hardness),
-                                          went: 0, mood: 0, note: "Told in the evening")
+                                          went: 0, mood: 0, note: EveningPractice.note)
         log.went = EveningOptions.practiceWent(practice)
         PracticeLogStore.save(log)
     }
@@ -373,6 +395,9 @@ struct ReflectionSheet: View {
     }
 
     private func save() {
+        // A quick double tap on the last scale queues two advances: save once.
+        guard !saved else { return }
+        saved = true
         let order = EveningOptions.areas
         let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -399,9 +424,10 @@ struct ReflectionSheet: View {
             }
         }
         // Sometimes one small thing back (V6 §19), never the same one twice in a row.
-        if let saved = MindsetStore.reflection(on: Self.reflectionDay()) {
+        if let today = MindsetStore.reflection(on: Self.reflectionDay()) {
             let last = UserDefaults.standard.string(forKey: "reflection.lastInsight")
-            if let found = ReflectionInsight.make(today: saved, recent: MindsetStore.reflections, practiceToday: practiceToday, lastShown: last) {
+            if let found = ReflectionInsight.make(today: today, recent: MindsetStore.reflections,
+                                                  practiceToday: practiceToday && practice != EveningOptions.didntGo, lastShown: last) {
                 insight = found.text
                 UserDefaults.standard.set(found.key, forKey: "reflection.lastInsight")
             }
