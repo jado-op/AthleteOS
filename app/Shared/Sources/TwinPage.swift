@@ -144,7 +144,16 @@ public enum TwinPage {
             // does), still ahead or today, from a game within the next week.
             let soon = calendar.date(byAdding: .day, value: 7, to: today) ?? today
             let lightDay = { (game: Date) in calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: game)) ?? game }
-            if let game = games.filter({ lightDay($0) >= today && $0 < soon }).min() {
+            // Another game within two days of the light day: the planner may keep
+            // it as the week's heavy-leg slot (TrainingDay.twinHoldsLegsAfterGame),
+            // so the twin doesn't promise a light day there.
+            let crowded = { (game: Date) in
+                games.contains { other in
+                    let gap = calendar.dateComponents([.day], from: lightDay(game), to: calendar.startOfDay(for: other)).day ?? 99
+                    return gap >= 0 && gap <= 2
+                }
+            }
+            if let game = games.filter({ lightDay($0) >= today && $0 < soon && !crowded($0) }).min() {
                 let light = lightDay(game)
                 let when = light == today ? "today" : calendar.isDate(light, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: today) ?? today)
                     ? "tomorrow" : weekday(light, calendar: calendar)

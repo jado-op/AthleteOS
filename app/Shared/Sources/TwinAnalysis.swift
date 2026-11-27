@@ -379,7 +379,7 @@ public enum TwinAnalysis {
             evidence: TwinEvidence(style: .bars,
                                    points: c.recentMornings.map { TwinPoint(date: $0.date, value: Double($0.soreness), marked: c.daysAfterGame($0.date) != nil) },
                                    unit: "/5", caption: "Soreness each morning · highlighted: the days after a \(c.event)"),
-            values: c.family.tokens.merging(["sorenessDays": span, "gameCount": "\(dayOne.count)"]) { $1 },
+            values: c.family.tokens.merging(["sorenessDays": span, "dayTwo": twoDays ? "1" : "0", "gameCount": "\(dayOne.count)"]) { $1 },
             reason: "Your soreness stays high for \(span) after \(c.events).",
             positive: false, measure: after - normal, measureText: "\(one(after)) of 5")
     }
@@ -720,7 +720,7 @@ public extension TwinSteer {
     /// soreness alone says nothing about day two (priors research, second opinion).
     static func from(_ insights: [TwinInsight]) -> Set<TwinSteer> {
         var steers = from(insights.map(\.kind))
-        if let games = insights.first(where: { $0.kind == .recoveryAfterGames }), games.values["sorenessDays"] != "two days" {
+        if let games = insights.first(where: { $0.kind == .recoveryAfterGames }), games.values["dayTwo"] != "1" {
             steers.remove(.slowGameRecovery)
         }
         return steers

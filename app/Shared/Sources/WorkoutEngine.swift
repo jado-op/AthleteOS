@@ -284,7 +284,6 @@ public struct ReflectionSignal: Sendable, Equatable, Codable {
     public var somethingHurt: Bool { bodyFelt == 4 }
 }
 
-/// Everything the engine knows about today.
 public extension TrainingDay {
     /// The twin's game-recovery caution today: two days after a game, for an
     /// athlete whose own day-two mornings still show it. Not when it would take
@@ -298,6 +297,7 @@ public extension TrainingDay {
     }
 }
 
+/// Everything the engine knows about today.
 public struct TrainingDay: Sendable {
     public var date: Date
     public var phase: SeasonPhase

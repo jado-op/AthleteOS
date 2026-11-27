@@ -33,8 +33,12 @@ public enum ReadinessEngine {
     private static let amberThreshold = -0.3
     private static let redThreshold = -1.0
     private static let minimumHistoryDays = 7
-    /// The swing assumed for an item whose history never moved.
-    private static let priorSpread = 0.75
+    /// The swing assumed for an item whose history never moved: one point off
+    /// stays at baseline-ish (green), two points read amber.
+    private static let priorSpread = 1.0
+    /// An item whose history never moved counts at most this far: on its own it
+    /// can tip the day amber, never red.
+    private static let priorCap = 2.0
 
     /// `history` is every PRIOR check-in (never including the one being
     /// scored) — the baseline is computed from history, then today's
@@ -68,9 +72,9 @@ public enum ReadinessEngine {
         let variance = doubles.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(doubles.count)
         let standardDeviation = variance.squareRoot()
         // When every prior answer was the same, a change still means something:
-        // assume a usual swing of about ¾ of a point (a design prior, not a norm —
+        // assume a usual swing of one point (a design prior, not a norm —
         // priors research) instead of ignoring it. Today at the usual stays 0.
-        let spread = standardDeviation > 0 ? standardDeviation : priorSpread
-        return (Double(value) - mean) / spread
+        guard standardDeviation > 0 else { return min(max((Double(value) - mean) / priorSpread, -priorCap), priorCap) }
+        return (Double(value) - mean) / standardDeviation
     }
 }

@@ -65,8 +65,8 @@ final class ReadinessEngineTests: XCTestCase {
 
     func testAMildDipOnSomeMetricsReadsAmberNotRed() {
         // Sleep and energy have real spread (mean 3, std 1); soreness and
-        // stress are perfectly consistent (std 0, so their z is always 0
-        // regardless of today). Today matches baseline on soreness/stress
+        // stress are perfectly consistent (std 0: an assumed one-point swing,
+        // and today sits right at it, so their z is 0). Today matches baseline on soreness/stress
         // but comes in one full standard deviation low on sleep/energy —
         // a real but partial dip, not the across-the-board crash above.
         let history = (0..<10).map { i -> CheckInAnswers in
@@ -88,22 +88,26 @@ final class ReadinessEngineTests: XCTestCase {
         }
         let today = CheckInAnswers(date: day(0), sleepQuality: 4, soreness: 2, energy: 4, stress: 2)
         let result = ReadinessEngine.score(today: today, history: history, now: referenceNow, calendar: calendar)
-        // Zero variance in this history means every z-score collapses to
-        // 0 regardless of today's answers (see the "consistent normal"
-        // test above) — this asserts that degenerate case never
-        // misfires as anything worse than green.
+        // Zero variance in this history: each item gets the assumed
+        // one-point swing, so a better day reads better — never worse than green.
         XCTAssertEqual(result?.band, .green)
     }
 
-    /// A week of the same answers, then one item a point lower: that's a dip,
-    /// not "nothing changed" (the assumed swing for a history that never moved).
+    /// A week of the same answers, then sleep two points worse: that's a dip,
+    /// not "nothing changed" (the assumed one-point swing for a history that
+    /// never moved). One point off stays green; one item alone never makes red.
     func testADipAfterIdenticalAnswersStillShows() {
         let history = (1...7).map { i in
-            CheckInAnswers(date: day(-i), sleepQuality: 3, soreness: 3, energy: 3, stress: 3)
+            CheckInAnswers(date: day(-i), sleepQuality: 3, soreness: 2, energy: 3, stress: 1)
         }
-        let today = CheckInAnswers(date: day(0), sleepQuality: 3, soreness: 3, energy: 2, stress: 3)
-        let result = ReadinessEngine.score(today: today, history: history, now: referenceNow, calendar: calendar)
-        XCTAssertEqual(result?.band, .amber)
-        XCTAssertEqual(result?.z ?? 0, -1.0 / 3.0, accuracy: 0.001)
+        func score(_ answers: CheckInAnswers) -> (band: ReadinessBand, z: Double)? {
+            ReadinessEngine.score(today: answers, history: history, now: referenceNow, calendar: calendar)
+        }
+        let dip = score(CheckInAnswers(date: day(0), sleepQuality: 1, soreness: 2, energy: 3, stress: 1))
+        XCTAssertEqual(dip?.band, .amber)
+        XCTAssertEqual(dip?.z ?? 0, -0.5, accuracy: 0.001)
+        XCTAssertEqual(score(CheckInAnswers(date: day(0), sleepQuality: 2, soreness: 2, energy: 3, stress: 1))?.band, .green)
+        XCTAssertEqual(score(CheckInAnswers(date: day(0), sleepQuality: 3, soreness: 2, energy: 3, stress: 5))?.band, .amber,
+                       "stress 1 → 5 alone: amber, not red")
     }
 }

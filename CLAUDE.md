@@ -159,7 +159,7 @@ Reading files, CI logs or the GitHub API needs no lock.
 - Twin priors (owner, 2026-11-27: "make the algorithm crazy good… the app not busy"; research + second opinion
   `docs/TWIN-PRIORS-RESEARCH.md`, its review section wins): research sets **starting values and noise widths, never the
   athlete's level**; personal data only ever adds rest (floors never move); no population value is shown. Done: no peer
-  copy in the sleep card; a check-in item whose history never moved gets an assumed swing of 0.75 (`ReadinessEngine`);
+  copy in the sleep card; a check-in item whose history never moved gets an assumed one-point swing, capped so one item alone never makes red (`ReadinessEngine`);
   the day-two game caution needs the athlete's own day-two mornings (`TwinSteer.from([TwinInsight])`) and is one rule
   read by the planner and the gym advisor (`TrainingDay.twinHoldsLegsAfterGame`; steps aside in a two-games week when
   legs haven't been heavy for a week). The leg-recovery blend was dropped on purpose. Still to come (research order):

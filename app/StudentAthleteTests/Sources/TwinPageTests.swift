@@ -67,6 +67,18 @@ final class TwinPageTests: XCTestCase {
         XCTAssertEqual(after.first?.text, "You still feel a match two days later, so after Thursday's match, tomorrow stays light on the legs too.")
     }
 
+    /// Saturday and Wednesday games: Monday may be the week's heavy-leg slot
+    /// (the planner's two-games exception), so the twin doesn't promise it light;
+    /// Friday after Wednesday's game still is.
+    func testATwoGameWeekDoesntPromiseALightDay() {
+        let saturday = now.addingTimeInterval(86_400 + 3_600)
+        let wednesday = saturday.addingTimeInterval(4 * 86_400)
+        let effects = TwinPage.effects(legRecoveryDays: nil, legsReadyIn: nil, steers: [.slowGameRecovery], games: [saturday, wednesday],
+                                       event: "match", now: now, calendar: calendar)
+        XCTAssertFalse(effects.contains { $0.text.contains("Monday") })
+        XCTAssertEqual(effects.first?.text, "You still feel a match two days later, so after Wednesday's match, Friday stays light on the legs too.")
+    }
+
     func testAHiddenLineIsntSaidAgainInOtherWordsAndTheHeartNeverLeads() {
         // The athlete hid "habits.sleep": the older "8 h+ sleep" strength stays away too.
         let areas = TwinPage.portrait(lines: [], known: ["habits.sleep"], insights: [],
