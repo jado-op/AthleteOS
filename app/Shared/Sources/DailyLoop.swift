@@ -407,7 +407,11 @@ public enum DailyLoop {
 /// athlete's usual answers, so the readiness spread and the twin's patterns
 /// leave them out. Answering the check-in that day clears the mark.
 public enum OneTapCheckIns {
-    static let key = "checkin.oneTapDays"
+    /// Under `safety.`: backed up sealed with the athlete's other check-in
+    /// context, so a restored phone still knows which days were one tap.
+    static let key = "safety.oneTapDays"
+
+    public static var days: [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
 
     public static func contains(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
         (defaults.stringArray(forKey: key) ?? []).contains(DayKey.of(date, calendar: calendar))

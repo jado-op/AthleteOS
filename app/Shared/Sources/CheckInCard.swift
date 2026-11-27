@@ -387,10 +387,11 @@ struct CheckInSheet: View {
         }
     }
 
-    /// The most recent check-in before today.
+    /// The most recent check-in before today the athlete answered (a one-tap
+    /// day only repeats their usual).
     private var lastCheckIn: CheckIn? {
         let today = Calendar.current.startOfDay(for: .now)
-        return athlete.checkIns.filter { $0.date < today }.max { $0.date < $1.date }
+        return athlete.checkIns.filter { $0.date < today && !OneTapCheckIns.contains($0.date) }.max { $0.date < $1.date }
     }
 
     // MARK: Summary (a watch or band filled it in)
@@ -410,7 +411,7 @@ struct CheckInSheet: View {
             if !fromWatch {
                 // Nothing measured: this morning's sleep and energy as taps, right here.
                 compactRow("Sleep", hint: nil, CheckInOptions.sleepHours, selection: $sleepHours)
-                compactRow("Sleep quality", hint: nil, CheckInOptions.sleepQuality, selection: $sleepQuality)
+                compactRow("Sleep quality", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.sleepQuality, selection: $sleepQuality)
                 if let note = heart?.note { heartNote(note) }
                 compactRow("Energy", hint: nil, CheckInOptions.energy, selection: $energy)
             } else {
@@ -419,7 +420,7 @@ struct CheckInSheet: View {
                 Button { edit(from: .sleepHours) } label: {
                     ListRow(systemImage: "moon.fill", color: AppTheme.purple,
                             title: healthHours.map { "Sleep · \(SleepMath.label($0))" } ?? "Sleep · not recorded",
-                            detail: sleepQuality.map { "Quality: \($0.title.lowercased())" } ?? "Tap to answer") { editMark }
+                            detail: sleepQuality.map { "Quality: \($0.title.lowercased())" + (lastCheckIn == nil ? "" : " · like yesterday") } ?? "Tap to answer") { editMark }
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 54)
@@ -654,10 +655,13 @@ enum QuickCheckIn {
             && usual(athlete, now: now) != nil
     }
 
-    /// The middle answer of the last 14 days' check-ins, per question (at least 3).
+    /// The middle answer of the last 14 days' answered check-ins, per question
+    /// (at least 3). One-tap days don't count: they'd repeat the median forever.
     static func usual(_ athlete: Athlete, now: Date = .now) -> (sleepQuality: Int, energy: Int, soreness: Int, stress: Int)? {
         let since = Calendar.current.date(byAdding: .day, value: -14, to: Calendar.current.startOfDay(for: now)) ?? now
-        let recent = athlete.checkIns.filter { $0.date >= since && !Calendar.current.isDate($0.date, inSameDayAs: now) }
+        let recent = athlete.checkIns.filter {
+            $0.date >= since && !Calendar.current.isDate($0.date, inSameDayAs: now) && !OneTapCheckIns.contains($0.date)
+        }
         guard recent.count >= 3 else { return nil }
         func middle(_ values: [Int]) -> Int { values.sorted()[values.count / 2] }
         return (middle(recent.map(\.sleepQuality)), middle(recent.map(\.energy)), middle(recent.map(\.soreness)), middle(recent.map(\.stress)))

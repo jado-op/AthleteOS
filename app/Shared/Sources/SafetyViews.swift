@@ -199,7 +199,8 @@ extension LowEnergyCheck {
                 trained.insert(day)
             }
         }
-        return evaluate(energies: athlete.checkIns.map { (date: $0.date, energy: $0.energy) }, trainingDays: trained, now: now, calendar: calendar)
+        return evaluate(energies: athlete.checkIns.filter { !OneTapCheckIns.contains($0.date, calendar: calendar) }.map { (date: $0.date, energy: $0.energy) },
+                        trainingDays: trained, now: now, calendar: calendar)
     }
 }
 

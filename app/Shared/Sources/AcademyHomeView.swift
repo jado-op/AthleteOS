@@ -332,9 +332,11 @@ struct AcademyHomeView: View {
         liftTrends = TwinTrends.lifts(input.lifts, now: now)
         weekLoads = TwinTrends.weeklyLoad(input.loads, now: now)
         sleepNights = TwinTrends.sleep(input.mornings, now: now)
-        calmWeeks = TwinTrends.weekly(input.mornings.filter { $0.stress > 0 }.map { ($0.date, Double(6 - $0.stress)) }, now: now)
+        // How the mind evolves reads only mornings the athlete answered.
+        let answered = input.mornings.filter { !$0.assumed }
+        calmWeeks = TwinTrends.weekly(answered.filter { $0.stress > 0 }.map { ($0.date, Double(6 - $0.stress)) }, now: now)
         feltWeeks = TwinTrends.weekly(input.reflections.compactMap { r in r.feeling.map { (r.date, Double($0)) } }, now: now)
-        stressShift = TwinTrends.stressShift(input.mornings, now: now)
+        stressShift = TwinTrends.stressShift(answered, now: now)
         bodyReport = catalogue.itemsBySlug.isEmpty ? nil
             : MuscleTraining.report(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
         let gym: GymHistory? = catalogue.itemsBySlug.isEmpty ? nil : GymHistoryBuilder.history(athlete, catalogue: catalogue, now: now)
