@@ -58,4 +58,9 @@ final class WearableLoadTests: XCTestCase {
         XCTAssertNil(HeartRateSummary([]))
         XCTAssertEqual(HeartRateSummary([120, 140, 160]), HeartRateSummary(average: 140, max: 160))
     }
+
+    /// The evening's 0–10 practice effort on the log's 1–5.
+    func testPracticeEffortMapsOntoTheLogsScale() {
+        XCTAssertEqual([0, 1, 2, 5, 9, 10].map(PracticeLog.hard(fromRPE:)), [1, 1, 1, 3, 5, 5])
+    }
 }

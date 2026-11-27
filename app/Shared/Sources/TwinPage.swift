@@ -230,15 +230,16 @@ public enum TwinPage {
 /// a score; nothing when the input changed nothing the twin tracks.
 public enum TwinLearned {
     /// What each input teaches (the knowledge engine's line and item ids).
-    /// Only inputs that really move something the same day: a practice
-    /// answer saves no rating, and leg recovery needs the check-ins after.
+    /// Only inputs that really move something the same day: a rated practice
+    /// (the evening), and leg recovery needs the check-ins after.
     public enum Input: Sendable {
-        case checkIn, gameRating
+        case checkIn, gameRating, practice
 
         var feeds: [String] {
             switch self {
             case .checkIn: ["habits.sleep", "training.sleep", "body.legs"]
             case .gameRating: ["games.best"]
+            case .practice: ["training.practice", "training.sleep"]
             }
         }
     }

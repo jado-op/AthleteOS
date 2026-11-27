@@ -106,6 +106,9 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
     public var intent: String?
     /// Optional: 1 not much … 3 a lot.
     public var enjoyment: Int?
+    /// Session effort 0–10 (CR-10) as the athlete rated it in the evening; nil
+    /// when only the 1–5 `hard` is known. Effort × minutes is practice's load.
+    public var rpe: Int?
 
     /// How it went as the athlete said it (0: not said). Logs made from a watch
     /// workout used to carry an invented "3, 3"; those count as not said.
@@ -115,7 +118,7 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
 
     public init(id: String = UUID().uuidString, day: String, sportSlug: String, types: [String], hard: Int, went: Int, mood: Int,
                 minutes: Int? = nil, tiredMuscles: [String] = [], ratings: [String: Int] = [:], note: String? = nil,
-                intent: String? = nil, enjoyment: Int? = nil) {
+                intent: String? = nil, enjoyment: Int? = nil, rpe: Int? = nil) {
         self.id = id
         self.day = day
         self.sportSlug = sportSlug
@@ -129,7 +132,11 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
         self.note = note
         self.intent = intent
         self.enjoyment = enjoyment
+        self.rpe = rpe
     }
+
+    /// CR-10 effort 0–10 → the log's 1 (easy) … 5 (exhausting).
+    public static func hard(fromRPE rpe: Int) -> Int { min(5, max(1, (rpe + 1) / 2)) }
 }
 
 /// Practice kinds the log asks about: a walkthrough isn't live scrimmage.

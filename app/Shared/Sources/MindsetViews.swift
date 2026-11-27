@@ -22,6 +22,15 @@ struct ReflectionSheet: View {
     var sportSlug: String?
     /// A day without training, practice or a game: no "how hard" question.
     let restDay: Bool
+    /// A workout was logged that day (gym, run, Health workout).
+    var trained = false
+    /// The hardest effort (0–10) the day's workouts already have: no "how hard"
+    /// question then — the day's hardness follows from it.
+    var trainedEffort: Int?
+    /// Practice length from the schedule (minutes), the evening's starting value.
+    var scheduledMinutes: Int?
+    /// Whose twin a rated practice teaches ("Your twin learned …" on Home).
+    var athlete: Athlete?
     let onSaved: () -> Void
     @State private var insight: String?
     @State private var wentWellNote = ""
@@ -31,7 +40,7 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case hardness, body, pain, practice, wentWell, needsWork, learned, review, done }
+    enum Step: Hashable { case practice, practiceEffort, hardness, body, pain, wentWell, needsWork, learned, review, done }
 
     /// One Campus review question at the end (spaced repetition without a
     /// separate screen): the lesson that's most overdue.
@@ -52,6 +61,13 @@ struct ReflectionSheet: View {
     @State private var hardness: Int?
     @State private var bodyFeel: Int?
     @State private var practice: Int?
+    /// Practice effort 0–10 (CR-10) and minutes: practice's load, like a workout's.
+    @State private var practiceRPE: Int?
+    @State private var practiceMinutes = 90
+    /// Where the minutes came from ("from your watch", "from your schedule").
+    @State private var minutesSource: String?
+    /// A watch's heart-rate read of the practice, shown as a dot, never picked.
+    @State private var practiceEstimate: Int?
     @State private var wentWell: Set<String> = []
     @State private var needsWork: Set<String> = []
     @State private var learned = ""
@@ -63,11 +79,29 @@ struct ReflectionSheet: View {
     @State private var saved = false
 
     init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToday: Bool = false, sportSlug: String? = nil,
-         restDay: Bool = false, onSaved: @escaping () -> Void) {
+         restDay: Bool = false, trained: Bool = false, trainedEffort: Int? = nil, scheduledMinutes: Int? = nil,
+         athlete: Athlete? = nil, onSaved: @escaping () -> Void) {
+        self.athlete = athlete
         _completion = State(initialValue: completion)
         self.practiceToday = practiceToday
         self.gameToday = gameToday
         self.sportSlug = sportSlug
+        self.trained = trained
+        self.trainedEffort = trainedEffort
+        self.scheduledMinutes = scheduledMinutes
+        // Practice as already known: a watch's minutes and heart-rate read, or
+        // tonight's earlier answer.
+        let log = PracticeLogStore.log(on: DayKey.of(Self.reflectionDay()), sportSlug: sportSlug)
+        _practiceRPE = State(initialValue: log?.rpe)
+        let fromWatch = log?.note?.hasPrefix("From your ") == true
+        if fromWatch, log?.rpe == nil, let hard = log?.hard { _practiceEstimate = State(initialValue: min(10, hard * 2)) }
+        if let minutes = log?.minutes, minutes > 0 {
+            _practiceMinutes = State(initialValue: minutes)
+            _minutesSource = State(initialValue: fromWatch ? "from your watch" : nil)
+        } else if let scheduledMinutes, scheduledMinutes > 0 {
+            _practiceMinutes = State(initialValue: scheduledMinutes)
+            _minutesSource = State(initialValue: "from your schedule")
+        }
         self.restDay = restDay
         self.onSaved = onSaved
         let existing = MindsetStore.reflection(on: Self.reflectionDay())
@@ -87,7 +121,22 @@ struct ReflectionSheet: View {
             _painAreas = State(initialValue: Set(pain.areas))
             _painLevel = State(initialValue: pain.level)
         }
-        if restDay { _step = State(initialValue: .body) }
+        _step = State(initialValue: practiceToday ? .practice : (EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort,
+                                                                                  game: gameToday) ? .hardness : .body))
+    }
+
+
+    private var practiceWent: Bool { practiceToday && practice != nil && practice != EveningOptions.didntGo }
+
+    /// The day's hardness (1 easy … 4 very hard) for tomorrow's plan: what the
+    /// athlete said, else the hardest effort the day's sessions were rated.
+    private var dayHardness: Int? {
+        let efforts = [practiceWent ? practiceRPE : nil, trainedEffort].compactMap { $0 }
+        let derived = efforts.max().map(EveningOptions.hardness(fromRPE:))
+        switch (hardness, derived) {
+        case let (said?, derived?): return max(said, derived)
+        case let (said, derived): return said ?? derived
+        }
     }
 
     /// The day being reflected on: after midnight (until 5:00) it is still yesterday.
@@ -101,10 +150,13 @@ struct ReflectionSheet: View {
     /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
         var steps: [Step] = []
-        if !restDay { steps.append(.hardness) }
+        if practiceToday {
+            steps.append(.practice)
+            if practiceWent { steps.append(.practiceEffort) }
+        }
+        if EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: gameToday) { steps.append(.hardness) }
         steps.append(.body)
         if bodyFeel == 4 { steps.append(.pain) }
-        if practiceToday { steps.append(.practice) }
         // What went well / what to improve follow a practice that happened or a
         // game the games hub hasn't asked about — not a rest day or a gym
         // session that already asked its effort (research C-rules).
@@ -135,12 +187,7 @@ struct ReflectionSheet: View {
         case .hardness:
             VStack(spacing: 0) {
                 scale("How hard did today feel?", EveningOptions.hardness, selection: $hardness)
-                // Reflection is never forced (Backend Knowledge System §20).
-                Button("Skip today") { saveNothing() }
-                    .buttonStyle(.quiet)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .padding(.bottom, 8)
-                    .background(AppTheme.background)
+                skipFooter(.hardness)
             }
         case .pain:
             QuestionPage(progress: progress, question: "Where does it hurt?", hint: "Tap every place, then how much.",
@@ -175,16 +222,15 @@ struct ReflectionSheet: View {
         case .body:
             VStack(spacing: 0) {
                 scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
-                if restDay {
-                    Button("Skip today") { saveNothing() }
-                        .buttonStyle(.quiet)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .padding(.bottom, 8)
-                        .background(AppTheme.background)
-                }
+                skipFooter(.body)
             }
         case .practice:
-            scale("How did practice go?", EveningOptions.practice + [EveningOptions.skippedPractice], selection: $practice)
+            VStack(spacing: 0) {
+                scale("How did practice go?", EveningOptions.practice + [EveningOptions.skippedPractice], selection: $practice)
+                skipFooter(.practice)
+            }
+        case .practiceEffort:
+            practiceEffortPage
         case .wentWell:
             areas("What went well?", selection: $wentWell, note: $wentWellNote, placeholder: "In your words (optional)")
         case .needsWork:
@@ -238,6 +284,60 @@ struct ReflectionSheet: View {
                 .padding(.top, 8)
             }
         }
+    }
+
+    /// Reflection is never forced (Backend Knowledge System §20): the first
+    /// question, whichever it is, can skip the evening.
+    @ViewBuilder
+    private func skipFooter(_ current: Step) -> some View {
+        if current == steps.first {
+            Button("Skip today") { saveNothing() }
+                .buttonStyle(.quiet)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .padding(.bottom, 8)
+                .background(AppTheme.background)
+        }
+    }
+
+    /// Foster's session effort for the practice, with its minutes already
+    /// filled in (watch, else schedule): effort × minutes is its load.
+    private var practiceEffortPage: some View {
+        QuestionPage(progress: progress, question: "How hard was practice?", hint: "Think of the whole practice, not just the end.",
+                     buttonTitle: practiceRPE == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() },
+                     onButton: { next(from: .practiceEffort) }, tone: .training) {
+            EffortScale(rating: $practiceRPE, estimate: practiceEstimate,
+                        estimateNote: practiceEstimate.map { "Your watch suggests about \($0) (the dot). How it felt decides." })
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("About \(practiceMinutes) min")
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                    Text(minutesSource ?? "how long it went")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer()
+                minutesButton("minus", by: -15)
+                minutesButton("plus", by: 15)
+            }
+            .padding(14)
+            .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+        }
+    }
+
+    private func minutesButton(_ symbol: String, by change: Int) -> some View {
+        Button {
+            practiceMinutes = min(300, max(15, practiceMinutes + change))
+            minutesSource = nil
+        } label: {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel(change > 0 ? "15 minutes longer" : "15 minutes shorter")
     }
 
     private func reviewPage(_ review: (lessonID: String, question: CampusQuestion)) -> some View {
@@ -384,6 +484,12 @@ struct ReflectionSheet: View {
         var log = existing ?? PracticeLog(day: key, sportSlug: sportSlug, types: [], hard: EveningOptions.practiceHard(dayHardness: hardness),
                                           went: 0, mood: 0, note: EveningPractice.note)
         log.went = EveningOptions.practiceWent(practice)
+        // The athlete's own effort and minutes: their word wins over a watch's estimate.
+        if let practiceRPE {
+            log.rpe = practiceRPE
+            log.hard = PracticeLog.hard(fromRPE: practiceRPE)
+            log.minutes = practiceMinutes
+        }
         PracticeLogStore.save(log)
     }
 
@@ -402,12 +508,17 @@ struct ReflectionSheet: View {
         let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)
         MindsetStore.saveEvening(
-            hardness: restDay ? nil : hardness, body: bodyFeel, practice: practiceToday && practice != EveningOptions.didntGo ? practice : nil,
+            hardness: restDay ? nil : dayHardness, body: bodyFeel, practice: practiceToday && practice != EveningOptions.didntGo ? practice : nil,
             wentWell: order.filter { wentWell.contains($0) } + (wellNote.isEmpty ? [] : [wellNote]),
             needsWork: order.filter { needsWork.contains($0) } + (improve.isEmpty ? [] : [improve]),
             learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
+        // What a rated practice taught the twin — never next to pain (its own path).
+        let twinBefore = athlete.map { TwinPulse.before($0) }
         savePractice()
+        if let athlete, let twinBefore, practiceWent, practiceRPE != nil, bodyFeel != 4 {
+            TwinPulse.after(athlete, before: twinBefore, input: .practice)
+        }
         ReminderScheduler.markDone(reflection: true)
         // Tonight's answers shape tomorrow: the saved plan (Lock Screen card,
         // Home's Tomorrow) is rebuilt now, not at the next app open.

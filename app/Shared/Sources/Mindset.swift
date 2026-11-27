@@ -41,6 +41,22 @@ public enum EveningOptions {
     /// A practice only told in the evening: its effort from how hard the day
     /// felt (Easy … Very hard → 2 … 5 of the log's 1–5), 3 when not said.
     public static func practiceHard(dayHardness: Int?) -> Int { dayHardness.map { min(5, max(1, $0 + 1)) } ?? 3 }
+    /// "How hard did today feel?" only when the day had training whose effort
+    /// isn't known yet — practice asks its own, a rated workout already said it.
+    public static func asksHardness(restDay: Bool, trained: Bool, trainedEffort: Int?, game: Bool) -> Bool {
+        !restDay && ((trained && trainedEffort == nil) || game)
+    }
+
+    /// A session's CR-10 effort → the evening's "how hard did today feel"
+    /// (1 easy 0–3 · 2 normal 4–5 · 3 hard 6–7 · 4 very hard 8–10).
+    public static func hardness(fromRPE rpe: Int) -> Int {
+        switch rpe {
+        case ...3: 1
+        case 4, 5: 2
+        case 6, 7: 3
+        default: 4
+        }
+    }
     public static let areas = ["Effort", "Focus", "Technique", "Speed", "Strength", "Decisions", "Communication", "Confidence", "Recovery"]
 }
 

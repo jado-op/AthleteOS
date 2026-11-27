@@ -98,14 +98,18 @@ struct HomeView: View {
     /// yesterday): its practice — kept when the evening itself said "Didn't go",
     /// so the answer can be changed — its game, and whether a game still waits
     /// for the games hub's questions (asked there, not twice).
-    private var reflectionDayFacts: (practice: Bool, game: Bool, gameWithoutResult: Bool, trained: Bool) {
+    private var reflectionDayFacts: (practice: Bool, game: Bool, gameWithoutResult: Bool, trained: Bool, effort: Int?, practiceMinutes: Int?) {
         let day = ReflectionSheet.reflectionDay()
         let key = DayKey.of(day)
         let practice = PracticeSchedule.hasPractice(on: day) || EveningPractice.skipped(on: key)
         let games = athlete.competitions.filter { calendar.isDate($0.date, inSameDayAs: day) }
         let results = CompetitionStore.results()
-        let trained = athlete.sessions.contains { calendar.isDate($0.startedAt, inSameDayAs: day) }
-        return (practice, !games.isEmpty, games.contains { results[$0.id] == nil }, trained)
+        let sessions = athlete.sessions.filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
+        // The day's effort is known only when every workout has one (else ask).
+        let efforts = sessions.compactMap(\.sessionRPE)
+        let effort = !sessions.isEmpty && efforts.count == sessions.count ? efforts.max() : nil
+        let minutes = PracticeSchedule.time(on: day, calendar: calendar).map { $0.end - $0.start }.flatMap { $0 > 0 ? $0 : nil }
+        return (practice, !games.isEmpty, games.contains { results[$0.id] == nil }, !sessions.isEmpty, effort, minutes)
     }
     private var isTrainingDay: Bool { status != .sick && status != .concussion }
 
@@ -449,7 +453,9 @@ struct HomeView: View {
                     let evening = reflectionDayFacts
                     ReflectionSheet(completion: completion, practiceToday: evening.practice, gameToday: evening.gameWithoutResult,
                                     sportSlug: athlete.activeSport?.sportSlug ?? athlete.sports.first?.sportSlug,
-                                    restDay: !evening.trained && !evening.practice && !evening.game) { revision += 1 }
+                                    restDay: !evening.trained && !evening.practice && !evening.game,
+                                    trained: evening.trained, trainedEffort: evening.effort,
+                                    scheduledMinutes: evening.practiceMinutes, athlete: athlete) { revision += 1 }
                 case .search:
                     AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
                         pendingSearch = target

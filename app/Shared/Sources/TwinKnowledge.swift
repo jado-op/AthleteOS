@@ -136,6 +136,7 @@ public enum TwinKnowledgeEngine {
         }
         add(usualSleep(input, calendar: calendar))
         add(trainingRhythm(input, calendar: calendar))
+        add(usualPractice(input, calendar: calendar))
         add(bestGames(input, calendar: calendar))
         let recovery = legRecovery(input, calendar: calendar)
         add(recovery.result)
@@ -225,6 +226,40 @@ public enum TwinKnowledgeEngine {
         if practices > 0 { text += ", plus \(practices) team \(practices == 1 ? "practice" : "practices")" }
         return .line(KnowledgeLine(id: "training.rhythm", area: .training, text: text + ".",
                                    basis: "\(sessionDays) workout days and \(practiceDays) logged practices in the last \(Int(weeks.rounded())) weeks"))
+    }
+
+    /// "Your practices usually run about 1 h 30 min at 6 of 10 — hard.
+    /// Tuesday's is usually the hardest." From practices the athlete rated in
+    /// the evening (CR-10, Foster) — never a load figure or a ratio (A28).
+    static func usualPractice(_ input: KnowledgeInput, calendar: Calendar) -> Result {
+        let need = 6
+        guard let since = calendar.date(byAdding: .day, value: -56, to: input.base.now) else { return .none }
+        let rated = input.base.practices.filter { $0.date >= since && $0.date <= input.base.now && $0.rpe != nil }
+        // Only for athletes with team practice at all.
+        guard !input.base.practices.isEmpty else { return .none }
+        guard rated.count >= need else {
+            return .learning(LearningItem(id: "training.practice", area: .training, question: "How hard your practices usually are",
+                                          have: rated.count, need: need, unit: "rated practices"))
+        }
+        let efforts = rated.compactMap(\.rpe).map(Double.init)
+        guard let effort = median(efforts) else { return .none }
+        let level = Int(effort.rounded())
+        var text = "Your practices usually run"
+        let minutes = rated.compactMap(\.minutes).filter { $0 > 0 }.map(Double.init)
+        if let usualMinutes = median(minutes) {
+            text += usualMinutes < 60 ? " about \(Int(usualMinutes.rounded())) min" : " about \(hours(usualMinutes / 60))"
+        }
+        text += " at \(level) of 10 — \(WorkoutTagging.word(level).lowercased())."
+        // One weekday clearly harder than every other (each seen at least twice).
+        let byWeekday = Dictionary(grouping: rated) { calendar.component(.weekday, from: $0.date) }
+            .filter { $0.value.count >= 2 }
+            .compactMapValues { median($0.compactMap(\.rpe).map(Double.init)) }
+        if byWeekday.count >= 2, let hardest = byWeekday.max(by: { $0.value < $1.value }),
+           byWeekday.filter({ $0.key != hardest.key }).allSatisfy({ hardest.value - $0.value >= 2 }) {
+            text += " \(calendar.weekdaySymbols[hardest.key - 1])'s is usually the hardest."
+        }
+        return .line(KnowledgeLine(id: "training.practice", area: .training, text: text,
+                                   basis: "median of \(rated.count) practices you rated in the last 8 weeks"))
     }
 
     // MARK: - Games (research §1)

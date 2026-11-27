@@ -68,4 +68,16 @@ final class ReflectionInsightTests: XCTestCase {
         EveningPractice.setSkipped(false, on: "2026-11-27", defaults)
         XCTAssertFalse(EveningPractice.skipped(on: "2026-11-27", defaults))
     }
+
+    /// Practice asks its own effort (CR-10), so "how hard did today feel" is
+    /// asked only for training whose effort isn't known yet; the day's hardness
+    /// for tomorrow follows from the effort.
+    func testTheDaysHardnessComesFromSessionEffort() {
+        XCTAssertEqual([0, 3, 4, 5, 6, 7, 8, 10].map(EveningOptions.hardness(fromRPE:)), [1, 1, 2, 2, 3, 3, 4, 4])
+        XCTAssertFalse(EveningOptions.asksHardness(restDay: false, trained: false, trainedEffort: nil, game: false), "practice alone asks its own effort")
+        XCTAssertFalse(EveningOptions.asksHardness(restDay: false, trained: true, trainedEffort: 7, game: false), "a rated workout already said it")
+        XCTAssertTrue(EveningOptions.asksHardness(restDay: false, trained: true, trainedEffort: nil, game: false))
+        XCTAssertTrue(EveningOptions.asksHardness(restDay: false, trained: false, trainedEffort: nil, game: true))
+        XCTAssertFalse(EveningOptions.asksHardness(restDay: true, trained: false, trainedEffort: nil, game: false))
+    }
 }

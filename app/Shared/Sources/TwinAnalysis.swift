@@ -36,13 +36,19 @@ public struct TwinInput: Sendable {
         /// 1 easy … 5 exhausting.
         public var hard: Int
         public var minutes: Int?
+        /// Session effort 0–10 when the athlete rated it (else `hard` × 2).
+        public var rpe: Int?
 
-        public init(date: Date, went: Int, hard: Int, minutes: Int?) {
+        public init(date: Date, went: Int, hard: Int, minutes: Int?, rpe: Int? = nil) {
             self.date = date
             self.went = went
             self.hard = hard
             self.minutes = minutes
+            self.rpe = rpe
         }
+
+        /// Minutes × effort, the same session load a workout has (Foster).
+        public var load: Double { Double(minutes ?? 90) * Double(rpe ?? hard * 2) }
     }
 
     /// A logged session: how long and how hard (RPE 1–10, when given).
@@ -561,7 +567,7 @@ public enum TwinAnalysis {
                   let begin = c.calendar.date(byAdding: .day, value: -7, to: end) else { return (0, 0) }
             func inWeek(_ d: Date) -> Bool { d >= begin && d < end }
             let sessions = c.input.loads.filter { inWeek($0.date) }.map { (Double($0.minutes), Double($0.minutes) * Double($0.rpe ?? 5)) }
-            let practices = c.input.practices.filter { inWeek($0.date) }.map { (Double($0.minutes ?? 90), Double($0.minutes ?? 90) * Double($0.hard * 2)) }
+            let practices = c.input.practices.filter { inWeek($0.date) }.map { (Double($0.minutes ?? 90), $0.load) }
             let games = c.gameDays.filter { inWeek($0) }.map { _ in (60.0, 60.0 * 8) }
             let all = sessions + practices + games
             return (all.map(\.0).reduce(0, +), all.map(\.1).reduce(0, +))

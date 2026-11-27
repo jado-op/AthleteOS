@@ -212,66 +212,9 @@ struct WorkoutCheckSheet: View {
 
     // MARK: Effort
 
-    /// The chosen number big in its colour with Foster's word and how it
-    /// feels; 0–10 tiles tinted from easy blue to maximal red.
     private var effortScale: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let rating {
-                    Text("\(rating)")
-                        .font(.system(size: 64, weight: .light).monospacedDigit())
-                        .foregroundStyle(Self.color(rating))
-                        .contentTransition(.numericText())
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rating.map(WorkoutTagging.word) ?? "Pick a number")
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text(rating.map(WorkoutTagging.feel) ?? "0 is rest, 10 is the hardest you can go.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .animation(.snappy(duration: 0.2), value: rating)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
-                ForEach(0...10, id: \.self) { value in
-                    effortTile(value)
-                }
-            }
-            if let estimate {
-                Label("Your heart rate suggests about \(estimate) (the dot). How it felt decides.", systemImage: "heart.text.square")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func effortTile(_ value: Int) -> some View {
-        let selected = rating == value
-        let color = Self.color(value)
-        return Button { rating = value } label: {
-            Text("\(value)")
-                .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundStyle(selected ? Color.black : color)
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(selected ? color : color.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(color.opacity(selected ? 0 : 0.35), lineWidth: 1)
-                }
-                .overlay(alignment: .topTrailing) {
-                    if estimate == value {
-                        Circle().fill(selected ? Color.black : Color.white).frame(width: 6, height: 6).padding(7)
-                    }
-                }
-                .scaleEffect(selected ? 1.06 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: selected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(value), \(WorkoutTagging.word(value))")
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        EffortScale(rating: $rating, estimate: estimate,
+                    estimateNote: estimate.map { "Your heart rate suggests about \($0) (the dot). How it felt decides." })
     }
 
     /// Easy blue → steady teal → working ember → very hard red-orange → maximal red.
@@ -554,5 +497,75 @@ struct IconTile: View {
         .animation(.easeOut(duration: 0.18), value: isSelected)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// The session-effort scale (CR-10, Foster): the chosen number big in its
+/// colour with Foster's word and how it feels; 0–10 tiles tinted from easy
+/// blue to maximal red. Shared by the workout check and the evening's practice.
+struct EffortScale: View {
+    @Binding var rating: Int?
+    /// A measured hint (heart rate), shown as a dot — never pre-picked.
+    var estimate: Int?
+    var estimateNote: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let rating {
+                    Text("\(rating)")
+                        .font(.system(size: 64, weight: .light).monospacedDigit())
+                        .foregroundStyle(WorkoutCheckSheet.color(rating))
+                        .contentTransition(.numericText())
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rating.map(WorkoutTagging.word) ?? "Pick a number")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.ink)
+                    Text(rating.map(WorkoutTagging.feel) ?? "0 is rest, 10 is the hardest you can go.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .animation(.snappy(duration: 0.2), value: rating)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
+                ForEach(0...10, id: \.self) { value in
+                    tile(value)
+                }
+            }
+            if let estimateNote {
+                Label(estimateNote, systemImage: "heart.text.square")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func tile(_ value: Int) -> some View {
+        let selected = rating == value
+        let color = WorkoutCheckSheet.color(value)
+        return Button { rating = value } label: {
+            Text("\(value)")
+                .font(.title3.weight(.bold).monospacedDigit())
+                .foregroundStyle(selected ? Color.black : color)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(selected ? color : color.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(color.opacity(selected ? 0 : 0.35), lineWidth: 1)
+                }
+                .overlay(alignment: .topTrailing) {
+                    if estimate == value {
+                        Circle().fill(selected ? Color.black : Color.white).frame(width: 6, height: 6).padding(7)
+                    }
+                }
+                .scaleEffect(selected ? 1.06 : 1)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: selected)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(value), \(WorkoutTagging.word(value))")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

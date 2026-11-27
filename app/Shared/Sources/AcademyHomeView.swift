@@ -330,7 +330,10 @@ struct AcademyHomeView: View {
         let now = Date.now
         if catalogue.itemsBySlug.isEmpty { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
         liftTrends = TwinTrends.lifts(input.lifts, now: now)
-        weekLoads = TwinTrends.weeklyLoad(input.loads, now: now)
+        // Team practice is training too: its minutes × effort count with the workouts'.
+        weekLoads = TwinTrends.weeklyLoad(input.loads + input.practices.map {
+            TwinInput.Load(date: $0.date, minutes: $0.minutes ?? 90, rpe: $0.rpe ?? $0.hard * 2)
+        }, now: now)
         sleepNights = TwinTrends.sleep(input.mornings, now: now)
         // How the mind evolves reads only mornings the athlete answered.
         let answered = input.mornings.filter { !$0.assumed }

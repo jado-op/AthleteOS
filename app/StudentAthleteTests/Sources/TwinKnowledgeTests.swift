@@ -158,4 +158,25 @@ final class TwinKnowledgeTests: XCTestCase {
         XCTAssertEqual(line?.safety, true)
         XCTAssertTrue(line?.text.hasPrefix("Your ankle or foot has hurt on and off since") ?? false, line?.text ?? "")
     }
+
+    /// Rated practices (evening CR-10): the usual length and effort in words,
+    /// and a weekday only when it's clearly the hard one. Still learning before 6.
+    func testUsualPracticeFromRatedPractices() {
+        func practice(_ back: Int, rpe: Int?) -> TwinInput.Practice {
+            TwinInput.Practice(date: day(-back, hour: 18), went: 3, hard: 3, minutes: 90, rpe: rpe)
+        }
+        let few = build(KnowledgeInput(base: TwinInput(practices: [1, 3, 8].map { practice($0, rpe: 5) }, now: now)))
+        XCTAssertEqual(few.learning.first { $0.id == "training.practice" }?.have, 3)
+        XCTAssertNil(few.lines.first { $0.id == "training.practice" })
+        // Same weekday every week is hard (8), two days later easy (4).
+        let weeks = [0, 7, 14, 21]
+        let practices = weeks.map { practice($0 + 1, rpe: 8) } + weeks.map { practice($0 + 3, rpe: 4) }
+        let line = build(KnowledgeInput(base: TwinInput(practices: practices, now: now))).lines.first { $0.id == "training.practice" }
+        let hardDay = calendar.weekdaySymbols[calendar.component(.weekday, from: day(-1, hour: 18)) - 1]
+        XCTAssertEqual(line?.text, "Your practices usually run about 1 h 30 min at 6 of 10 — hard. \(hardDay)'s is usually the hardest.")
+        XCTAssertEqual(line?.basis, "median of 8 practices you rated in the last 8 weeks")
+        // Unrated practices only: nothing claimed.
+        let unrated = build(KnowledgeInput(base: TwinInput(practices: weeks.map { practice($0 + 1, rpe: nil) }, now: now)))
+        XCTAssertNil(unrated.lines.first { $0.id == "training.practice" })
+    }
 }

@@ -95,6 +95,14 @@ final class TwinAnalysisTests: XCTestCase {
                      "the mornings after the games were one-tap: nothing said, nothing learned")
     }
 
+    /// A rated practice counts as minutes × its own effort, like a workout.
+    func testARatedPracticeCountsItsOwnEffort() {
+        let easy = TwinInput.Practice(date: day(1), went: 3, hard: 4, minutes: 60, rpe: 3)
+        XCTAssertEqual(easy.load, 180)
+        let unrated = TwinInput.Practice(date: day(1), went: 3, hard: 4, minutes: nil)
+        XCTAssertEqual(unrated.load, 90 * 8)
+    }
+
     func testLowGameDayEnergyOrTheInterviewFlagsFuel() {
         let tired = TwinAnalysis.report(season(games: [3, 10, 17], gameEnergy: 2), calendar: calendar)
         XCTAssertEqual(tired.insights.first { $0.kind == .gameDayFuel }?.values["energyGap"], "2.0 points")
