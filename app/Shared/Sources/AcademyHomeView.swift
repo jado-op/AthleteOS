@@ -127,7 +127,9 @@ struct AcademyHomeView: View {
 
     private var visibleLines: [KnowledgeLine] { TwinKnowledgeStore.visible(knowledge, state: state) }
     private var portrait: [TwinPageArea] {
-        TwinPage.portrait(lines: visibleLines, known: Set(knowledge.lines.map(\.id)), insights: report?.insights ?? [],
+        // The hero's own line is said once, up there.
+        let heroID = heroLine.lineID
+        return TwinPage.portrait(lines: visibleLines.filter { $0.id != heroID }, known: Set(knowledge.lines.map(\.id)), insights: report?.insights ?? [],
                           strengths: report?.strengths ?? [], effects: effects)
     }
     private var hiddenCount: Int { knowledge.lines.filter { state.knowledgeHidden?[$0.id] != nil && !$0.safety }.count }
@@ -439,6 +441,13 @@ struct AcademyHomeView: View {
             }
         } else if line.kind == .read, state.intakeDoneAt == nil {
             heroButton(interviewAnswered > 0 ? "Continue the interview" : "Create my twin") { openInterview() }
+        } else if line.kind == .learned, let known = visibleLines.first(where: { $0.id == line.lineID }) {
+            // The line lives up here this week: so does its correction (T13).
+            Button("Not right?") { correcting = known }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.8))
+                .frame(minHeight: 44)
+                .buttonStyle(.pressable)
         }
     }
 

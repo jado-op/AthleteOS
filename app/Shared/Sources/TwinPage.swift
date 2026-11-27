@@ -58,6 +58,9 @@ public struct TwinHero: Equatable, Sendable {
     public var text: String
     /// The entry it comes from, when there is one (to open its briefing).
     public var insight: TwinInsight?
+    /// The knowledge line it repeats word for word: left out of the
+    /// portrait below, so it's said once (research: no second copy).
+    public var lineID: String? = nil
 }
 
 public enum TwinPage {
@@ -169,7 +172,7 @@ public enum TwinPage {
     public static func hero(lines: [KnowledgeLine], firstSeen: [String: Date], effects: [TwinPlanEffect],
                             insights: [TwinInsight], coachRead: String, now: Date, calendar: Calendar = .current) -> TwinHero {
         if let pain = lines.first(where: \.safety) {
-            return TwinHero(kind: .safety, eyebrow: "Worth getting checked", text: pain.text, insight: nil)
+            return TwinHero(kind: .safety, eyebrow: "Worth getting checked", text: pain.text, insight: nil, lineID: pain.id)
         }
         if let effect = effects.first(where: \.now) {
             return TwinHero(kind: .plan, eyebrow: "In your plan", text: effect.text, insight: nil)
@@ -178,7 +181,7 @@ public enum TwinPage {
         // The heart never leads the page: its note lives in the check-in.
         if let learned = lines.filter({ $0.id != "body.heart" && (firstSeen[$0.id] ?? .distantPast) > weekAgo })
             .max(by: { (firstSeen[$0.id] ?? .distantPast) < (firstSeen[$1.id] ?? .distantPast) }) {
-            return TwinHero(kind: .learned, eyebrow: "New about you", text: learned.text, insight: nil)
+            return TwinHero(kind: .learned, eyebrow: "New about you", text: learned.text, insight: nil, lineID: learned.id)
         }
         if let top = insights.first {
             return TwinHero(kind: .insight, eyebrow: "What matters most", text: top.headline, insight: top)

@@ -29,6 +29,7 @@ final class TwinPageTests: XCTestCase {
         let withPain = TwinPage.hero(lines: [legs, pain], firstSeen: [:], effects: effects, insights: [], coachRead: "Read", now: now, calendar: calendar)
         XCTAssertEqual(withPain.kind, .safety)
         XCTAssertEqual(withPain.text, pain.text)
+        XCTAssertEqual(withPain.lineID, pain.id, "said once: the page leaves it out of the portrait below")
 
         let plan = TwinPage.hero(lines: [legs], firstSeen: [:], effects: effects, insights: [], coachRead: "Read", now: now, calendar: calendar)
         XCTAssertEqual(plan.kind, .plan)
