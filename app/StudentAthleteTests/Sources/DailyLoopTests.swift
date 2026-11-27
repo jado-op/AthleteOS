@@ -170,4 +170,14 @@ final class DailyLoopTests: XCTestCase {
         XCTAssertEqual(fresh.level, .lot)
         XCTAssertTrue(fresh.involvesHead)
     }
+
+    /// A head report is the concussion steps' — but it never hides the knee
+    /// said with it, or an older knee nobody said was gone.
+    func testAHeadReportDoesntHideOtherPain() {
+        let today = calendar.date(from: DateComponents(year: 2026, month: 11, day: 25, hour: 12))!
+        let both = [PainReport(day: "2026-11-24", areas: [.head, .knee], level: .some)]
+        XCTAssertEqual(PainFollowUp.pending(reports: both, resolvedDays: [], today: today, calendar: calendar)?.areas, [.knee])
+        let older = [PainReport(day: "2026-11-23", areas: [.knee], level: .little), PainReport(day: "2026-11-24", areas: [.head], level: .little)]
+        XCTAssertEqual(PainFollowUp.pending(reports: older, resolvedDays: [], today: today, calendar: calendar)?.day, "2026-11-23")
+    }
 }

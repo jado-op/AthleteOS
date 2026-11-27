@@ -73,6 +73,11 @@ struct ReflectionSheet: View {
         _wentWellNote = State(initialValue: (existing?.wentWell ?? []).first { !areas.contains($0) } ?? "")
         _improveNote = State(initialValue: (existing?.needsWork ?? []).first { !areas.contains($0) } ?? "")
         _learned = State(initialValue: existing?.learned ?? "")
+        // Reopened: what was already said about pain tonight is shown, not asked blank.
+        if existing?.body == 4, let pain = PainStore.report(on: Self.reflectionDay()) {
+            _painAreas = State(initialValue: Set(pain.areas))
+            _painLevel = State(initialValue: pain.level)
+        }
         if restDay { _step = State(initialValue: .body) }
     }
 
@@ -119,7 +124,7 @@ struct ReflectionSheet: View {
         case .pain:
             QuestionPage(progress: progress, question: "Where does it hurt?", hint: "Tap every place, then how much.",
                          buttonTitle: "Next", buttonEnabled: !painAreas.isEmpty && painLevel != nil,
-                         onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .pain) }) {
+                         onClose: { dismiss() }, onBack: { back() }, onButton: { savePain(); next(from: .pain) }, tone: .mind) {
                 ChoiceGrid(PainArea.allCases, title: { (area: PainArea) -> String in area.title },
                            isSelected: { (area: PainArea) -> Bool in painAreas.contains(area) }) { (area: PainArea) in
                     if painAreas.contains(area) { painAreas.remove(area) } else { painAreas.insert(area) }
@@ -131,16 +136,14 @@ struct ReflectionSheet: View {
                 ChoiceGrid(PainLevel.allCases, title: { (level: PainLevel) -> String in level.title },
                            isSelected: { (level: PainLevel) -> Bool in level == painLevel }) { (level: PainLevel) in painLevel = level }
                 if painAreas.contains(.head) {
-                    // The head isn't trained through: the pause is right here, tonight.
+                    // The head isn't trained through: saving this pauses training
+                    // tonight (a head report has no follow-up of its own).
                     HeadKnockNote()
-                    if paused {
-                        Label("Training is paused until a doctor clears you.", systemImage: "pause.circle.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                    } else {
-                        Button("Pause training") { pauseForHead() }
-                            .buttonStyle(.secondary)
-                    }
+                    Text(paused ? "Training is paused until a doctor clears you."
+                                : "Training pauses when you go on, until a doctor clears you. You lift the pause in the Safety Center.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("Tomorrow's plan stays lighter until you say it's gone. If it's sharp, swelling or getting worse, tell an adult tonight.")
                         .font(.subheadline)
@@ -199,7 +202,8 @@ struct ReflectionSheet: View {
                         }
                         .accessibilityElement(children: .combine)
                     } else if bodyFeel == 4 {
-                        Text("Pain is saved. Tell a coach or parent, and tomorrow's check-in asks how it is.")
+                        Text(painAreas.contains(.head) ? "Training is paused until a doctor clears you. Tell a parent or coach tonight."
+                             : "Pain is saved, and tomorrow stays lighter around it until you say it's gone. Tell a coach or parent.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.coral)
                             .fixedSize(horizontal: false, vertical: true)
@@ -316,23 +320,27 @@ struct ReflectionSheet: View {
     }
 
     /// Pain after training is kept like pain in the check-in (no diagnosis), on
-    /// the day reflected on, joined with anything already said that day.
+    /// the day reflected on, joined with anything already said that day — as
+    /// soon as it's answered, so closing the sheet early doesn't lose it. The
+    /// head pauses training at once.
     private func savePain() {
         guard bodyFeel == 4, !painAreas.isEmpty, let painLevel else { return }
+        if painAreas.contains(.head), !paused { pauseForHead() }
         let day = Self.reflectionDay()
         let report = PainReport.joining(PainStore.report(on: day), day: DayKey.of(day), areas: painAreas, level: painLevel)
         PainStore.set(report, on: day)
         HealthShare.send(kind: "pain", areas: report.areas, level: report.level, day: day)
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
     }
 
     private func pauseForHead() {
         DayStatusStore.set(.concussion, days: nil)
         HealthShare.send(kind: "paused")
         paused = true
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
     }
 
     private func save() {
-        savePain()
         let order = EveningOptions.areas
         let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -343,6 +351,9 @@ struct ReflectionSheet: View {
             learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
         ReminderScheduler.markDone(reflection: true)
+        // Tonight's answers shape tomorrow: the saved plan (Lock Screen card,
+        // Home's Tomorrow) is rebuilt now, not at the next app open.
+        defer { NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil) }
         // A very tired body (physical, kept apart from how the day felt): the
         // morning check-in asks how it feels, and today's plan stays easier until then.
         if bodyFeel == 3 {

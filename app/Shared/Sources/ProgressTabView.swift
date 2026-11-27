@@ -736,8 +736,9 @@ struct PracticeLogSheet: View {
     @State private var showingPaywall = false
     @State private var types: Set<String> = []
     @State private var hard = 3
-    @State private var went = 3
-    @State private var mood = 3
+    /// 0 = not said: nothing is preset, so an untouched answer stays unsaid.
+    @State private var went = 0
+    @State private var mood = 0
     @State private var minutes = 90
     @State private var tiredMuscles: Set<String> = []
     @State private var ratings: [String: Int] = [:]
@@ -756,8 +757,8 @@ struct PracticeLogSheet: View {
         if let log {
             _types = State(initialValue: Set(log.types))
             _hard = State(initialValue: log.hard)
-            _went = State(initialValue: log.saidWent > 0 ? log.saidWent : 3)
-            _mood = State(initialValue: log.mood > 0 ? log.mood : 3)
+            _went = State(initialValue: log.saidWent)
+            _mood = State(initialValue: log.saidWent > 0 || log.went == 0 ? log.mood : 0)
             _minutes = State(initialValue: log.minutes ?? 90)
             _tiredMuscles = State(initialValue: Set(log.tiredMuscles))
             _ratings = State(initialValue: log.ratings)

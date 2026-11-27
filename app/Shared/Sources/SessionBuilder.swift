@@ -527,6 +527,7 @@ private struct BuildState {
         case "rotation": "Rotation with control: throwing, swinging and striking."
         case "carry": "Carries: the whole trunk working while you walk."
         case "back-extension": "The lower back's own strength, so it holds up."
+        case "trunk-flexion": "Abs that curl the trunk: the other half of a strong middle."
         case "anti-rotation", "anti-lateral": "Trunk from another direction."
         case "balance": "Control on one leg."
         default: "Rotates every session, so the work stays fresh."

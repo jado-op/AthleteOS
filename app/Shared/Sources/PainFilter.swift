@@ -93,8 +93,12 @@ public enum PainFilter {
 /// Home, Workout, the Watch and the widget get them from.
 @MainActor
 enum TodaysPain {
+    /// Today's pain, else the open follow-up (pain said last night or on an
+    /// earlier day, not yet said gone): its areas stay out of the workout.
     static func areas(now: Date = .now) -> Set<PainArea> {
-        Set(PainStore.report(on: now)?.areas ?? [])
+        if let today = PainStore.report(on: now) { return Set(today.areas) }
+        let open = PainFollowUp.pending(reports: PainStore.all(), resolvedDays: PainFollowUp.resolvedDays(), today: now)
+        return Set(open?.areas ?? [])
     }
 
     static func apply(_ session: GeneratedSession, athlete: Athlete, catalogue: Catalogue) -> GeneratedSession {

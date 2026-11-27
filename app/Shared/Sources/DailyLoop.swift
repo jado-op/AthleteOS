@@ -99,13 +99,18 @@ public enum PainStore {
 public enum PainFollowUp {
     static let resolvedKey = "safety.painResolved"
 
-    /// The latest report (not today, not the head, from the last 21 days)
-    /// the athlete hasn't yet said is gone.
+    /// The latest report (not today, from the last 21 days) the athlete hasn't
+    /// yet said is gone, without the head: that's the concussion steps' (a head
+    /// report never hides a knee said with it or before it).
     public static func pending(reports: [PainReport], resolvedDays: [String], today: Date, calendar: Calendar = .current) -> PainReport? {
         let todayKey = DayKey.of(today, calendar: calendar)
         let since = DayKey.of(calendar.date(byAdding: .day, value: -21, to: today) ?? today, calendar: calendar)
-        guard let last = reports.filter({ $0.day < todayKey && $0.day >= since }).max(by: { $0.day < $1.day }),
-              !last.involvesHead else { return nil }
+        let body = reports.filter { $0.day < todayKey && $0.day >= since }.compactMap { report -> PainReport? in
+            var report = report
+            report.areas.removeAll { $0 == .head }
+            return report.areas.isEmpty ? nil : report
+        }
+        guard let last = body.max(by: { $0.day < $1.day }) else { return nil }
         // Gone means said so on a day after the report.
         return resolvedDays.contains { $0 > last.day } ? nil : last
     }
