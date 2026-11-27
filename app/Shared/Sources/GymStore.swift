@@ -95,6 +95,8 @@ enum GymHistoryBuilder {
         let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.checkIns.count)|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)|\(HealthWorkoutInbox.revision)|\(AthleteContextStore.revision)"
             // "Not right?" on the legs line takes the twin's leg rest out at once.
             + "|\(AcademyStore.load().knowledgeHidden?["body.legs"] == nil)"
+            // A finished workout only sets its effort: it decides whether the last leg day was hard.
+            + "|\(athlete.sessions.reduce(0) { $0 + ($1.sessionRPE ?? 0) })"
         if let cache, cache.key == key { return cache.history }
         let twoWeeks = calendar.date(byAdding: .day, value: -14, to: today) ?? today.addingTimeInterval(-14 * 86_400)
         let sixWeeks = calendar.date(byAdding: .day, value: -42, to: today) ?? today.addingTimeInterval(-42 * 86_400)

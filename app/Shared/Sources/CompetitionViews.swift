@@ -75,14 +75,14 @@ struct CompetitionHubView: View {
 
     /// What the athlete's best-rated games have in common, once the twin
     /// knows (≥ 10 rated, held twice; "goes with", never "because").
-    @State private var bestGames: String?
+    @State private var bestGames: KnowledgeLine?
 
     private func loadTwinInsights() {
         let state = AcademyStore.load()
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
         twinInsights = TwinAnalysis.report(input).insights.map(\.kind)
         bestGames = TwinKnowledgeStore.visible(TwinKnowledgeStore.current(athlete, state: state), state: state)
-            .first { $0.id.hasPrefix("games.best.") }?.text
+            .first { $0.id.hasPrefix("games.best.") }
     }
 
     /// Sections in the order they show; numbered by what is actually on screen.
@@ -112,7 +112,7 @@ struct CompetitionHubView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 34) {
                     // What the rating just taught the twin; tap closes the hub and opens it.
-                    TwinPulseLine { dismiss(); AcademyNavigation.shared.openTwin("learning") }
+                    TwinPulseLine(sources: [.gameRating]) { dismiss() }
                     ForEach(sections, id: \.self) { section in
                         switch section {
                         case .next: nextSection
@@ -231,9 +231,14 @@ struct CompetitionHubView: View {
                             Text("From your twin")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(AuraTone.mind.mark)
-                            Text(bestGames)
+                            Text(bestGames.text)
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            // Its basis says it goes with, never decides (T7).
+                            Text(bestGames.basis)
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

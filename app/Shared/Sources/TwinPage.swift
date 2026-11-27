@@ -221,18 +221,20 @@ public enum TwinPage {
 /// a score; nothing when the input changed nothing the twin tracks.
 public enum TwinLearned {
     /// What each input teaches (the knowledge engine's line and item ids).
+    /// Only inputs that really move something the same day: a practice
+    /// answer saves no rating, and leg recovery needs the check-ins after.
     public enum Input: Sendable {
-        case checkIn, gameRating, practice, workout
+        case checkIn, gameRating
 
         var feeds: [String] {
             switch self {
             case .checkIn: ["habits.sleep", "training.sleep", "body.legs"]
             case .gameRating: ["games.best"]
-            case .practice: ["training.sleep", "training.rhythm"]
-            case .workout: ["body.legs", "training.rhythm"]
             }
         }
     }
+
+    public static let newPrefix = "Your twin learned something new: "
 
     public static func line(before: TwinKnowledge, after: TwinKnowledge, input: Input) -> String? {
         let known = Set(before.lines.map(\.id))
@@ -240,14 +242,14 @@ public enum TwinLearned {
         if let new = after.lines.first(where: { line in
             !known.contains(line.id) && !line.safety && input.feeds.contains { line.id == $0 || line.id.hasPrefix($0 + ".") }
         }) {
-            return "Your twin learned something new: " + new.text
+            return newPrefix + new.text
         }
         for id in input.feeds {
             guard let now = after.learning.first(where: { $0.id == id }) else { continue }
             let was = before.learning.first { $0.id == id }
             let moved = was.map { now.have > $0.have || (now.checking && !$0.checking) } ?? true
             guard moved else { continue }
-            return "Your twin is learning \(lowercasedFirst(now.question)): \(now.progress)."
+            return "Your twin is learning \(lowercasedFirst(now.question)): \(lowercasedFirst(now.progress))."
         }
         return nil
     }

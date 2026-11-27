@@ -30,10 +30,11 @@ final class AcademyNavigation: ObservableObject {
     @Published var pendingTwinSheet: String?
 
     /// Every "why" that comes from the twin opens the twin line behind it:
-    /// the Academy's Twin page, scrolled to that part ("know").
+    /// the Academy's Twin page — at the top ("top": the hero leads with a plan
+    /// change this week), or at a part ("know", "learning").
     static let openTwinRequested = Notification.Name("AcademyNavigation.openTwin")
 
-    func openTwin(_ part: String = "know") {
+    func openTwin(_ part: String = "top") {
         page = .twin
         pendingTwinSheet = part
         NotificationCenter.default.post(name: Self.openTwinRequested, object: nil)

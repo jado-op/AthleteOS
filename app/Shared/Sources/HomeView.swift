@@ -442,7 +442,7 @@ struct HomeView: View {
                 case .workoutCheck:
                     if let checkSession {
                         WorkoutCheckSheet(session: checkSession, catalogue: catalogue, sports: SportVisibility.sports(for: athlete),
-                                          startStep: checkStartStep, athlete: athlete) {
+                                          startStep: checkStartStep) {
                             revision += 1
                             // The answer sets each region's rest: tomorrow's plan reads it.
                             onPlanInputsChanged()
@@ -1003,7 +1003,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 14) {
                 painNote
                 // What the last input taught the twin (a check-in, a practice answer…).
-                TwinPulseLine()
+                TwinPulseLine(sources: [.checkIn, .workout])
                 // The plan moved since the athlete last looked: said once, cause first.
                 if !PlanStore.shared.changes.isEmpty {
                     PlanChangeCard(changes: PlanStore.shared.changes, event: eventWord) {
@@ -1028,9 +1028,7 @@ struct HomeView: View {
                 // Better practice data (P14–P17): yesterday in one tap, a routine offered, not assumed.
                 if let day = practiceToAsk {
                     PracticeAskCard(day: day) { answer in
-                        let twinBefore = TwinPulse.before(athlete)
                         PracticeAnswers.save(answer, on: day, sportSlug: athlete.activeSport?.sportSlug)
-                        TwinPulse.after(athlete, before: twinBefore, input: .practice)
                         withAnimation { practiceRevision += 1 }
                     }
                 }

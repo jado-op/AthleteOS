@@ -227,8 +227,9 @@ public enum GymAdvisor {
             legsBlocked = "Your legs usually need \(days) days after a hard session — ready \(left == 1 ? "tomorrow" : "in \(left) days")"
         }
         else if let since = history.daysSince[.lower], since < history.recoveryDays(.lower) {
+            let left = history.recoveryDays(.lower) - since
             legsBlocked = since == 0 ? "Legs trained today" : since == 1 ? "Legs trained yesterday"
-                : "Legs trained \(since == 2 ? "two" : "\(since)") days ago — one more day to recover"
+                : "Legs trained \(since == 2 ? "two" : "\(since)") days ago — \(left == 1 ? "one more day" : "\(left) more days") to recover"
         }
         else if let hours = history.measuredSleepHours, hours < 6 { legsBlocked = "Under 6 h of sleep — no heavy legs today" }
         else if let heavy = day.recent.daysSinceHeavyLower, heavy <= 1 { legsBlocked = "Legs trained yesterday" }

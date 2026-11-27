@@ -148,10 +148,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   in the check-in). Don't bring back the separate Coach's read card, "Your training", "What's working" or the knowledge sheet.
 - The twin across the app (owner, 2026-11-27: "everything turns into the twin and ecosystem. But everything solves a
   purpose"): **one place works out what the twin changes** (`TwinKnowledgeStore.planEffects`) — the Twin page and Home's
-  Body tile ("Ready · Legs ready Sunday") read it. **After an input** (check-in, game rating, practice answer, workout
-  check) one line says what it taught the twin (`TwinLearned`, harness; `TwinPulse` shows it in Home's notices, the games
-  hub and the workout check's last step for 10 minutes; tap opens Still learning); a finished workout that trained legs
-  says when they're ready again (and that it's the twin's longer rest when it is). **Every why from the twin opens it**:
+  Body tile ("Ready · Legs ready Sunday") read it. **After an input** (check-in, game rating — only inputs that move
+  something that day; a practice answer or workout check doesn't yet) one line says what it taught the twin
+  (`TwinLearned`, harness; `TwinPulse`: each line belongs to its input — Home's notices for a check-in, the games hub for a
+  rating — shown once, gone on the next input, never after a pain answer; tap opens it in the twin); a finished workout
+  whose own sets trained legs says when they're ready again (and that it's the twin's longer rest when it is). **Every why from the twin opens it**:
   the plan's "What does your twin change?" links to the Twin page (`AcademyNavigation.openTwin`); the gym advisor's legs
   reason names the twin's days (`GymHistory.legsHeldByTwin`). The games hub shows what the athlete's best games share
   before the next one, once known. Pain never goes through these lines (its own safety path).

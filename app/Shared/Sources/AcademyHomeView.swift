@@ -141,7 +141,7 @@ struct AcademyHomeView: View {
             ScrollViewReader { scroller in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    topBar
+                    topBar.id("top")
                     // 1. Whose twin, the one line that matters now, the body.
                     identity.padding(.top, 26)
                     hero.padding(.top, 22)
@@ -297,7 +297,7 @@ struct AcademyHomeView: View {
         case "trends": showingTrends = true
         case "tests": showingTests = true
         // A "why" from the twin: the portrait, at the top of the screen.
-        case "know", "learning", "evidence":
+        case "top", "know", "learning", "evidence":
             path = []
             scrollTarget = sheet
         default: break

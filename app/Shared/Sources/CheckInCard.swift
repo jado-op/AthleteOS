@@ -568,7 +568,8 @@ struct CheckInSheet: View {
         IllnessStore.set(illness)
         // "No pain" today: a pain reported on an earlier day is gone.
         if hasPain == false { PainFollowUp.markResolved() }
-        TwinPulse.after(athlete, before: twinBefore, input: .checkIn)
+        // Pain has its own path and words: no twin line next to it.
+        if hasPain != true { TwinPulse.after(athlete, before: twinBefore, input: .checkIn) }
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
         saveCount += 1
         withAnimation(.easeInOut(duration: 0.25)) { step = .result }
