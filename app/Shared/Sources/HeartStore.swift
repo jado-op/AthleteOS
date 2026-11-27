@@ -35,11 +35,19 @@ enum HeartStore {
 
     private static func load(_ key: String) -> [HeartNight] {
         let stored = UserDefaults.standard.dictionary(forKey: key) as? [String: [String: Double]] ?? [:]
-        return stored.flatMap { day, sources in
-            sources.compactMap { source, value in
-                TwinInputBuilder.day(day, calendar: .current).map { HeartNight(date: $0, value: value, source: source) }
+        var nights: [HeartNight] = []
+        for (day, sources) in stored {
+            guard let date = TwinInputBuilder.day(day, calendar: .current) else { continue }
+            for (source, value) in sources {
+                nights.append(HeartNight(date: date, value: value, source: source))
             }
-        }.sorted { $0.date == $1.date ? ($0.source ?? "") < ($1.source ?? "") : $0.date < $1.date }
+        }
+        // By day, then device, so the order is the same every time.
+        nights.sort { first, second in
+            if first.date != second.date { return first.date < second.date }
+            return (first.source ?? "") < (second.source ?? "")
+        }
+        return nights
     }
 
     /// Merges what Health returned (it may hold less than we kept: a reset

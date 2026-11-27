@@ -194,8 +194,11 @@ public enum DemoData {
         for back in 0..<90 {
             guard let day = calendar.date(byAdding: .day, value: -back, to: now) else { continue }
             let base = back > 56 ? 58.0 : 53.0
-            resting[DayKey.of(day, calendar: calendar)] = ["com.apple.health.demo": back <= 1 ? 58 : base + Double(back % 3) - 1]
-            variability[DayKey.of(day, calendar: calendar)] = ["com.apple.health.demo": back <= 3 && back >= 1 ? 52 : 62 + Double(back % 5) - 2]
+            let restingValue: Double = back <= 1 ? 58.0 : base + Double(back % 3) - 1.0
+            let variabilityValue: Double = (1...3).contains(back) ? 52.0 : 60.0 + Double(back % 5)
+            let key = DayKey.of(day, calendar: calendar)
+            resting[key] = ["com.apple.health.demo": restingValue]
+            variability[key] = ["com.apple.health.demo": variabilityValue]
         }
         defaults.set(resting, forKey: "health.heart.resting.v2")  // HeartStore.restingKey
         defaults.set(variability, forKey: "health.heart.variability.v2")  // HeartStore.variabilityKey
