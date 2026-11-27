@@ -1028,7 +1028,7 @@ struct HomeView: View {
                 openHub(.overview)
             }
             GlanceTile(tone: .training, label: "This week", value: weekGlance.value, detail: weekGlance.detail) {
-                WorkoutNavigation.shared.showingCalendar = true
+                // The week lives once: the Workout tab's strip, with Edit week under it.
                 selectedTab = .workout
             }
         }
@@ -1057,7 +1057,7 @@ struct HomeView: View {
 
     private var weekGlance: (value: String, detail: String) {
         let plan = weekPlan
-        let practices = plan.practicesPlanned > 0 ? "\(plan.practicesDone)/\(plan.practicesPlanned) practices" : "Training calendar"
+        let practices = plan.practicesPlanned > 0 ? "\(plan.practicesDone)/\(plan.practicesPlanned) practices" : "Your week"
         guard plan.workoutsPlanned > 0 else { return ("\(plan.workoutsDone) done", practices) }
         return ("\(min(plan.workoutsDone, plan.workoutsPlanned))/\(plan.workoutsPlanned)", "workouts · " + practices)
     }

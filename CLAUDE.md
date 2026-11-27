@@ -97,18 +97,21 @@ Reading files, CI logs or the GitHub API needs no lock.
   `athleteos://workout` (`IntentRoute.open`). **Decided before you look** — Home's check-in moment shows the plan already
   made; on a usual day one tap "Feeling normal, no pain" (`QuickCheckIn`: the athlete's own median answers of the last two
   weeks, watch sleep, illness no) — only when no pain is open, no follow-up waits, status active, ≥3 recent check-ins.
-  **Bend your week** — Workout → `WeekBendView`: tap a day (can't train → `BusyDays`, add/remove a game) and the week
+  **Edit week** — the button under the Workout tab's week strip → `WeekBendView`: tap a day (can't train → `BusyDays`, add/remove a game) and the week
   rebuilds with each changed day labelled (`WeekBend.changes`), one-tap undo; gym days move off busy days
   (`BusyDays.moveOff` in `WeeklyPlan.generate`). **Talk mid-workout** — mic in the workout (`WorkoutVoiceListener`,
   on-device speech only, no fallback to a server): "that was heavy", "too easy", "two more", "skip", "done"; any pain
   word stops the exercise with the stop-and-get-checked prompt and saves today's pain (`WorkoutVoiceCommand`, EN + DE).
 - Training calendar (owner, 2026-11-27: "rework the whole calendar feed… it is pretty confusing"): one per-day model,
-  `TrainingCalendar.items(Facts)` (Foundation, harness), read by the month grid, the "Next 7 days" agenda and the day sheet
+  `TrainingCalendar.items(Facts)` (Foundation, harness), read by the month grid, the Workout week strip, Edit week and the day sheet
   (`CalendarSource` gathers the facts once per draw). Rules: the past shows only what happened (never "planned"; an
   unlogged scheduled practice shows half-filled "from your schedule"); today = done + `todaysPick` (one brain); ahead =
   games, scheduled practice, this week's planned workouts, days off (`BusyDays`, sick, away). Four kinds, four colours
   (workout ember incl. after-practice, practice blue, game green, mobility cyan); one mark per kind under a day: filled
   done, ring coming up, dash day off. "This week" = workouts of planned + practices · games, no mixed total.
+  One week, one place (owner, 2026-11-27: "three types of this week each saying something different"): the strip is
+  the only "This week" (the calendar lost its week card and "Next 7 days"; Home's tile opens the Workout tab), with
+  **Edit week** under it (not "Bend"), whose rows use the same words.
   The Workout tab's week strip reads the same model: seven tiles Mon–Sun, same marks and words; today = the card above;
   a workout day opens that workout, any other day the day sheet.
 - Workout volume (owner, 2026-11-27): experienced athletes 16+ (performance stage) get **6 gym days off-season**

@@ -139,7 +139,6 @@ struct WorkoutTabView: View {
                         .padding(.bottom, skillPlanDays.isEmpty ? 24 : 4)
                     skillDrillsToday
                     weekSection
-                    bendRow
                     calendarRow
                     moreWorkouts
                     // What the athlete's training has done to their body so far (gym second).
@@ -553,16 +552,6 @@ struct WorkoutTabView: View {
 
     // MARK: - Week, more
 
-    /// "Bend your week": a game moved, a day you can't train — and the plan adapts in front of you.
-    private var bendRow: some View {
-        Button { showingBend = true } label: {
-            ListRow(systemImage: "arrow.triangle.swap", color: AuraTone.training.mark, title: "Bend your week",
-                    detail: "A game moved, a day you can't train: watch the plan adapt")
-        }
-        .buttonStyle(.pressable)
-        .sheet(isPresented: $showingBend) { WeekBendView(athlete: athlete) }
-    }
-
     /// What was done, next to what to do: the month, season and year, practice
     /// logged, every workout (moved here from the Academy, owner 2026-11-26).
     private var calendarRow: some View {
@@ -604,7 +593,16 @@ struct WorkoutTabView: View {
                 .padding(.horizontal, -20)
                 .onAppear { proxy.scrollTo(DayKey.of(.now), anchor: .center) }
             }
+            // One week, one place to change it (owner, 2026-11-27): a game moved,
+            // a day you can't train — the plan rebuilds in front of you.
+            Button { showingBend = true } label: {
+                Label("Edit week", systemImage: "pencil")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.secondary)
         }
+        .sheet(isPresented: $showingBend) { WeekBendView(athlete: athlete) }
         .sheet(item: $weekDay) { box in
             DayDetailSheet(athlete: athlete, date: box.date, items: source.items(on: box.date)) {
                 weekDay = nil

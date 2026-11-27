@@ -2,6 +2,9 @@ import SwiftData
 import SwiftUI
 
 /// "A plan you can see bend" (owner, 2026-11-27): the week as a timeline.
+/// Opened from "Edit week" under the Workout tab's strip; each day says the
+/// same words as the strip and the calendar (`CalendarSource`), so there is
+/// only one version of this week.
 /// Tap a day — a game there, or a day you can't train — and the week rebuilds
 /// in front of you: every day that changed lights up with what changed and
 /// why. One tap undoes it. The planner decides; this only shows it moving.
@@ -11,6 +14,8 @@ struct WeekBendView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var days: [WeekBend.Day] = []
+    @State private var words: [[TrainingCalendar.Item]] = []
+    @State private var catalogue = Catalogue()
     @State private var changes: [Int: String] = [:]
     @State private var picked: Int?
     @State private var undo: (label: String, action: () -> Void)?
@@ -22,10 +27,10 @@ struct WeekBendView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    Headline([.strong("Your week. "), .soft("Tap a day to move things around and watch the plan adapt.")], size: 30)
+                    Headline([.strong("Your week. "), .soft("Tap a day to change it and watch the plan adapt.")], size: 30)
                     VStack(spacing: 10) {
                         ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                            Button { picked = index } label: { row(day, change: changes[index]) }
+                            Button { picked = index } label: { row(day, items: words.indices.contains(index) ? words[index] : [], change: changes[index]) }
                                 .buttonStyle(.pressable)
                                 .disabled(calendar.startOfDay(for: day.date) < calendar.startOfDay(for: .now))
                         }
@@ -40,7 +45,7 @@ struct WeekBendView: View {
                         }
                         .buttonStyle(.secondary)
                     }
-                    Text("Past days stay as they were. Gym days never land on a game, a practice or a day you can't train.")
+                    Text("Past days stay as they were. Gym days never land on a game or a day you can't train.")
                         .font(.footnote)
                         .foregroundStyle(AppTheme.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -49,10 +54,14 @@ struct WeekBendView: View {
                 .padding(.vertical, 12)
             }
             .appScreen()
-            .navigationTitle("This week")
+            .navigationTitle("Edit week")
             .navigationBarTitleDisplayModeInline()
             .toolbar { CloseToolbarItem { dismiss() } }
-            .onAppear { days = current() }
+            .onAppear {
+                catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
+                days = current()
+                words = describe(days)
+            }
             .confirmationDialog(picked.map { title(days[$0]) } ?? "", isPresented: Binding(
                 get: { picked != nil }, set: { if !$0 { picked = nil } }), titleVisibility: .visible) {
                 if let index = picked, days.indices.contains(index) { actions(days[index]) }
@@ -62,11 +71,13 @@ struct WeekBendView: View {
 
     // MARK: Rows
 
-    private func row(_ day: WeekBend.Day, change: String?) -> some View {
+    private func row(_ day: WeekBend.Day, items: [TrainingCalendar.Item], change: String?) -> some View {
         let isToday = calendar.isDateInToday(day.date)
+        let main = items.first
+        let line = items.count > 1 ? TrainingCalendar.line(Array(items.dropFirst())) : main?.detail
         return HStack(alignment: .center, spacing: 14) {
             VStack(spacing: 2) {
-                Text(day.date.formatted(.dateTime.weekday(.abbreviated)))
+                Text(isToday ? "Today" : day.date.formatted(.dateTime.weekday(.abbreviated)))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(isToday ? AuraTone.training.mark : AppTheme.secondaryText)
                 Text(day.date.formatted(.dateTime.day()))
@@ -75,13 +86,24 @@ struct WeekBendView: View {
             }
             .frame(width: 44)
             Capsule()
-                .fill(color(day.kind))
+                .fill(main.map { ProgressColors.color($0.kind) } ?? Color.white.opacity(0.15))
                 .frame(width: 5)
                 .frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 4) {
-                Text(headline(day))
-                    .font(.headline)
-                    .foregroundStyle(day.kind == .rest || day.kind == .blocked ? AppTheme.secondaryText : AppTheme.ink)
+                HStack(spacing: 6) {
+                    Text(main?.title ?? "Rest")
+                        .font(.headline)
+                        .foregroundStyle(main == nil || main?.kind == .off ? AppTheme.secondaryText : AppTheme.ink)
+                    HStack(spacing: 3) {
+                        ForEach(TrainingCalendar.marks(items)) { CalendarMark(item: $0, size: 8) }
+                    }
+                }
+                if let line {
+                    Text(line)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink.opacity(0.65))
+                        .lineLimit(2)
+                }
                 if let change {
                     Label(change, systemImage: "arrow.triangle.swap")
                         .font(.footnote.weight(.semibold))
@@ -90,11 +112,6 @@ struct WeekBendView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let minutes = day.minutes {
-                Text("\(minutes) min")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
@@ -107,26 +124,6 @@ struct WeekBendView: View {
         }
         .opacity(calendar.startOfDay(for: day.date) < calendar.startOfDay(for: .now) ? 0.45 : 1)
         .accessibilityElement(children: .combine)
-    }
-
-    private func headline(_ day: WeekBend.Day) -> String {
-        switch day.kind {
-        case .game: "\(event) day"
-        case .blocked: "Can't train"
-        case .practice: day.workout.map { "Practice + \($0)" } ?? "Team practice"
-        case .gym: day.workout ?? "Gym"
-        case .rest: "Rest"
-        }
-    }
-
-    private func color(_ kind: WeekBend.Day.Kind) -> Color {
-        switch kind {
-        case .gym: AuraTone.training.mark
-        case .practice: AuraTone.body.mark
-        case .game: AuraTone.game.mark
-        case .rest: Color.white.opacity(0.15)
-        case .blocked: AppTheme.coral.opacity(0.7)
-        }
     }
 
     private func title(_ day: WeekBend.Day) -> String {
@@ -183,15 +180,24 @@ struct WeekBendView: View {
         let after = current()
         withAnimation(.spring(response: 0.55, dampingFraction: 0.85)) {
             days = after
+            words = describe(after)
             changes = WeekBend.changes(before: before, after: after, event: event, calendar: calendar)
         }
         undo = ("Undo: \(label.lowercased())", {
             reverse()
             NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
             days = current()
+            words = describe(days)
             changes = [:]
             undo = nil
         })
+    }
+
+    /// Each day in the strip's and the calendar's own words.
+    private func describe(_ days: [WeekBend.Day]) -> [[TrainingCalendar.Item]] {
+        let source = CalendarSource(athlete: athlete, sessions: athlete.sessions, week: WeeklyPlan.generate(for: athlete),
+                                    catalogue: catalogue, calendar: calendar)
+        return days.map { source.items(on: $0.date) }
     }
 
     /// This week, Monday to Sunday as the planner built it.

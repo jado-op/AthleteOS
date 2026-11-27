@@ -197,9 +197,9 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
-                    summaryCard(source)
-                    agenda(source)
+                    // The week lives once, in the Workout tab's strip (owner, 2026-11-27).
                     calendarCard(source)
+                        .padding(.top, 16)
                     practiceSection
                     statsSection
                     workoutsSection
@@ -241,92 +241,6 @@ struct ProgressTabView: View {
             }
             .proFeature(item: $paywall, athlete: athlete)
         }
-    }
-
-    // MARK: This week
-
-    /// This week in three plain numbers: workouts against the plan, practices, games.
-    private func summaryCard(_ source: CalendarSource) -> some View {
-        var workouts = 0, practices = 0, games = 0, mobility = 0
-        if let interval = calendar.dateInterval(of: .weekOfYear, for: .now) {
-            for offset in 0..<7 {
-                guard let day = calendar.date(byAdding: .day, value: offset, to: interval.start), day <= .now else { continue }
-                for item in source.items(on: day) where item.state != .planned {
-                    switch item.kind {
-                    case .workout: workouts += 1
-                    case .practice: practices += 1
-                    case .game: games += 1
-                    case .mobility: mobility += 1
-                    case .off: break
-                    }
-                }
-            }
-        }
-        let planned = week?.sessions.count ?? 0
-        var rest: [String] = []
-        if practices > 0 { rest.append(countedNoun(practices, "practice")) }
-        if games > 0 { rest.append(countedNoun(games, source.event.lowercased())) }
-        if mobility > 0 { rest.append("\(mobility) mobility") }
-        return AuraCard(.training, focus: UnitPoint(x: 0.2, y: 0.55), radius: 200) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("This week")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink.opacity(0.8))
-                    .accessibilityAddTraits(.isHeader)
-                BigFigure("\(workouts)", unit: planned > 0 ? "of \(planned) workouts" : (workouts == 1 ? "workout" : "workouts"), size: 76)
-                Text(rest.isEmpty ? "Practice and games show up here as they happen." : rest.joined(separator: " · "))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink.opacity(0.8))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .accessibilityElement(children: .combine)
-        .padding(.top, 16)
-    }
-
-    // MARK: Next seven days
-
-    /// Today and the six days after it, each in one line of words.
-    private func agenda(_ source: CalendarSource) -> some View {
-        let start = calendar.startOfDay(for: .now)
-        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Next 7 days")
-            VStack(spacing: 0) {
-                ForEach(days, id: \.self) { day in
-                    let items = source.items(on: day)
-                    Button { selectedDay = DayBox(date: day) } label: {
-                        HStack(alignment: .center, spacing: 12) {
-                            Text(dayName(day))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(calendar.isDateInToday(day) ? AuraTone.training.mark : AppTheme.secondaryText)
-                                .frame(width: 78, alignment: .leading)
-                            HStack(spacing: 3) {
-                                ForEach(TrainingCalendar.marks(items)) { CalendarMark(item: $0, size: 8) }
-                            }
-                            .frame(width: 32, alignment: .leading)
-                            Text(TrainingCalendar.line(items))
-                                .font(.subheadline)
-                                .foregroundStyle(items.isEmpty ? AppTheme.mutedText : AppTheme.ink)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.pressable)
-                    .accessibilityLabel("\(dayName(day)): \(TrainingCalendar.line(items))")
-                }
-            }
-        }
-    }
-
-    private func dayName(_ day: Date) -> String {
-        if calendar.isDateInToday(day) { return "Today" }
-        if calendar.isDateInTomorrow(day) { return "Tomorrow" }
-        return day.formatted(.dateTime.weekday(.abbreviated).day())
     }
 
     // MARK: Calendar
