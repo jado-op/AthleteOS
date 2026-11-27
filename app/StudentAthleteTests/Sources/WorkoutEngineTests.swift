@@ -62,6 +62,31 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertLessThanOrEqual(mainWork(session).count, 7, "quality over exercise count (§7)")
     }
 
+    // Owner, 2026-11-27: when the week puts its strength session on a practice
+    // day (no free day away from the games), after practice it's a real dose —
+    // longer, legs allowed with few sets — never next to a game or after a hard practice.
+    func testTheWeeksStrengthSessionAfterPracticeIsARealDose() {
+        var strength = day("soccer", position: "midfielder", phase: .inSeason, practice: .normal, nextGame: 4)
+        strength.strengthAfterPractice = true
+        let (decision, session) = build(strength, sport: "soccer", position: "midfielder")
+        XCTAssertEqual(decision.sessionType, .afterPractice)
+        XCTAssertTrue(decision.reasons.contains(.strengthAfterPractice))
+        XCTAssertGreaterThanOrEqual(decision.durationTarget, 30)
+        XCTAssertLessThanOrEqual(decision.durationTarget, 45)
+        XCTAssertGreaterThanOrEqual(decision.legBudget, 2)
+        XCTAssertTrue(decision.avoidToday.contains(.highVolumeLowerBody), "few leg sets")
+        XCTAssertTrue(decision.avoidToday.contains(.hardConditioning), "practice gave the running")
+        XCTAssertTrue(session.explanation?.summary.contains("strength session comes after practice") ?? false)
+        // Two days before the game, or after a hard practice: the usual short add-on.
+        var close = day("soccer", position: "midfielder", phase: .inSeason, practice: .normal, nextGame: 2)
+        close.strengthAfterPractice = true
+        XCTAssertFalse(SessionPlanner.decide(close).reasons.contains(.strengthAfterPractice))
+        XCTAssertLessThanOrEqual(SessionPlanner.decide(close).durationTarget, 35)
+        var hard = day("soccer", position: "midfielder", phase: .inSeason, practice: .hard, nextGame: 4)
+        hard.strengthAfterPractice = true
+        XCTAssertFalse(SessionPlanner.decide(hard).reasons.contains(.strengthAfterPractice))
+    }
+
     // In season, practice every day: one short, heavy leg lift once the legs
     // have gone a week without one (Rønnestad 2011) — never close to a game.
     func testDailyPracticeStillGetsAWeeklyLegLift() {

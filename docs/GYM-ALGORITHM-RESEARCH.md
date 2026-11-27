@@ -30,6 +30,11 @@ adult data, the more conservative end of the range is used.
 1. **Gym days per week:** 2–3 on non-consecutive days is the default for youth; in season at least 1 (keeps
    strength, see TRAINING-RESEARCH §6). 4 days only for *performance* stage (16+, experienced) in off-season.
    *(Lloyd2014 [consensus]; ACSM2009 2–3 d novice, 3–4 d intermediate [consensus]; Rønnestad2011)*
+   **Owner's decision (2026-11-27):** the performance stage trains **6 days** off-season (Mon–Sat, Sunday off),
+   beyond the 4 the consensus names; the advisor's region recency (72 h legs, 48 h upper) and the safety rules
+   (7 days in a row → recovery, low check-in, soreness) keep each day's load in check. In season, when no free
+   day sits away from the games, the week's strength session goes **after a normal or light practice ≥ 2 days
+   from a game** (≈ 30–45 min, legs allowed with few sets) instead of the day before or after the game (A4).
 2. **Each region (upper / lower / core) should be hit at least 2× per week when there are ≥2 gym days.**
    Frequency itself barely matters when weekly volume is equal; it matters because it is the easiest way to
    get enough weekly sets without long, exhausting sessions. Target ≥ 4 hard sets per muscle group per week as

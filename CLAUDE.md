@@ -111,6 +111,12 @@ Reading files, CI logs or the GitHub API needs no lock.
   done, ring coming up, dash day off. "This week" = workouts of planned + practices · games, no mixed total.
   The Workout tab's week strip reads the same model: seven tiles Mon–Sun, same marks and words; today = the card above;
   a workout day opens that workout, any other day the day sheet.
+- Workout volume (owner, 2026-11-27): experienced athletes 16+ (performance stage) get **6 gym days off-season**
+  (`PlanGenerator.sessionsPerWeek`, Mon–Sat); others 3 off/pre-season, 2 in season. Gym-day placement
+  (`WeeklyPlan.alignToSchedule`): free days away from games → practice days ≥ 2 days from a game → days next to a game.
+  A planned gym day on a practice day = `TrainingDay.strengthAfterPractice`: after a normal/light practice, away from
+  the game, a real strength dose (+13 min, up to 45, leg budget 2, no high leg volume; reason `strengthAfterPractice`).
+  In-season gym sessions stay short on purpose (≤ 2 sets per main lift: intensity kept, volume cut).
 - Navigation (owner, 2026-11-18, replaces the five-tab layout): tabs **Home · Academy · Workout**.
   The Academy has a **Twin · Campus** switch at the top (Progress moved to Workout 2026-11-26) (owner, 2026-11-19;
   `AcademyTabView`, `AcademyNavigation`). Campus (`CampusPage.swift`) asks the interview

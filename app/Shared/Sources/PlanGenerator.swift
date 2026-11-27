@@ -116,7 +116,8 @@ public enum PlanGenerator {
         let age = ageInYears(birthDate: input.birthDate, now: input.now)
         let isYouthEnvelope = age < 18
 
-        let count = input.sessionsPerWeek.map { min(max($0, 1), 6) } ?? sessionsPerWeek(for: phase)
+        let stage = TrainingStage.of(age: age, experience: input.experience)
+        let count = input.sessionsPerWeek.map { min(max($0, 1), 6) } ?? sessionsPerWeek(for: phase, stage: stage)
         let dates = trainingDates(count: count, weekStart: input.weekStart)
         let qualityOrder = rankedQualities(sportProfile: input.sportProfile, positionProfile: input.positionProfile)
 
@@ -145,9 +146,16 @@ public enum PlanGenerator {
     /// youth envelope, applied here to every athlete for simplicity — the
     /// envelope's REP/SET clamp (not day count) is what's actually
     /// age-gated below.
-    private static func sessionsPerWeek(for phase: SeasonPhase) -> Int {
+    /// Experienced athletes 16+ (the performance stage) train six days in the
+    /// off-season, Monday to Saturday, Sunday off (owner, 2026-11-27: "6 gym
+    /// days in off season for experienced"). The days alternate regions (the
+    /// advisor keeps 72 h between heavy legs, 48 h for upper body) and the
+    /// safety rules still turn a day into recovery (seven days in a row, a low
+    /// check-in, soreness). Everyone else: 2–3 non-consecutive days (rule A1).
+    static func sessionsPerWeek(for phase: SeasonPhase, stage: TrainingStage = .development) -> Int {
         switch phase {
-        case .offSeason, .preSeason: return 3
+        case .offSeason: return stage == .performance ? 6 : 3
+        case .preSeason: return 3
         case .inSeason, .postSeason: return 2
         }
     }

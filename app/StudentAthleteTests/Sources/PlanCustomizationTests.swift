@@ -96,6 +96,16 @@ final class PlanCustomizationTests: XCTestCase {
         XCTAssertEqual(PlanGenerator.generate(input(9)).sessions.count, 6, "never more than six")
     }
 
+    // Owner, 2026-11-27: experienced athletes 16+ train six days in the
+    // off-season (Sunday off); everyone else keeps 2–3.
+    func testExperiencedAthletesGetSixOffSeasonGymDays() {
+        XCTAssertEqual(PlanGenerator.sessionsPerWeek(for: .offSeason, stage: .performance), 6)
+        XCTAssertEqual(PlanGenerator.sessionsPerWeek(for: .offSeason, stage: .development), 3)
+        XCTAssertEqual(PlanGenerator.sessionsPerWeek(for: .offSeason, stage: .foundation), 3)
+        XCTAssertEqual(PlanGenerator.sessionsPerWeek(for: .preSeason, stage: .performance), 3)
+        XCTAssertEqual(PlanGenerator.sessionsPerWeek(for: .inSeason, stage: .performance), 2)
+    }
+
     func testEditsAreSavedAndUndone() {
         PlanCustomizationStore.setWorkout(legDay, for: .gym(0), defaults)
         PlanCustomizationStore.setWorkout(legDay, for: .mode(.mobility), defaults)

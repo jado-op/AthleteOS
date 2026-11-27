@@ -226,6 +226,8 @@ enum TodayEngine {
             twin: twinSteers(athlete, date: date, calendar: calendar),
             said: said?.engineChoices ?? []
         )
+        // The week put its strength session on a practice day: after practice it's the real thing.
+        built.strengthAfterPractice = plannedGymDay && built.practice != nil
         // Taper: the next tournament or meet (not a weekly game) within ten days.
         built.daysToKeyEvent = athlete.competitions
             .filter { $0.kind != .game }

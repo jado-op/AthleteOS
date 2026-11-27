@@ -493,7 +493,10 @@ enum WeeklyPlan {
         if let aligned, TodayEngine.isAvailable(catalogue) {
             let rebuilt = aligned.sessions.map { planned -> GeneratedSession in
                 if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil { return planned }
-                guard var built = TodayEngine.session(.gymDevelopment, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue,
+                // On a practice day the strength session follows practice (the same one Today shows).
+                let practiceDay = PracticeSchedule.hasPractice(on: planned.date, calendar: calendar)
+                guard var built = TodayEngine.session(practiceDay ? .afterPractice : .gymDevelopment, athlete: athlete,
+                                                      sessions: athlete.sessions, catalogue: catalogue,
                                                       date: planned.date, plannedGymDay: true) else { return planned }
                 built.slot = planned.slot
                 return built
@@ -507,9 +510,8 @@ enum WeeklyPlan {
         return ExamWeek.lighten(aligned)
     }
 
-    /// Gym days go on days without team practice (practice days get the short
-    /// after-practice workout instead), spread across the week with a day
-    /// between them where possible, and never on a game day.
+    /// Gym days go on free days away from games first, then after a practice
+    /// two or more days from a game, spread across the week, never on a game day.
     static func alignToSchedule(_ week: GeneratedWeek?, practiceWeekdays: Set<Int>, gameDays: [Date], calendar: Calendar = .current) -> GeneratedWeek? {
         alignToSchedule(week, isPracticeDay: { practiceWeekdays.contains(calendar.component(.weekday, from: $0)) },
                         preferredDays: [], gameDays: gameDays, calendar: calendar)
@@ -518,6 +520,13 @@ enum WeeklyPlan {
     /// The same, for a schedule that changes week to week (a team calendar).
     /// `preferredDays` — days a practice was cancelled — get a gym session
     /// first: the gym day moves there.
+    ///
+    /// Where a gym day goes, best first (owner, 2026-11-27): a free day away
+    /// from games; then a practice day two or more days from a game (the
+    /// strength session follows practice, Part 2 A4); only then the day before
+    /// or after a game, which would become a primer or recovery anyway. A team
+    /// that practises Mon–Thu and plays Saturday used to get only those two —
+    /// no real strength session all season.
     static func alignToSchedule(_ week: GeneratedWeek?, isPracticeDay: (Date) -> Bool, preferredDays: [Date],
                                 gameDays: [Date], calendar: Calendar = .current) -> GeneratedWeek? {
         guard let week, !week.sessions.isEmpty else { return week }
@@ -525,15 +534,26 @@ enum WeeklyPlan {
         let preferred = Set(preferredDays.map { calendar.startOfDay(for: $0) })
         guard days.contains(where: isPracticeDay) || !preferred.isEmpty else { return week }
         let games = Set(gameDays.map { calendar.startOfDay(for: $0) })
-        let free = days.filter { !isPracticeDay($0) && !games.contains(calendar.startOfDay(for: $0)) }
-        guard !free.isEmpty else { return week }
-        let count = min(week.sessions.count, free.count)
-        let first = Array(free.filter { preferred.contains(calendar.startOfDay(for: $0)) }.prefix(count))
-        let rest = free.filter { !preferred.contains(calendar.startOfDay(for: $0)) }
-        let remaining = min(count - first.count, rest.count)
-        // The rest spaced evenly through the remaining free days.
-        let spread = remaining > 0 ? (0..<remaining).map { rest[($0 * rest.count) / remaining] } : []
-        let chosen = (first + spread).sorted()
+        func nextToGame(_ day: Date) -> Bool {
+            let start = calendar.startOfDay(for: day)
+            return games.contains { abs(calendar.dateComponents([.day], from: $0, to: start).day ?? 9) == 1 }
+        }
+        let open = days.filter { !games.contains(calendar.startOfDay(for: $0)) }
+        let freeAway = open.filter { !isPracticeDay($0) && !nextToGame($0) }
+        let practiceAway = open.filter { isPracticeDay($0) && !nextToGame($0) }
+        let freeNext = open.filter { !isPracticeDay($0) && nextToGame($0) }
+        let pool = freeAway + practiceAway + freeNext
+        guard !pool.isEmpty else { return week }
+        let count = min(week.sessions.count, pool.count)
+        // Cancelled practices first, then the best kind of day, spread out within it.
+        var chosen = Array(pool.filter { preferred.contains(calendar.startOfDay(for: $0)) }.prefix(count))
+        for tier in [freeAway, practiceAway, freeNext] where chosen.count < count {
+            let left = tier.filter { !chosen.contains($0) }
+            let need = min(count - chosen.count, left.count)
+            guard need > 0 else { continue }
+            chosen += (0..<need).map { left[($0 * left.count) / need] }
+        }
+        chosen.sort()
         let sessions = week.sessions.prefix(chosen.count).enumerated().map { index, session in
             GeneratedSession(date: chosen[index], title: session.title, focusQualities: session.focusQualities,
                              estimatedMinutes: session.estimatedMinutes, items: session.items, slot: session.slot)

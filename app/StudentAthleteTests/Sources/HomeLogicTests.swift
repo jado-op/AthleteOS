@@ -42,7 +42,10 @@ final class HomeLogicTests: XCTestCase {
 
     // MARK: - Gym days around practice
 
-    func testGymDaysMoveOffPracticeAndGameDays() {
+    // Owner, 2026-11-27: a gym day goes to a free day away from games first,
+    // then after a practice two or more days from a game, and only then next
+    // to a game (where it would become a primer or recovery anyway).
+    func testGymDaysGoToFreeDaysAwayFromGamesFirstThenAfterPractice() {
         let weekStart = calendar.date(from: DateComponents(year: 2026, month: 9, day: 21))! // a Monday
         let sessions = (0..<3).map { offset in
             GeneratedSession(date: calendar.date(byAdding: .day, value: offset * 2, to: weekStart)!, title: "S\(offset)",
@@ -52,11 +55,24 @@ final class HomeLogicTests: XCTestCase {
         let practice: Set<Int> = [2, 4, 6] // Mon, Wed, Fri
         let game = calendar.date(byAdding: .day, value: 5, to: weekStart)! // Saturday
         let aligned = WeeklyPlan.alignToSchedule(week, practiceWeekdays: practice, gameDays: [game], calendar: calendar)!
-        XCTAssertFalse(aligned.sessions.isEmpty)
+        // Tue and Thu are free and away from the game; the third follows Monday's
+        // practice — not Friday (practice, the day before) or Sunday (the day after).
+        XCTAssertEqual(aligned.sessions.map { calendar.component(.weekday, from: $0.date) }, [2, 3, 5])
         for session in aligned.sessions {
-            XCTAssertFalse(practice.contains(calendar.component(.weekday, from: session.date)), "gym day on a practice day")
             XCTAssertFalse(calendar.isDate(session.date, inSameDayAs: game), "gym day on a game day")
         }
+    }
+
+    func testATeamThatPractisesMostDaysStillGetsStrengthAwayFromTheGame() {
+        let weekStart = calendar.date(from: DateComponents(year: 2026, month: 9, day: 21))! // a Monday
+        let sessions = (0..<2).map { GeneratedSession(date: weekStart, title: "S\($0)", focusQualities: [], estimatedMinutes: 45, items: []) }
+        let week = GeneratedWeek(phase: .inSeason, weekStart: weekStart, sessions: sessions)
+        let practice: Set<Int> = [2, 3, 4, 5] // Mon–Thu
+        let game = calendar.date(byAdding: .day, value: 5, to: weekStart)! // Saturday
+        let aligned = WeeklyPlan.alignToSchedule(week, practiceWeekdays: practice, gameDays: [game], calendar: calendar)!
+        // Friday and Sunday sit next to the game: the strength sessions follow
+        // practice on Monday and Wednesday instead.
+        XCTAssertEqual(aligned.sessions.map { calendar.component(.weekday, from: $0.date) }, [2, 4])
     }
 
     func testNoPracticeDaysLeavesThePlanAlone() {

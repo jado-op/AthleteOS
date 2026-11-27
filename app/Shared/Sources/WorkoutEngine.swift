@@ -139,6 +139,10 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     case choseGymMadeLighter = "ATHLETE_CHOSE_GYM_MADE_LIGHTER"
     /// A week without a lower-body lift on practice days: one short, heavy leg lift keeps strength in season.
     case weeklyHeavyLegs = "WEEKLY_HEAVY_LEGS"
+    /// The week's strength session on a practice day: no free day away from
+    /// the games (owner, 2026-11-27; Part 2, A4: one strength session every
+    /// 7 days in season, two when the schedule allows).
+    case strengthAfterPractice = "WEEK_STRENGTH_AFTER_PRACTICE"
     /// What the athlete told AthleteOS (the shared context, `AthleteContext`).
     case highLowerBodyFatigue = "HIGH_LOWER_BODY_FATIGUE"
     case lowerBodyFatigue = "LOWER_BODY_FATIGUE"
@@ -321,6 +325,10 @@ public struct TrainingDay: Sendable {
     public var said: Set<DayChoice> = []
     /// The gym session's focus and length, when it's a gym day (nil: the engine's own mix).
     public var gym: GymRequest? = nil
+    /// The week put its strength session on this practice day (no free day
+    /// away from the games): after practice it's a real strength dose, not
+    /// the short add-on (owner, 2026-11-27; Part 2, A4).
+    public var strengthAfterPractice: Bool = false
     /// Days until the next tournament or meet (not a weekly league game): the
     /// taper window (docs/GYM-ALGORITHM-RESEARCH.md Part 2, A9).
     public var daysToKeyEvent: Int? = nil
@@ -606,6 +614,15 @@ public enum SessionPlanner {
             avoid.insert(.highVolumeLowerBody)
             add(.weeklyHeavyLegs)
         }
+        // The week's strength session on a practice day: a proper dose after a
+        // normal or light practice, away from the game, on a normal day. Few
+        // leg sets (high volume stays out), so practice recovery holds.
+        if type == .afterPractice, day.strengthAfterPractice, let practice = day.practice, practice != .hard,
+           (day.daysToNextGame ?? 99) > 2, day.readiness >= .normal, !day.soreLegs, !mustRecover, !day.gameToday {
+            legBudget = max(legBudget, 2)
+            avoid.insert(.highVolumeLowerBody)
+            add(.strengthAfterPractice)
+        }
         // Legs the athlete said are tired: very tired = no leg loading, tired = light only.
         if day.context.lowerFatigue >= 3 { legBudget = 0 } else if day.context.lowerFatigue == 2 { legBudget = min(legBudget, 1) }
         if legBudget <= 1 { avoid.insert(.highVolumeLowerBody) }
@@ -752,7 +769,11 @@ public enum SessionPlanner {
             if day.readiness == .belowNormal || day.daysToNextGame == 1 { minutes -= 5 }
             if day.examOrLongDay { minutes -= 5 }
             if day.twin.contains(.loadSpike) { minutes -= 5 }
-            minutes = min(35, max(15, minutes))
+            // The week's strength session on a practice day: a real dose, not the short add-on.
+            let strengthDay = day.strengthAfterPractice && day.practice != .hard && (day.daysToNextGame ?? 99) > 2
+                && day.readiness >= .normal && !day.soreLegs
+            if strengthDay { minutes += 13 }
+            minutes = min(strengthDay ? 45 : 35, max(15, minutes))
         case .primer: minutes = 20
         case .conditioning: minutes = day.phase == .offSeason ? 40 : 30
         case .recovery: minutes = 25

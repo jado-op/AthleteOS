@@ -35,7 +35,9 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         switch decision.sessionType {
         case .afterPractice:
             summary = (practiceCovered ?? "You trained with the team today.") + " "
-            if r.contains(.weeklyHeavyLegs) {
+            if r.contains(.strengthAfterPractice) {
+                summary += "This week has no free day away from your games, so your strength session comes after practice: \(targets), longer than the usual add-on, with few leg sets so you still recover."
+            } else if r.contains(.weeklyHeavyLegs) {
                 summary += "Your legs haven't lifted for a week, so this short session adds one heavy leg lift with few sets: enough to keep your strength, not enough to slow your recovery."
             } else {
                 summary += decision.legBudget >= 2
@@ -351,6 +353,7 @@ public extension PlanExplanation {
             (.choseLight, "You chose light"),
             (.lightTeamPractice, "Light practice"),
             (.practiceToday, "Practice today"),
+            (.strengthAfterPractice, "This week's strength session"),
             (.weeklyHeavyLegs, "A week without heavy legs"),
             (.conditioningGap, "Your sport needs more engine"),
             (.noPracticeToday, "No practice today"),
