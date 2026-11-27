@@ -242,7 +242,7 @@ public enum TwinKnowledgeEngine {
     static func gameFacts(_ input: KnowledgeInput, calendar: Calendar) -> [GameFacts] {
         let sleep = sleepByDay(input, calendar)
         var morningByDay: [Date: TwinInput.Morning] = [:]
-        for morning in input.base.mornings { morningByDay[dayKey(morning.date, calendar)] = morning }
+        for morning in input.base.mornings where !morning.assumed { morningByDay[dayKey(morning.date, calendar)] = morning }
         return input.ratedGames.sorted { $0.date < $1.date }.map { game in
             let day = dayKey(game.date, calendar)
             let before = calendar.date(byAdding: .day, value: -1, to: day) ?? day
@@ -365,8 +365,9 @@ public enum TwinKnowledgeEngine {
     /// leg session (effort ≥ 7). Needs 4 such sessions with answers after.
     static func legRecovery(_ input: KnowledgeInput, calendar: Calendar) -> (result: Result, days: Int?) {
         var soreness: [Date: Int] = [:]
-        for morning in input.base.mornings { soreness[dayKey(morning.date, calendar)] = morning.soreness }
-        guard let usual = median(input.base.mornings.sorted { $0.date < $1.date }.suffix(28).map { Double($0.soreness) }) else {
+        let answered = input.base.mornings.filter { !$0.assumed }
+        for morning in answered { soreness[dayKey(morning.date, calendar)] = morning.soreness }
+        guard let usual = median(answered.sorted { $0.date < $1.date }.suffix(28).map { Double($0.soreness) }) else {
             return (.learning(LearningItem(id: "body.legs", area: .body, question: "How long your legs take to recover",
                                            have: 0, need: 4, unit: "hard leg sessions")), nil)
         }

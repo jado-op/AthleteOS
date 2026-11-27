@@ -14,7 +14,12 @@ public struct TwinInput: Sendable {
         /// 1 calm … 5 very stressed (0: not asked).
         public var stress: Int
 
-        public init(date: Date, sleepHours: Double?, energy: Int, soreness: Int, stress: Int = 0) {
+        /// A one-tap "feeling normal" morning: the answers are the athlete's usual,
+        /// not said that day — sleep counts, the felt answers don't teach patterns.
+        public var assumed: Bool
+
+        public init(date: Date, sleepHours: Double?, energy: Int, soreness: Int, stress: Int = 0, assumed: Bool = false) {
+            self.assumed = assumed
             self.date = date
             self.sleepHours = sleepHours
             self.energy = energy
@@ -281,6 +286,8 @@ public enum TwinAnalysis {
         let calendar: Calendar
         let start: Date
         let mornings: [TwinInput.Morning]
+        /// Mornings the athlete answered (not one-tap): the felt answers' patterns read only these.
+        var answered: [TwinInput.Morning] { mornings.filter { !$0.assumed } }
         let gameDays: Set<Date>
         let reflections: [TwinInput.Reflect]
         let counts: TwinReport.Counts
@@ -362,9 +369,9 @@ public enum TwinAnalysis {
     }
 
     static func recoveryAfterGames(_ c: Context) -> TwinInsight? {
-        let dayOne = c.mornings.filter { c.daysAfterGame($0.date) == 1 }
-        let dayTwo = c.mornings.filter { c.daysAfterGame($0.date) == 2 }
-        let usual = c.mornings.filter { c.daysAfterGame($0.date) == nil && !c.gameDays.contains(c.day($0.date)) }
+        let dayOne = c.answered.filter { c.daysAfterGame($0.date) == 1 }
+        let dayTwo = c.answered.filter { c.daysAfterGame($0.date) == 2 }
+        let usual = c.answered.filter { c.daysAfterGame($0.date) == nil && !c.gameDays.contains(c.day($0.date)) }
         guard dayOne.count >= 2, usual.count >= 4 else { return nil }
         let after = mean(dayOne.map { Double($0.soreness) }), normal = mean(usual.map { Double($0.soreness) })
         guard after >= 3, after - normal >= 1 else { return nil }
@@ -385,8 +392,8 @@ public enum TwinAnalysis {
     }
 
     static func gameDayFuel(_ c: Context) -> TwinInsight? {
-        let game = c.mornings.filter { c.gameDays.contains(c.day($0.date)) }
-        let others = c.mornings.filter { !c.gameDays.contains(c.day($0.date)) }
+        let game = c.answered.filter { c.gameDays.contains(c.day($0.date)) }
+        let others = c.answered.filter { !c.gameDays.contains(c.day($0.date)) }
         if game.count >= 2, others.count >= 4 {
             let gap = mean(others.map { Double($0.energy) }) - mean(game.map { Double($0.energy) })
             if gap >= 0.8 {
@@ -650,7 +657,7 @@ public enum TwinAnalysis {
     }
 
     static func stressAndSleep(_ c: Context) -> TwinInsight? {
-        let recent = c.mornings.suffix(21).filter { $0.stress > 0 && ($0.sleepHours ?? 0) > 0 }
+        let recent = c.answered.suffix(21).filter { $0.stress > 0 && ($0.sleepHours ?? 0) > 0 }
         let tense = recent.filter { $0.stress >= 4 }, calm = recent.filter { $0.stress < 4 }
         guard tense.count >= 3, calm.count >= 4 else { return nil }
         let gap = mean(calm.compactMap(\.sleepHours)) - mean(tense.compactMap(\.sleepHours))

@@ -365,6 +365,11 @@ struct CheckInSheet: View {
         if sleepHours == nil, let healthHours {
             sleepHours = CheckInOptions.nearest(healthHours, in: CheckInOptions.sleepHours)
         }
+        // How well you slept isn't how long (research: separate signals): it
+        // starts as the last answer; worked out from hours only with no answer yet.
+        if sleepQuality == nil, let last = lastCheckIn {
+            sleepQuality = CheckInOptions.nearest(Double(last.sleepQuality), in: CheckInOptions.sleepQuality)
+        }
         if sleepQuality == nil, let healthHours {
             sleepQuality = CheckInOptions.nearest(Double(WearablePrefill.sleepQuality(hours: healthHours)), in: CheckInOptions.sleepQuality)
         }
@@ -553,6 +558,7 @@ struct CheckInSheet: View {
         // The exact hours from Apple Health when the answer agrees with them.
         let hours = healthHours.flatMap { CheckInOptions.nearest($0, in: CheckInOptions.sleepHours) == sleepHours ? $0 : nil }
             ?? sleepHours.flatMap { $0.value > 0 ? $0.value : nil }
+        OneTapCheckIns.set(false, on: .now)
         _ = try? CheckInStore(modelContext: modelContext).submit(
             athlete: athlete, sleepQuality: sleepQuality.scale, sleepHours: hours,
             soreness: soreness.scale, energy: energy.scale, stress: mood.scale
@@ -662,6 +668,7 @@ enum QuickCheckIn {
         guard let values = usual(athlete) else { return }
         ReminderScheduler.markDone(checkIn: true)
         let twinBefore = TwinPulse.before(athlete)
+        OneTapCheckIns.set(true, on: .now)
         _ = try? CheckInStore(modelContext: context).submit(
             athlete: athlete, sleepQuality: values.sleepQuality, sleepHours: MeasuredSleepStore.recent()?.lastNight,
             soreness: values.soreness, energy: values.energy, stress: values.stress

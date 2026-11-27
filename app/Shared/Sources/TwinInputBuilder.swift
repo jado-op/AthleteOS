@@ -9,7 +9,7 @@ enum TwinInputBuilder {
     static func input(athlete: Athlete, state: AcademyState, now: Date = .now, calendar: Calendar = .current) -> TwinInput {
         let mornings = athlete.checkIns.map {
             TwinInput.Morning(date: $0.date, sleepHours: $0.sleepHours.flatMap { $0 > 0 ? $0 : nil }, energy: $0.energy, soreness: $0.soreness,
-                              stress: $0.stress)
+                              stress: $0.stress, assumed: OneTapCheckIns.contains($0.date, calendar: calendar))
         }
         let lifts = athlete.sessions.flatMap { session in
             session.sets.compactMap { set -> TwinInput.Lift? in

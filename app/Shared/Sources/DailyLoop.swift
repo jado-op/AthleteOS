@@ -402,3 +402,21 @@ public enum DailyLoop {
         }
     }
 }
+
+/// Days checked in with one tap ("Feeling normal, no pain"): saved as the
+/// athlete's usual answers, so the readiness spread and the twin's patterns
+/// leave them out. Answering the check-in that day clears the mark.
+public enum OneTapCheckIns {
+    static let key = "checkin.oneTapDays"
+
+    public static func contains(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) -> Bool {
+        (defaults.stringArray(forKey: key) ?? []).contains(DayKey.of(date, calendar: calendar))
+    }
+
+    public static func set(_ oneTap: Bool, on date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        let day = DayKey.of(date, calendar: calendar)
+        var days = (defaults.stringArray(forKey: key) ?? []).filter { $0 != day }
+        if oneTap { days.append(day) }
+        defaults.set(Array(days.sorted().suffix(120)), forKey: key)
+    }
+}

@@ -22,7 +22,9 @@ public struct CheckInStore {
     ) throws -> CheckIn {
         let today = calendar.startOfDay(for: now)
         let history = athlete.checkIns
-            .filter { $0.date < today }
+            // One-tap days are the athlete's usual repeated: they'd shrink the
+            // spread and make every real dip look bigger.
+            .filter { $0.date < today && !OneTapCheckIns.contains($0.date, calendar: calendar) }
             .map {
                 CheckInAnswers(
                     date: $0.date, sleepQuality: $0.sleepQuality, soreness: $0.soreness,

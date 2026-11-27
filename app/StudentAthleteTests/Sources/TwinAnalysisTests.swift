@@ -79,6 +79,22 @@ final class TwinAnalysisTests: XCTestCase {
         XCTAssertTrue(TwinSteer.from(both).contains(.slowGameRecovery))
     }
 
+    /// One-tap "feeling normal" mornings repeat the athlete's usual: they never
+    /// make a pattern about how games feel the morning after.
+    func testOneTapMorningsDontTeachGamePatterns() {
+        var input = season(games: [3, 10, 17])
+        XCTAssertNotNil(TwinAnalysis.report(input, calendar: calendar).insights.first { $0.kind == .recoveryAfterGames })
+        input.mornings = input.mornings.map { morning in
+            let back = calendar.dateComponents([.day], from: calendar.startOfDay(for: morning.date), to: calendar.startOfDay(for: now)).day ?? 0
+            guard [2, 9, 16].contains(back) else { return morning }
+            var assumed = morning
+            assumed.assumed = true
+            return assumed
+        }
+        XCTAssertNil(TwinAnalysis.report(input, calendar: calendar).insights.first { $0.kind == .recoveryAfterGames },
+                     "the mornings after the games were one-tap: nothing said, nothing learned")
+    }
+
     func testLowGameDayEnergyOrTheInterviewFlagsFuel() {
         let tired = TwinAnalysis.report(season(games: [3, 10, 17], gameEnergy: 2), calendar: calendar)
         XCTAssertEqual(tired.insights.first { $0.kind == .gameDayFuel }?.values["energyGap"], "2.0 points")
