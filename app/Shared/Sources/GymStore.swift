@@ -93,6 +93,8 @@ enum GymHistoryBuilder {
         let today = calendar.startOfDay(for: now)
         // Today's own sessions count: a session finished this morning makes that region "trained today".
         let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.checkIns.count)|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)|\(HealthWorkoutInbox.revision)|\(AthleteContextStore.revision)"
+            // "Not right?" on the legs line takes the twin's leg rest out at once.
+            + "|\(AcademyStore.load().knowledgeHidden?["body.legs"] == nil)"
         if let cache, cache.key == key { return cache.history }
         let twoWeeks = calendar.date(byAdding: .day, value: -14, to: today) ?? today.addingTimeInterval(-14 * 86_400)
         let sixWeeks = calendar.date(byAdding: .day, value: -42, to: today) ?? today.addingTimeInterval(-42 * 86_400)

@@ -4,12 +4,12 @@ import SwiftUI
 import UIKit
 #endif
 
-// The Academy's Twin page (owner, 2026-11-19): the Digital Twin as widgets.
-// The coach's read, then three questions — how are you performing (lifts,
-// performances), how are you changing (body, training, sleep and readiness),
-// how is your mind evolving — each with the insights found in the athlete's
-// own data and the briefing the coach assigned. The interview answers and the
-// long reads live on the Campus page.
+// The Academy's Twin page (owner, 2026-11-27: shaped around the ecosystem;
+// order and rules in TwinPage.swift): who this is and the one line that
+// matters now, then "What I know about you" — one portrait, the lines that
+// shape the plan saying how — then what it's still learning, then the
+// evidence one level down (how you're performing, changing, and how your
+// mind is evolving). The interview answers and the long reads live on Campus.
 
 extension BriefingTopic {
     var color: Color {
@@ -47,6 +47,11 @@ extension Font {
     }
 }
 
+/// Where the Twin page goes one level down: the evidence behind the portrait.
+enum TwinRoute: Hashable {
+    case performing, body, mind, allHealth
+}
+
 struct AcademyHomeView: View {
     let athlete: Athlete
 
@@ -74,23 +79,28 @@ struct AcademyHomeView: View {
     @State private var showingWeek = false
     /// "What I know about you" (owner, 2026-11-27): the twin's portrait of the athlete.
     @State private var knowledge = TwinKnowledge(lines: [], learning: [], legRecoveryDays: nil)
-    @State private var showingKnowledge = false
+    /// What the twin changes in the plan, said where the fact is (TwinPage).
+    @State private var effects: [TwinPlanEffect] = []
+    @State private var letter: TwinLetter?
+    /// A line the athlete is about to say isn't right.
+    @State private var correcting: KnowledgeLine?
+    /// "Got it": shown after a correction so the athlete sees it was used.
+    @State private var correctedNote: String?
     /// "More insights into your health": everything Apple Health holds.
     @StateObject private var health = HealthInsightsViewModel()
-    @State private var showingAllHealth = false
     @Environment(\.scenePhase) private var scenePhase
+    @State private var path: [TwinRoute] = []
     @State private var openLift: LiftTrend?
     @State private var showingTests = false
     /// The last 30 days, sleep and load over time: the twin's one Trends page.
     @State private var showingTrends = false
     @State private var showingExerciseProgress = false
     @State private var showingExerciseProgressPaywall = false
+    @State private var showingCompetitions = false
     @State private var catalogue = Catalogue()
     @ObservedObject private var navigation = AcademyNavigation.shared
     @State private var addingPerformance = false
     @State private var openRecord: PerformanceRecord?
-    /// Insights opened to show their numbers.
-    @State private var expanded: Set<String> = []
 
     struct ReadingTarget: Identifiable {
         let briefing: Briefing
@@ -115,35 +125,42 @@ struct AcademyHomeView: View {
         return parts.joined(separator: " · ")
     }
 
+    private var visibleLines: [KnowledgeLine] { TwinKnowledgeStore.visible(knowledge, state: state) }
+    private var portrait: [TwinPageArea] {
+        TwinPage.portrait(lines: visibleLines, known: Set(knowledge.lines.map(\.id)), insights: report?.insights ?? [],
+                          strengths: report?.strengths ?? [], effects: effects)
+    }
+    private var hiddenCount: Int { knowledge.lines.filter { state.knowledgeHidden?[$0.id] != nil && !$0.safety }.count }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollViewReader { scroller in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     topBar
+                    // 1. Whose twin, the one line that matters now, the body.
                     identity.padding(.top, 26)
+                    hero.padding(.top, 22)
                     // Owner, 2026-11-20: tap the twin, see the week on your body.
                     TwinWeekCard(heat: TwinHeat.map(weekGroups), sentence: weekSentence) { showingWeek = true }
-                        .padding(.top, 24)
-                    knowledgeCard.padding(.top, 14)
-                    if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
-                    if let report { coachRead(report).padding(.top, 28) }
-                    // Owner, 2026-11-19: Apple Health's data opens the twin
-                    // ("More insights into your health"; any watch, band or app).
-                    if health.phase == .ready || health.phase == .empty {
-                        HealthInsightsSection(model: health, age: athleteAge, readinessDays: readinessDays) { showingAllHealth = true }
-                            .padding(.top, 44)
-                            .id("health")
+                        .padding(.top, 14)
+                    if let letter {
+                        TwinLetterCard(letter: letter) {
+                            TwinKnowledgeStore.closeLetter(letter.month)
+                            withAnimation { self.letter = nil }
+                        }
+                        .padding(.top, 28)
                     }
-                    // Owner, 2026-11-19: the twin as widgets — three questions,
-                    // each answered from the athlete's own data.
-                    performing.padding(.top, 52)
-                    changing.padding(.top, 52)
-                    mind.padding(.top, 52)
-                    if let report {
-                        training(report).padding(.top, 52)
-                        if !report.strengths.isEmpty { working(report).padding(.top, 40) }
+                    // 2–3. New twins lead with what they're learning.
+                    if portrait.isEmpty {
+                        if showsLearning { learningSection.padding(.top, 44).id("learning") }
+                        if hiddenCount > 0 || !contextLines.isEmpty { knowSection.padding(.top, 44).id("know") }
+                    } else {
+                        knowSection.padding(.top, 44).id("know")
+                        if showsLearning { learningSection.padding(.top, 44).id("learning") }
                     }
+                    // 4. The evidence, one level down.
+                    evidence.padding(.top, 52).id("evidence")
                     supportRow.padding(.top, 44)
                     if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
                         privacyRow.padding(.top, 20)
@@ -156,18 +173,20 @@ struct AcademyHomeView: View {
             .scrollIndicators(.hidden)
             .appScreen(.hero, sportSlug: sportSlug)
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $showingAllHealth) {
-                MoreHealthInsightsView(model: health, age: athleteAge, readinessDays: readinessDays)
-            }
-            // Screenshots: `-tab academy -sheet health|health2|healthAll`.
+            .navigationDestination(for: TwinRoute.self) { route in destination(route) }
+            // Screenshots: `-tab academy -sheet health|health2|healthAll|know|learning|evidence`.
             .onChange(of: health.phase) {
                 guard DemoData.initialTab == .academy, health.phase == .ready else { return }
                 switch DemoData.initialSheet {
-                case "health": scroller.scrollTo("health", anchor: .top)
-                case "health2": scroller.scrollTo("health-tiles", anchor: .top)
-                case "healthAll": showingAllHealth = true
+                case "health", "health2": path = [.body]
+                case "healthAll": path = [.body, .allHealth]
                 default: break
                 }
+            }
+            .onAppear {
+                guard DemoData.initialTab == .academy, let target = DemoData.initialSheet,
+                      ["know", "learning", "evidence"].contains(target) else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { scroller.scrollTo(target, anchor: .top) }
             }
             }
         }
@@ -178,8 +197,6 @@ struct AcademyHomeView: View {
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
             // Screenshots: `-tab academy -sheet week` opens "Your last 7 days".
             if DemoData.initialTab == .academy, DemoData.initialSheet == "week" { showingWeek = true }
-            // Screenshots: `-tab academy -sheet know` opens "What I know about you".
-            if DemoData.initialTab == .academy, DemoData.initialSheet == "know" { showingKnowledge = true }
             openPendingBriefing()
             openPendingInterview()
             openPendingTwinSheet()
@@ -193,7 +210,6 @@ struct AcademyHomeView: View {
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
         .onChange(of: navigation.pendingTwinSheet) { openPendingTwinSheet() }
-        .sheet(isPresented: $showingKnowledge, onDismiss: reload) { TwinKnowledgeView(athlete: athlete) }
         .fullScreenCover(isPresented: $showingWeek) {
             TwinWeekView(weeks: weekGroups, recovering: recovering, health: health,
                          training: athlete.sessions.map { TwinWeek.Training(date: $0.startedAt, minutes: $0.minutes) })
@@ -213,6 +229,12 @@ struct AcademyHomeView: View {
         .sheet(isPresented: $showingExerciseProgress) {
             ExerciseProgressListView(sessions: athlete.sessions.sorted { $0.startedAt > $1.startedAt }, catalogue: catalogue)
         }
+        // "Rate your last game" from Still learning: the games' one home.
+        .sheet(isPresented: $showingCompetitions, onDismiss: reload) {
+            CompetitionHubView(athlete: athlete, onChanged: {
+                NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+            })
+        }
         .proFeature(isPresented: $showingExerciseProgressPaywall, athlete: athlete, feature: .exerciseProgress)
         .sheet(item: $openLift) { trend in
             NavigationStack {
@@ -231,8 +253,28 @@ struct AcademyHomeView: View {
         } message: {
             Text("Your interview answers, briefings read and added performances are deleted on this phone and from your backup. Your training data stays.")
         }
+        .confirmationDialog("Not right?", isPresented: correctingShown, titleVisibility: .visible, presenting: correcting) { line in
+            Button("Hide this — it's not right") { hide(line) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Your twin only sees your data, so it can miss what you know. Hidden lines stay hidden; you can bring them back below.")
+        }
         .sheet(isPresented: $addingPerformance, onDismiss: reload) { AddPerformanceSheet() }
         .sheet(item: $openRecord, onDismiss: reload) { record in PerformanceDetailSheet(record: record) }
+    }
+
+    private var correctingShown: Binding<Bool> {
+        Binding(get: { correcting != nil }, set: { if !$0 { correcting = nil } })
+    }
+
+    /// "Not right?": the line goes, and the plan stops using it now — the
+    /// week is rebuilt (the gym planner's history reads hidden lines).
+    private func hide(_ line: KnowledgeLine) {
+        let usedInPlan = effects.contains { $0.id == line.id }
+        TwinKnowledgeStore.hide(line.id)
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+        withAnimation { correctedNote = usedInPlan ? "Got it — I've hidden it and stopped using it in your plan." : "Got it — I've hidden it." }
+        reload()
     }
 
     /// Search's Trends or Tests: open it here, in its one home.
@@ -260,18 +302,12 @@ struct AcademyHomeView: View {
         reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.briefing?.id == id })
     }
 
-    /// What the twin knows, opened from its first line (pain that came back first).
-    private var knowledgeCard: some View {
-        let lines = TwinKnowledgeStore.visible(knowledge, state: state)
-        let first = lines.first(where: \.safety) ?? lines.first
-        return TwinKnowledgeCard(known: lines.count, learning: knowledge.learning.count, first: first?.text) { showingKnowledge = true }
-    }
-
     private func reload() {
         state = AcademyStore.load()
         knowledge = TwinKnowledgeStore.current(athlete, state: state)
         // First-seen dates are noted whenever the twin is open, not only on its page.
         state = TwinKnowledgeStore.noteFirstSeen(knowledge.lines)
+        letter = TwinKnowledgeStore.letter(knowledge, state: state)
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
         report = TwinAnalysis.report(input)
         records = Performances.records(lifts: input.lifts, tests: input.tests, custom: state.performances)
@@ -285,11 +321,24 @@ struct AcademyHomeView: View {
         stressShift = TwinTrends.stressShift(input.mornings, now: now)
         bodyReport = catalogue.itemsBySlug.isEmpty ? nil
             : MuscleTraining.report(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
-        recovering = catalogue.itemsBySlug.isEmpty ? [] : GymHistoryBuilder.history(athlete, catalogue: catalogue, now: now).stillRecovering
+        let gym: GymHistory? = catalogue.itemsBySlug.isEmpty ? nil : GymHistoryBuilder.history(athlete, catalogue: catalogue, now: now)
+        recovering = gym?.stillRecovering ?? []
         if !catalogue.itemsBySlug.isEmpty {
             weekGroups = MuscleTraining.week(MuscleTraining.loggedSets(athlete.sessions, catalogue: catalogue), now: now)
             weekSentence = weekGroups.isEmpty ? "A rested week so far. Your week's numbers are inside." : TwinHeat.sentence(weekGroups)
         }
+        // Only what the planner really uses: a hidden legs line steers nothing (T13).
+        let legDays = state.knowledgeHidden?["body.legs"] == nil ? knowledge.legRecoveryDays : nil
+        // Legs "ready again <day>" only while it's the twin's extra time
+        // holding them: its days applied, and the usual 3 already past.
+        var legsHeld: Int?
+        if let gym, let legDays, gym.recoveryOverride[.lower] == legDays, let since = gym.daysSince[.lower],
+           since >= GymRegion.lower.recoveryDays, legDays - since > 0 {
+            legsHeld = legDays - since
+        }
+        effects = TwinPage.effects(legRecoveryDays: legDays, legsReadyIn: legsHeld,
+                                   steers: TwinSteer.from((report?.insights ?? []).map(\.kind)),
+                                   games: athlete.competitions.map(\.date), event: family.event, now: now)
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         readinessDays = (0..<7).reversed().compactMap { back -> (date: Date, band: ReadinessBand?)? in
@@ -308,51 +357,7 @@ struct AcademyHomeView: View {
         if ProAccess.isPro { openLift = trend } else { showingExerciseProgressPaywall = true }
     }
 
-    // MARK: The three questions
-
-    private func insightCards(_ topics: Set<BriefingTopic>) -> some View {
-        let matching = (report?.insights ?? []).filter { insight in insight.kind.topic.map { topics.contains($0) } ?? false }
-        return ForEach(Array(matching.enumerated()), id: \.element.id) { index, insight in
-            insightRow(insight, last: index == matching.count - 1)
-        }
-    }
-
-    private var performing: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TwinQuestion(question: "How are you performing?", answer: nil)
-            LiftTrendWidget(trends: liftTrends, name: liftName) { open($0) }
-            insightCards([.strength])
-            performances.padding(.top, 20)
-        }
-    }
-
-    private var changing: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TwinQuestion(question: "How are you changing?", answer: nil)
-            BodyStatusWidget(report: bodyReport, recovering: recovering)
-            LoadWidget(weeks: weekLoads)
-            // With sleep from Health, sleep and the week's mornings live in the health insights.
-            if !health.widgets.contains(.sleep) {
-                SleepReadinessWidget(nights: sleepNights, days: readinessDays,
-                                     fromWatch: UserDefaults.standard.bool(forKey: "sleep.fromHealth"))
-            }
-            Button { showingTrends = true } label: {
-                ListRow(systemImage: "chart.xyaxis.line", color: AuraTone.body.mark, title: "Trends", detail: "The last 30 days, sleep and load")
-            }
-            .buttonStyle(.pressable)
-            insightCards([.recovery, .fuel])
-        }
-    }
-
-    private var mind: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TwinQuestion(question: "How is your mind evolving?", answer: nil)
-            MindWidget(calm: calmWeeks, felt: feltWeeks, shift: stressShift)
-            insightCards([.mind])
-        }
-    }
-
-    // MARK: Who this twin is
+    // MARK: 1. Who this twin is, and the one line that matters now
 
     private var topBar: some View {
         AcademyPageSwitcher(name: athlete.displayName)
@@ -378,159 +383,175 @@ struct AcademyHomeView: View {
         }
     }
 
-    private var interviewCard: some View {
-        let questionIDs = AcademyContent.intake(forSport: sportSlug).map(\.id)
-        let answered = state.intakeDraft.map { AcademyStore.answeredCount($0.answers, of: questionIDs) } ?? 0
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(answered > 0 ? "Finish creating your twin" : "Let your twin get to know you")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-            Text(answered > 0
-                 ? "\(answered) of \(questionIDs.count) answered. Pick up where you left off — your answers are kept."
-                 : "\(countedNoun(questionIDs.count, "question")) about how you train, compete and think. About five minutes. Only you can see the answers.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            if answered > 0 {
-                ProgressView(value: Double(answered), total: Double(max(questionIDs.count, 1)))
-                    .tint(.white)
-                    .padding(.top, 4)
-            }
-            Button { openInterview() } label: { HeroCTALabel(answered > 0 ? "Continue the interview" : "Create my twin") }
-                .buttonStyle(.primary)
-                .padding(.top, 8)
-        }
-        .padding(20)
-        .background(AuraBackground(.mind, focus: UnitPoint(x: 0.8, y: 0.3), radius: 220))
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    private var heroLine: TwinHero {
+        TwinPage.hero(lines: visibleLines, firstSeen: state.knowledgeFirstSeen ?? [:], effects: effects,
+                      insights: report?.insights ?? [], coachRead: report?.coachRead ?? "", now: .now)
     }
 
-    private func coachRead(_ report: TwinReport) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("AthleteOS Coach's read")
+    /// The one line that leads (pain that came back → a plan change this
+    /// week → something learned this week → what matters most → the coach's
+    /// read), what it's read from, and the one thing to do about it.
+    private var hero: some View {
+        let line = heroLine
+        let eyebrowColor: Color = line.kind == .safety ? AppTheme.danger : line.kind == .plan ? AuraTone.training.mark : AppTheme.ink.opacity(0.8)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(line.eyebrow)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.ink.opacity(0.8))
-            Text(report.coachRead)
+                .foregroundStyle(eyebrowColor)
+            Text(line.text)
                 .font(.system(size: 22, weight: .semibold))
                 .tracking(-0.3)
                 .lineSpacing(3)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) \(family.events)\(state.intakeDoneAt == nil ? "" : ", and your interview")")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.ink.opacity(0.65))
+            if let report {
+                Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) \(family.events)\(state.intakeDoneAt == nil ? "" : ", and your interview")")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.ink.opacity(0.65))
+            }
+            heroAction(line).padding(.top, 4)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AuraBackground(.mind, focus: UnitPoint(x: 0.85, y: 0.2), radius: 230))
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-    }
-
-    // MARK: Insights
-
-    /// V8: each insight is its own card, lit faintly in its topic's colour:
-    /// the topic, the sentence big, the athlete's own chart in that colour,
-    /// the numbers on a tap, and the briefing the coach assigned for it.
-    private func insightRow(_ insight: TwinInsight, last: Bool) -> some View {
-        let tint = insight.kind.topic?.color ?? AuraTone.mind.mark
-        let open = expanded.contains(insight.id)
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(insight.kind.topic?.title ?? "Insight")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tint)
-                Spacer()
-                Text(insight.strength == .strong ? "Strong pattern" : "Emerging")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(AppTheme.ink.opacity(0.55))
-            }
-            Text(insight.headline)
-                .font(.system(size: 24, weight: .bold))
-                .tracking(-0.5)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            if let trend = insight.trend, trend != .steady {
-                Text(trend.label)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(trendColor(trend))
-            }
-            if let evidence = insight.evidence {
-                TwinEvidenceChart(evidence: evidence, tint: tint).frame(height: 110)
-            }
-            Button { withAnimation(.easeInOut(duration: 0.25)) { if open { _ = expanded.remove(insight.id) } else { _ = expanded.insert(insight.id) } } } label: {
-                HStack(spacing: 6) {
-                    Text(open ? "Hide the numbers" : "The numbers")
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink.opacity(0.8))
-                .frame(minHeight: 36)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.pressable)
-            if open {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(insight.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.ink.opacity(0.72))
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("From \(insight.basis)")
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.ink.opacity(0.5))
-                }
-                .transition(.opacity)
-            }
-            if let briefing = insight.briefing {
-                let read = state.read[briefing.id] != nil
-                Button {
-                    AcademyEvent.log(.insightOpened)
-                    reading = ReadingTarget(briefing: briefing, insight: insight)
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(read ? "Read again: \(briefing.title)" : "Read \u{201C}\(briefing.title)\u{201D}")
-                                .font(.headline)
-                                .foregroundStyle(AppTheme.ink)
-                                .multilineTextAlignment(.leading)
-                            Text(read ? "You read it · the coach's pick" : "The coach's pick · \(briefing.minutes) min")
-                                .font(.footnote)
-                                .foregroundStyle(AppTheme.ink.opacity(0.65))
-                        }
-                        Spacer(minLength: 8)
-                        Image(systemName: read ? "checkmark" : "arrow.right")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.ink)
-                    }
-                    .padding(16)
-                    .background(tint.opacity(0.22), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                }
-                .buttonStyle(.pressable)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            ZStack {
-                LinearGradient(colors: AuraTone.calm.base, startPoint: .topLeading, endPoint: .bottomTrailing)
-                RadialGradient(colors: [tint.opacity(0.26), tint.opacity(0.06), .clear], center: UnitPoint(x: 0.05, y: 0), startRadius: 0, endRadius: 260)
+            if line.kind == .safety {
+                Color(rgb: 0x0C0C0F)
+            } else {
+                AuraBackground(.mind, focus: UnitPoint(x: 0.85, y: 0.2), radius: 230)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
-        .padding(.top, 12)
-    }
-
-    private func trendColor(_ trend: TwinTrend) -> Color {
-        switch trend {
-        case .improving: AppTheme.green
-        case .worsening: AppTheme.orange
-        case .new, .steady: AuraTone.mind.mark
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .overlay {
+            if line.kind == .safety {
+                RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(AppTheme.danger.opacity(0.35), lineWidth: 1)
+            }
         }
     }
 
-    /// How the twin steers training right now: the season, the goals, and
-    /// what its insights change in the workouts (TwinSteer → SessionPlanner).
-    private func trainingLines(_ report: TwinReport) -> [(String, String)] {
+    @ViewBuilder
+    private func heroAction(_ line: TwinHero) -> some View {
+        if line.kind == .plan, let url = URL(string: "athleteos://workout") {
+            heroButton("See your week") { _ = IntentRoute.open(url) }
+        } else if let briefing = line.insight?.briefing {
+            heroButton(state.read[briefing.id] != nil ? "Read it again" : "Read \u{201C}\(briefing.title)\u{201D}") {
+                AcademyEvent.log(.insightOpened)
+                reading = ReadingTarget(briefing: briefing, insight: line.insight)
+            }
+        } else if line.kind == .read, state.intakeDoneAt == nil {
+            heroButton(interviewAnswered > 0 ? "Continue the interview" : "Create my twin") { openInterview() }
+        }
+    }
+
+    private func heroButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title).lineLimit(2).multilineTextAlignment(.leading)
+                Image(systemName: "arrow.right")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.black)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 36)
+            .background(Color.white, in: Capsule())
+        }
+        .buttonStyle(.pressable)
+    }
+
+    // MARK: 2. What I know about you
+
+    private var knowSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel("What I know about you")
+            Text("Worked out on your phone from your own data. Only you see it, and you're only ever compared with you.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            if let correctedNote {
+                Label(correctedNote, systemImage: "checkmark")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppTheme.green)
+                    .transition(.opacity)
+            }
+            if portrait.isEmpty {
+                Text("Nothing I can say for sure yet — I'd rather wait than guess.")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.ink)
+            }
+            ForEach(portrait, id: \.area) { area in
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(area.area.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .padding(.top, 10)
+                        .accessibilityAddTraits(.isHeader)
+                    ForEach(area.entries) { entry in portraitRow(entry) }
+                }
+            }
+            seasonAndGoals
+            if hiddenCount > 0 {
+                Button {
+                    TwinKnowledgeStore.showHidden()
+                    NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+                    correctedNote = nil
+                    reload()
+                } label: {
+                    Text("Show \(hiddenCount) hidden \(hiddenCount == 1 ? "line" : "lines") again")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.secondary)
+            }
+            Text("It says what goes together in your data, never what causes what. A pattern is only said once it has held more than once.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.mutedText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func portraitRow(_ entry: TwinPageEntry) -> some View {
+        let effect = effects.first { $0.id == entry.effectKey }?.text
+        switch entry {
+        case .line(let line):
+            // A line already says what the plan does (legs: "Your plan gives
+            // them that extra day"); the note adds only this week's day.
+            let thisWeek = effects.first { $0.id == line.id }?.now ?? false
+            KnowledgeRow(line: line, effect: thisWeek ? effect : nil) { correcting = line }
+        case .insight(let insight), .strength(let insight):
+            TwinInsightRow(insight: insight, effect: effect,
+                           read: insight.briefing.map { state.read[$0.id] != nil } ?? false) { briefing in
+                reading = ReadingTarget(briefing: briefing, insight: insight)
+            }
+        }
+    }
+
+    /// What else shapes the plan: the season and the athlete's own goals.
+    @ViewBuilder
+    private var seasonAndGoals: some View {
+        let lines = contextLines
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Also shaping your plan")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .padding(.top, 10)
+                ForEach(lines, id: \.0) { line in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(line.0)
+                            .font(.headline)
+                            .foregroundStyle(AuraTone.training.mark)
+                        Text(line.1)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The season and the goals (the twin's own steers sit on their lines).
+    private var contextLines: [(String, String)] {
         var lines: [(String, String)] = []
         if let sport = athlete.activeSport {
             let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
@@ -551,58 +572,166 @@ struct AcademyHomeView: View {
         if !goals.isEmpty {
             lines.append(("Your goals", "Workouts lean towards " + goals.joined(separator: ", ").lowercased() + "."))
         }
-        for steer in TwinSteer.from(report.insights.map(\.kind)).sorted(by: { $0.rawValue < $1.rawValue }) {
-            switch steer {
-            case .slowGameRecovery:
-                lines.append(("After games", "You still feel a \(family.event) two days later, so that day stays light on the legs too."))
-            case .loadSpike:
-                lines.append(("This week", "Your load jumped, so sessions are a little shorter and skip hard conditioning until it settles."))
-            case .strengthNotSpeed:
-                lines.append(("Strength into speed", "Your strength is rising faster than your sprint and jump, so power and acceleration come first."))
-            }
-        }
         return lines
     }
 
-    private func training(_ report: TwinReport) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionLabel("Your training") { EmptyView() }
-            Text("What your twin changes in your workouts. Tell AthleteOS when something changes.")
+    // MARK: 3. Still learning
+
+    private var interviewQuestions: [String] { AcademyContent.intake(forSport: sportSlug).map(\.id) }
+    private var interviewAnswered: Int {
+        state.intakeDraft.map { AcademyStore.answeredCount($0.answers, of: interviewQuestions) } ?? 0
+    }
+
+    /// Nothing to show once the interview is done and everything is known.
+    private var showsLearning: Bool { state.intakeDoneAt == nil || !knowledge.learning.isEmpty }
+
+    private var learningSection: some View {
+        let interviewOpen = state.intakeDoneAt == nil
+        let items = TwinPage.stillLearning(knowledge.learning, limit: interviewOpen ? 2 : 3)
+        let more = knowledge.learning.count - items.count
+        return VStack(alignment: .leading, spacing: 14) {
+            SectionLabel("Still learning")
+            Text("I won't guess. These open up as your data grows.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            ForEach(trainingLines(report), id: \.0) { line in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(line.0)
-                        .font(.headline)
-                        .foregroundStyle(AuraTone.training.mark)
-                    Text(line.1)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            if interviewOpen {
+                let total = interviewQuestions.count
+                LearningRow(question: "How you train, compete and think",
+                            progress: interviewAnswered > 0
+                                ? "\(interviewAnswered) of \(total) questions answered · your answers are kept"
+                                : "\(countedNoun(total, "question")), about five minutes. Only you see the answers.",
+                            fraction: interviewAnswered > 0 ? Double(interviewAnswered) / Double(max(total, 1)) : nil,
+                            actionTitle: interviewAnswered > 0 ? "Continue the interview" : "Answer the questions") { openInterview() }
+            }
+            ForEach(items) { item in
+                let action = learningAction(item)
+                LearningRow(question: item.question, progress: item.progress,
+                            fraction: item.checking ? nil : Double(min(item.have, item.need)) / Double(max(item.need, 1)),
+                            actionTitle: action?.title) { action?.run() }
+            }
+            if more > 0 {
+                Text("\(more) more \(more == 1 ? "thing opens" : "things open") up as your data grows.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.mutedText)
             }
         }
     }
 
-    private func working(_ report: TwinReport) -> some View {
+    /// The one thing that adds what an item is missing, when there is one
+    /// to do right now (nothing for what only time or a watch can add).
+    private func learningAction(_ item: LearningItem) -> (title: String, run: () -> Void)? {
+        switch item.id {
+        case "habits.sleep", "training.sleep":
+            let checkedIn = athlete.checkIns.contains { Calendar.current.isDateInToday($0.date) }
+            guard !checkedIn, let url = URL(string: "athleteos://checkin") else { return nil }
+            return ("Check in now", { _ = IntentRoute.open(url) })
+        case "games.best":
+            // Only the newest past game: the hub offers a result for that one.
+            guard let last = athlete.competitions.filter({ $0.date < .now }).max(by: { $0.date < $1.date }),
+                  !((CompetitionStore.results()[last.id]?.rating).map { (1...5).contains($0) } ?? false) else { return nil }
+            return ("Rate your last \(family.event)", { showingCompetitions = true })
+        default:
+            return nil
+        }
+    }
+
+    // MARK: 4. The evidence
+
+    private var evidence: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel("What's working") { EmptyView() }
-            ForEach(report.strengths) { strength in
-                HStack(alignment: .top, spacing: 12) {
-                    Circle().fill(AppTheme.green).frame(width: 7, height: 7).padding(.top, 7)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(strength.headline)
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(strength.detail)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            SectionLabel("The evidence")
+            Text("Your own numbers behind all of this.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            VStack(spacing: 0) {
+                Button { path.append(.performing) } label: {
+                    ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AuraTone.training.mark, title: "How are you performing?",
+                            detail: records.isEmpty ? "Lifts, tests and performances" : "\(countedNoun(records.count, "performance")), lifts and tests")
                 }
+                .buttonStyle(.pressable)
+                Button { path.append(.body) } label: {
+                    ListRow(systemImage: "figure.stand", color: AuraTone.body.mark, title: "How are you changing?",
+                            detail: health.phase == .ready ? "Your body, training load, sleep and Health" : "Your body, training load and sleep")
+                }
+                .buttonStyle(.pressable)
+                Button { path.append(.mind) } label: {
+                    ListRow(systemImage: "brain.head.profile", color: AuraTone.mind.mark, title: "How is your mind evolving?",
+                            detail: "Calm, and how training felt, week by week")
+                }
+                .buttonStyle(.pressable)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func destination(_ route: TwinRoute) -> some View {
+        switch route {
+        case .performing: evidencePage("How are you performing?") { performing }
+        case .body: evidencePage("How are you changing?") { changing }
+        case .mind: evidencePage("How is your mind evolving?") { mind }
+        case .allHealth: MoreHealthInsightsView(model: health, age: athleteAge, readinessDays: readinessDays)
+        }
+    }
+
+    private func evidencePage<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        ScrollViewReader { scroller in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(title)
+                        .font(.system(size: 30, weight: .bold))
+                        .tracking(-0.6)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    content()
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+            }
+            .scrollIndicators(.hidden)
+            .appScreen()
+            .navigationTitle("")
+            .navigationBarTitleDisplayModeInline()
+            .toolbar(.visible, for: .navigationBar)
+            .onAppear {
+                // Screenshots: `-sheet health2` shows the health tiles.
+                guard DemoData.initialTab == .academy, DemoData.initialSheet == "health2" else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { scroller.scrollTo("health-tiles", anchor: .top) }
+            }
+        }
+    }
+
+    private var performing: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LiftTrendWidget(trends: liftTrends, name: liftName) { open($0) }
+            performances.padding(.top, 20)
+        }
+    }
+
+    private var changing: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Owner, 2026-11-19: Apple Health's data ("More insights into your health"; any watch, band or app).
+            if health.phase == .ready || health.phase == .empty {
+                HealthInsightsSection(model: health, age: athleteAge, readinessDays: readinessDays) { path.append(.allHealth) }
+                    .padding(.bottom, 30)
+            }
+            BodyStatusWidget(report: bodyReport, recovering: recovering)
+            LoadWidget(weeks: weekLoads)
+            // With sleep from Health, sleep and the week's mornings live in the health insights.
+            if !health.widgets.contains(.sleep) {
+                SleepReadinessWidget(nights: sleepNights, days: readinessDays,
+                                     fromWatch: UserDefaults.standard.bool(forKey: "sleep.fromHealth"))
+            }
+            Button { showingTrends = true } label: {
+                ListRow(systemImage: "chart.xyaxis.line", color: AuraTone.body.mark, title: "Trends", detail: "The last 30 days, sleep and load")
+            }
+            .buttonStyle(.pressable)
+        }
+    }
+
+    private var mind: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MindWidget(calm: calmWeeks, felt: feltWeeks, shift: stressShift)
         }
     }
 
@@ -692,19 +821,6 @@ struct AcademyHomeView: View {
                     .foregroundStyle(AppTheme.danger)
             }
             .buttonStyle(.pressable)
-        }
-    }
-
-    private func sectionTitle(_ title: String, _ subtitle: String?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 22, weight: .semibold))
-                .tracking(-0.4)
-                .foregroundStyle(AppTheme.ink)
-                .accessibilityAddTraits(.isHeader)
-            if let subtitle {
-                Text(subtitle).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
-            }
         }
     }
 }

@@ -138,7 +138,7 @@ jobs:
             xcrun simctl terminate "$UDID" "$BUNDLE" || true
             # The twin's "More insights into your health" (demo Apple Health data):
             # the section, its tiles, and the whole page.
-            for sheet in health health2 healthAll week know; do
+            for sheet in health health2 healthAll week know learning evidence; do
               xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab academy -sheet "$sheet" >/dev/null
               sleep 9
               xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-academy-${sheet}.png"

@@ -75,9 +75,9 @@ Reading files, CI logs or the GitHub API needs no lock.
   data — how are you performing (lift strength trend, performances, tests), how are you changing
   (body map trained/fresh, training minutes per week, sleep and readiness words), how is your
   mind evolving (calm and how training felt, week by week) — each with its insights and the
-  coach's briefing (`TwinWidgets.swift`). Never a score. With Apple Health data (owner, 2026-11-19) the twin
-  opens with "More insights into your health" (see Apple Health below). It replaces the sleep/readiness widget
-  when Health has sleep.
+  coach's briefing (`TwinWidgets.swift`). Never a score. With Apple Health data (owner, 2026-11-19) "More
+  insights into your health" (see Apple Health below) leads "How are you changing?" — since the 2026-11-27 reshape
+  (owner OK) one level down, under The evidence. It replaces the sleep/readiness widget when Health has sleep.
 - Layout pass (owner, 2026-11-26: "before you fix it, delete it"): one door for input — Home's "+" sheet is gone,
   everything the athlete adds goes through Tell AthleteOS (with one-tap starters); the training calendar (Progress)
   left the Academy for the Workout tab ("Training calendar" row, `WorkoutNavigation`); "Exercises by muscle" was
@@ -136,6 +136,16 @@ Reading files, CI logs or the GitHub API needs no lock.
   check-ins after; a longer personal recovery lengthens the gym planner's leg rest (`GymHistoryBuilder`, T10: only
   ever longer). "Not right?" hides a line (`AcademyState.knowledgeHidden`); a monthly letter (first 10 days) lists
   what was learned. Not built on purpose: "you progress better on 3 vs 4 days" (T11), illness alerts from heart data.
+- Twin page order (owner, 2026-11-27: "shape the twin page around the ecosystem"; rules in `TwinPage.swift`, harness):
+  name + meta, then **one hero line** with what it's read from — fixed priority, each only while its cause lasts: pain
+  that came back → a twin plan change touching this week (`TwinPlanEffect.now`) → a line learned this week → the top
+  insight (+ its briefing) → the coach's read; then the body figure (`TwinWeekCard`), the monthly letter, **What I know
+  about you** inline (one portrait: knowledge lines + `TwinAnalysis` insights + strengths by area, pain first, lines that
+  steer the plan first with "In your plan: …"; an older insight saying the same as a knowledge line is dropped,
+  `TwinPage.sameSubject`), season and goals, **Still learning** (interview first while open, then the 2–3 closest to
+  known, each with the one action that adds what's missing: check in, rate your last game), then **The evidence** — three
+  rows pushing one level down (performing / changing incl. Health / mind). The heart note never leads the page (it lives
+  in the check-in). Don't bring back the separate Coach's read card, "Your training", "What's working" or the knowledge sheet.
 - Heart data (owner, 2026-11-27: "heart data is important information"; `docs/TWIN-RESEARCH.md` §3): `HeartStore` keeps
   daily resting HR and HRV from Health **per device** on the phone only (`health.` keys, never backed up); `HeartSignals`
   (harness) compares one device with itself (the source with most days this week — a new watch learns its own usual).
@@ -393,7 +403,7 @@ Reading files, CI logs or the GitHub API needs no lock.
   Model + rules are Foundation-only and in the harness: `HealthMetric.swift` (17 metrics, summaries against the
   athlete's own usual, workout de-duplication across sources, nights, sleep rhythm) and `HealthWidgetRegistry.swift`
   (every widget kind; a widget exists only when its data is recent; derived ones — recovery word, sleep rhythm,
-  wrist temperature difference — only when their inputs exist). Twin: `HealthInsightsSection` (first cards + "All
+  wrist temperature difference — only when their inputs exist). Twin (in "How are you changing?"): `HealthInsightsSection` (first cards + "All
   your health insights") → `MoreHealthInsightsView` (sections, tiles, detail sheets, route maps). Me → Apple Health:
   `HealthConnectionView`. Never invent a value; demo data only under `-demoData` (`HealthDemo`). Screenshots:
   `-tab academy -sheet health|health2|healthAll`. Energy (kcal) and body weight stay low-key tiles, never goals.

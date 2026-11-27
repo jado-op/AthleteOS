@@ -19,7 +19,7 @@ for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine GymFocus Day
          PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight TodayPlan \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \
-         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts TellParser TellModelReader CompetitionCoach MuscleTraining SleepMath GameTime ProgressionEngine WearableSignals HealthMetric HealthWidgetRegistry WorkoutTagging TwinWeek AthleteContext WorkoutVoice WeekBend TrainingCalendar PlanRecord PlanChanges TwinKnowledge PracticeRoutine HeartSignals \
+         AcademyModels TwinAnalysis Performances AcademyStore SupportResources UsageCounts TellParser TellModelReader CompetitionCoach MuscleTraining SleepMath GameTime ProgressionEngine WearableSignals HealthMetric HealthWidgetRegistry WorkoutTagging TwinWeek AthleteContext WorkoutVoice WeekBend TrainingCalendar PlanRecord PlanChanges TwinKnowledge PracticeRoutine HeartSignals TwinPage \
          Generated/Qualities Generated/Equipment Generated/AllSports Generated/AcademyContent Generated/Muscles; do
   ln -s "$SRC/$f.swift" "$H/Sources/Engine/$(basename "$f").swift"
 done
@@ -34,7 +34,7 @@ awk '/^\/\/\/ Today.s workouts with today.s pain/{exit} {print}' "$SRC/PainFilte
   awk '/^public struct Dose: Codable/,/^}/' "$SRC/AthleteModels.swift"
 } > "$H/Sources/Engine/Shims.swift"
 
-for t in WorkoutEngineTests TrainingRulesTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests GymFocusTests ProgressionEngineTests WearableSignalsTests HealthInsightsTests WorkoutTaggingTests TwinWeekTests AthleteContextTests WorkoutVoiceTests PlanBecauseTests TrainingCalendarTests PlanRecordTests PlanChangesTests TwinKnowledgeTests PracticeRoutineTests HeartSignalsTests; do
+for t in WorkoutEngineTests TrainingRulesTests ReflectionInsightTests CampusLessonTests TodayPlanTests TwinAnalysisTests TellParserTests IntakeDraftTests MuscleTrainingTests SleepMathTests GymFocusTests ProgressionEngineTests WearableSignalsTests HealthInsightsTests WorkoutTaggingTests TwinWeekTests AthleteContextTests WorkoutVoiceTests PlanBecauseTests TrainingCalendarTests PlanRecordTests PlanChangesTests TwinKnowledgeTests PracticeRoutineTests HeartSignalsTests TwinPageTests; do
   ln -s "$TESTS/$t.swift" "$H/Tests/EngineTests/$t.swift"
 done
 
