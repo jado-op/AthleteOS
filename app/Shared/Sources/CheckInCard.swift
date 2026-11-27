@@ -604,3 +604,44 @@ struct ReadinessBlock: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - Decided before you look (owner, 2026-11-27)
+
+/// The plan is already made from the calendar, the watch and what the
+/// athlete told AthleteOS; the morning check-in can be one tap: "feeling
+/// like my usual self, no pain, not sick". That answer is saved as the
+/// athlete's own usual (the middle of their last two weeks), never as an
+/// invented "good" day. Only offered when nothing needs asking: no open
+/// follow-up, no pain still open, a normal day, and a few check-ins to know
+/// what "usual" is.
+@MainActor
+enum QuickCheckIn {
+    static func isOffered(_ athlete: Athlete, now: Date = .now) -> Bool {
+        DayStatusStore.status() == .active
+            && PainStore.report() == nil
+            && AthleteContextStore.questions().isEmpty
+            && usual(athlete, now: now) != nil
+    }
+
+    /// The middle answer of the last 14 days' check-ins, per question (at least 3).
+    static func usual(_ athlete: Athlete, now: Date = .now) -> (sleepQuality: Int, energy: Int, soreness: Int, stress: Int)? {
+        let since = Calendar.current.date(byAdding: .day, value: -14, to: Calendar.current.startOfDay(for: now)) ?? now
+        let recent = athlete.checkIns.filter { $0.date >= since && !Calendar.current.isDate($0.date, inSameDayAs: now) }
+        guard recent.count >= 3 else { return nil }
+        func middle(_ values: [Int]) -> Int { values.sorted()[values.count / 2] }
+        return (middle(recent.map(\.sleepQuality)), middle(recent.map(\.energy)), middle(recent.map(\.soreness)), middle(recent.map(\.stress)))
+    }
+
+    /// Saves "usual, no pain, not sick" with last night's measured sleep when the watch has it.
+    static func save(_ athlete: Athlete, context: ModelContext) {
+        guard let values = usual(athlete) else { return }
+        ReminderScheduler.markDone(checkIn: true)
+        _ = try? CheckInStore(modelContext: context).submit(
+            athlete: athlete, sleepQuality: values.sleepQuality, sleepHours: MeasuredSleepStore.recent()?.lastNight,
+            soreness: values.soreness, energy: values.energy, stress: values.stress
+        )
+        IllnessStore.set(.no)
+        PainFollowUp.markResolved()
+        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+    }
+}

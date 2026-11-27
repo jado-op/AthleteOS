@@ -6,6 +6,7 @@ import WidgetKit
 struct StudentAthleteWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
+        MorningCardWidget()
         EmergencyWidget()
         WorkoutLiveActivity()
     }
@@ -318,5 +319,122 @@ struct EmergencyWidgetView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - The morning card (owner, 2026-11-27)
+
+/// The day on the Lock Screen before the app is opened: what to do and why,
+/// decided already. At midnight it turns to tomorrow's card, which the app
+/// worked out the evening before.
+struct MorningCard: Equatable {
+    var headline: String
+    var because: String?
+    var link: URL
+
+    static let open = MorningCard(headline: "Open AthleteOS to plan today", because: nil, link: URL(string: "athleteos://today")!)
+
+    static func make(_ snapshot: WidgetSnapshot?, at date: Date, calendar: Calendar = .current) -> MorningCard {
+        guard let snapshot else { return .open }
+        let event = snapshot.eventWord ?? "Game"
+        if calendar.isDate(snapshot.day, inSameDayAs: date) {
+            if snapshot.isGameDay {
+                return MorningCard(headline: "\(event) day", because: "Warm up, then save everything for it", link: URL(string: "athleteos://today")!)
+            }
+            if snapshot.doneToday == true {
+                return MorningCard(headline: "Done for today", because: "Recovery is training too", link: URL(string: "athleteos://today")!)
+            }
+            let headline = snapshot.sessionMinutes.map { "\($0) min · \(snapshot.sessionTitle ?? "Training")" } ?? "Rest day"
+            // Before the check-in the card still shows the plan; the tap opens the check-in.
+            return MorningCard(headline: headline, because: snapshot.why,
+                               link: URL(string: snapshot.checkedIn ? "athleteos://workout" : "athleteos://checkin")!)
+        }
+        if let tomorrow = snapshot.tomorrowDay, calendar.isDate(tomorrow, inSameDayAs: date), let title = snapshot.tomorrowTitle {
+            let headline = snapshot.tomorrowMinutes.map { "\($0) min · \(title)" } ?? title
+            return MorningCard(headline: headline, because: snapshot.tomorrowWhy,
+                               link: URL(string: snapshot.tomorrowIsGame == true ? "athleteos://today" : "athleteos://checkin")!)
+        }
+        return .open
+    }
+}
+
+/// Today's card now, tomorrow's card from midnight (the app replaces both
+/// whenever it writes a new snapshot).
+struct MorningCardProvider: TimelineProvider {
+    func placeholder(in context: Context) -> TodayEntry {
+        TodayEntry(date: .now, snapshot: .placeholder)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) {
+        completion(TodayEntry(date: .now, snapshot: context.isPreview ? .placeholder : WidgetSnapshot.load()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
+        let snapshot = WidgetSnapshot.load()
+        let calendar = Calendar.current
+        let midnight = calendar.startOfDay(for: .now.addingTimeInterval(86_400))
+        let entries = [TodayEntry(date: .now, snapshot: snapshot), TodayEntry(date: midnight, snapshot: snapshot)]
+        completion(Timeline(entries: entries, policy: .after(midnight.addingTimeInterval(86_400))))
+    }
+}
+
+struct MorningCardView: View {
+    let entry: TodayEntry
+    @Environment(\.widgetFamily) private var family
+
+    private var card: MorningCard { MorningCard.make(entry.snapshot, at: entry.date) }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            Text(card.headline)
+                .widgetURL(card.link)
+        case .accessoryRectangular:
+            VStack(alignment: .leading, spacing: 1) {
+                Text(card.headline)
+                    .font(.headline)
+                    .widgetAccentable()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if let because = card.because {
+                    Text(because)
+                        .font(.caption)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .widgetURL(card.link)
+        default:
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Today")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(card.headline)
+                    .font(.headline)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.8)
+                if let because = card.because {
+                    Text(because)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .widgetURL(card.link)
+        }
+    }
+}
+
+struct MorningCardWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MorningCard", provider: MorningCardProvider()) { entry in
+            MorningCardView(entry: entry)
+                .containerBackground(.background, for: .widget)
+        }
+        .configurationDisplayName("Morning card")
+        .description("Today's training and why, already decided — on your Lock Screen.")
+        .supportedFamilies([.accessoryRectangular, .accessoryInline, .systemSmall])
     }
 }

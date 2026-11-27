@@ -204,6 +204,15 @@ public struct MainTabView: View {
         .onChange(of: PushRoute.shared.tab) { takePushRoute() }
         // Quietly checks for the coach's news while the app is open.
         .task(id: scenePhase) { await pollLiveUpdates() }
+        // A tap on the lock-screen card while the app is already open.
+        .onReceive(NotificationCenter.default.publisher(for: IntentRoute.didChange)) { note in
+            // The route rides along: Home may already have taken it off the shelf.
+            switch (note.object as? String).flatMap(IntentRoute.init(rawValue:)) {
+            case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
+            case .checkIn?, .reflection?, .tell?: selectedTab = .today
+            default: break
+            }
+        }
     }
 
     public var body: some View {

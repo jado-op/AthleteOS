@@ -333,6 +333,15 @@ struct HomeView: View {
                     askAboutHealthWorkout()
                 }
             }
+            // The lock-screen card tapped while the app was open.
+            .onReceive(NotificationCenter.default.publisher(for: IntentRoute.didChange)) { _ in
+                switch IntentRoute.take([.checkIn, .reflection, .tell]) {
+                case .checkIn?: activeSheet = .checkIn
+                case .reflection?: activeSheet = .reflection
+                case .tell?: showingTell = true
+                default: break
+                }
+            }
             // A push or the quiet check: the coach's new workout or note shows up now.
             .onChange(of: LiveUpdates.shared.tick) {
                 revision += 1
@@ -877,6 +886,9 @@ struct HomeView: View {
         let progress: Headline.Part = .soft(plan.total > 0 ? " \(plan.doneCount) of \(plan.total) done." : "")
         switch plan.next {
         case .checkIn:
+            if QuickCheckIn.isOffered(athlete) {
+                return [hello, .soft("Today is "), .strong("already planned"), .soft(". One tap if it's a usual day.")]
+            }
             return [hello, .soft("Start with a "), .icon("waveform.path.ecg"), .strong(" 30-second check-in"), .soft(" — today's plan is built from it.")]
         case .game:
             var parts: [Headline.Part] = [hello, .soft("It's "), .icon("trophy.fill"), .strong(" \(eventWord.lowercased()) day")]
@@ -1066,7 +1078,41 @@ struct HomeView: View {
 
     // The check-in opens the day: the plan is built from it.
 
+    /// Decided before you look (owner, 2026-11-27): the plan is already made;
+    /// the check-in is one tap when the day is a usual one, the full check-in
+    /// when something's different. First check-ins and open follow-ups or
+    /// pain still go through the full questions.
+    @ViewBuilder
     private var checkInHero: some View {
+        if QuickCheckIn.isOffered(athlete) {
+            decidedHero
+        } else {
+            fullCheckInHero
+        }
+    }
+
+    private var decidedHero: some View {
+        let workout = todaysWorkout
+        let because = workout?.session.decision.flatMap { PlanExplanation.because($0.reasons, event: eventWord) }
+        return VStack(alignment: .leading, spacing: 14) {
+            NextStepEyebrow("Already planned for you", accent: .white)
+            heroTitle(workout.map { "\($0.session.estimatedMinutes) min · \($0.session.title)" } ?? "Rest day")
+            if let because { heroMeta("Because: \(because)") }
+            Button {
+                QuickCheckIn.save(athlete, context: modelContext)
+                revision += 1
+            } label: { HeroCTALabel("Feeling normal, no pain") }
+                .buttonStyle(.primary)
+                .padding(.top, 6)
+            Button("Something's different") { activeSheet = .checkIn }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink.opacity(0.85))
+                .frame(minHeight: 44)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var fullCheckInHero: some View {
         VStack(alignment: .leading, spacing: 14) {
             NextStepEyebrow("Start here · check-in", accent: .white)
             heroTitle("How do you feel?")

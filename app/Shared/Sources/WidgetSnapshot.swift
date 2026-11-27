@@ -22,6 +22,15 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public var eventWord: String?
     /// Today's session is already done.
     public var doneToday: Bool?
+    /// What shaped today, short: "Game in 2 days · legs tired" (the lock-screen card).
+    public var why: String?
+    /// Tomorrow, decided the evening before (owner, 2026-11-27: "decided before
+    /// you look"): after midnight the card shows it until the app writes a new day.
+    public var tomorrowDay: Date?
+    public var tomorrowTitle: String?
+    public var tomorrowMinutes: Int?
+    public var tomorrowWhy: String?
+    public var tomorrowIsGame: Bool?
 
     public init(
         day: Date, sportName: String, sessionTitle: String?, sessionMinutes: Int?, exerciseCount: Int,
@@ -68,8 +77,8 @@ enum WidgetSnapshotWriter {
         let calendar = Calendar.current
         let today = Date.now
         let checkIn = AthleteStats.todaysCheckIn(athlete)
-        let adjusted = TodayEngine.todaysWorkout(athlete: athlete, week: week,
-                                                 catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), calendar: calendar)
+        let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
+        let adjusted = TodayEngine.todaysWorkout(athlete: athlete, week: week, catalogue: catalogue, calendar: calendar)
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
         // Workouts against the week's planned gym days, as on Home: mobility
         // alone doesn't count, and the ring stops at the plan (never 5/3).
@@ -95,6 +104,29 @@ enum WidgetSnapshotWriter {
         snapshot.eventWord = AcademyContent.family(forSport: athlete.activeSport?.sportSlug).tokens["Event"]
         // As on Home: a short mobility session alone isn't "done for today".
         snapshot.doneToday = TodayEngine.workoutDone(athlete, calendar: calendar)
+        let event = snapshot.eventWord ?? "Game"
+        let pick = TodayEngine.todaysPick(athlete: athlete, week: week, catalogue: catalogue, calendar: calendar)
+        snapshot.why = pick?.session.decision.flatMap { PlanExplanation.because($0.reasons, event: event) }
+        // Tomorrow, decided tonight: the card is right when the athlete wakes up.
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: today)) {
+            snapshot.tomorrowDay = tomorrow
+            if let game = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
+                snapshot.tomorrowIsGame = true
+                snapshot.tomorrowTitle = "\(event) day"
+                snapshot.tomorrowWhy = "\(game.date.formatted(date: .omitted, time: .shortened)) · save everything for it"
+            } else if DayStatusStore.status(on: tomorrow, calendar: calendar) == .active {
+                let practice = PracticeSchedule.hasPractice(on: tomorrow, calendar: calendar)
+                let planned = week?.sessions.contains { calendar.isDate($0.date, inSameDayAs: tomorrow) } ?? false
+                let built = TodayEngine.isAvailable(catalogue)
+                    ? TodayEngine.session(practice ? .afterPractice : nil, athlete: athlete, sessions: athlete.sessions,
+                                          catalogue: catalogue, date: tomorrow, plannedGymDay: planned)
+                    : nil
+                snapshot.tomorrowTitle = built?.title ?? (practice ? "Team practice" : "Rest day")
+                snapshot.tomorrowMinutes = built?.estimatedMinutes
+                snapshot.tomorrowWhy = built?.decision.flatMap { PlanExplanation.because($0.reasons, event: event) }
+                    ?? (practice ? "Practice day" : built == nil ? "Recovery is part of the plan" : nil)
+            }
+        }
         guard let url = WidgetSnapshot.fileURL, let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)
         #if canImport(WidgetKit)

@@ -315,3 +315,51 @@ public struct PlanExplanation: Sendable, Equatable, Codable {
         }
     }
 }
+
+// MARK: - The short "because" (the lock screen, the morning card)
+
+public extension PlanExplanation {
+    /// What shaped the day, in at most two short phrases, most important first:
+    /// "Game in 2 days · legs tired". Nil when nothing in particular did.
+    /// `event` is the athlete's word for a competition ("Game", "Match", "Race").
+    static func because(_ reasons: [PlanReason], event: String = "Game") -> String? {
+        let r = Set(reasons)
+        let ordered: [(PlanReason, String)] = [
+            (.gameToday, "\(event) today"),
+            (.gameTomorrow, "\(event) tomorrow"),
+            (.gameWithin48h, "\(event) in 2 days"),
+            (.gameYesterday, "Played yesterday"),
+            (.reflectionSomethingHurt, "Something hurt yesterday"),
+            (.returnAfterIllness, "Back from being sick"),
+            (.taper, "\(event) day close: fewer sets"),
+            (.highLowerBodyFatigue, "Legs very tired"),
+            (.lowerBodyFatigue, "Legs tired"),
+            (.highUpperBodyFatigue, "Upper body tired"),
+            (.lowReadiness, "Well below your normal"),
+            (.belowNormalReadiness, "A bit below your normal"),
+            (.hardTeamPractice, "Hard practice"),
+            (.recentHighSprintExposure, "Lots of sprinting lately"),
+            (.lowerBodyTrainedRecently, "Legs trained recently"),
+            (.jumpsYesterday, "Jumped yesterday"),
+            (.practiceCoveredConditioning, "Practice covered conditioning"),
+            (.manyDaysInARow, "Many days in a row"),
+            (.availableTimeToday, "The time you have"),
+            (.limitedTime, "The time you have"),
+            (.limitedEquipment, "The kit you have"),
+            (.examOrLongDay, "A long school day"),
+            (.choseGym, "You chose gym"),
+            (.choseLight, "You chose light"),
+            (.lightTeamPractice, "Light practice"),
+            (.practiceToday, "Practice today"),
+            (.weeklyHeavyLegs, "A week without heavy legs"),
+            (.conditioningGap, "Your sport needs more engine"),
+            (.noPracticeToday, "No practice today"),
+        ]
+        var phrases: [String] = []
+        for (reason, phrase) in ordered where r.contains(reason) && !phrases.contains(phrase) {
+            phrases.append(phrase)
+            if phrases.count == 2 { break }
+        }
+        return phrases.isEmpty ? nil : phrases.joined(separator: " · ")
+    }
+}

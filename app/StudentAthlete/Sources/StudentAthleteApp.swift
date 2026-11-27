@@ -24,8 +24,11 @@ struct StudentAthleteApp: App {
             RootView()
                 // Links and QR codes (aos://…, api.lejacob.dev/fitness/…) open
                 // the team or workout they point to — after setup, if
-                // it isn't done yet.
-                .onOpenURL { DeepLinkCenter.shared.open($0) }
+                // it isn't done yet. The lock-screen card's links
+                // (athleteos://checkin, athleteos://workout) open that screen.
+                .onOpenURL { url in
+                    if !IntentRoute.open(url) { DeepLinkCenter.shared.open(url) }
+                }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL { DeepLinkCenter.shared.open(url) }
                 }
