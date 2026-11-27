@@ -45,4 +45,15 @@ final class ReflectionInsightTests: XCTestCase {
         XCTAssertTrue(decision.reasons.contains(.belowNormalReadiness))
         XCTAssertLessThan(decision.durationTarget, 65)
     }
+
+    /// The evening's practice answer becomes the practice log: Poor … Great on
+    /// the log's 2 … 5, and a practice only told in the evening takes its effort
+    /// from how hard the day felt.
+    func testTheEveningPracticeAnswerMapsOntoThePracticeLog() {
+        XCTAssertEqual((1...4).map(EveningOptions.practiceWent), [2, 3, 4, 5])
+        XCTAssertEqual(EveningOptions.practiceHard(dayHardness: 1), 2)
+        XCTAssertEqual(EveningOptions.practiceHard(dayHardness: 4), 5)
+        XCTAssertEqual(EveningOptions.practiceHard(dayHardness: nil), 3)
+        XCTAssertEqual(EveningOptions.practice.count + 1, EveningOptions.didntGo, "Didn't go is the fifth answer")
+    }
 }

@@ -33,6 +33,14 @@ public enum EveningOptions {
     /// 4 is "Something hurt": the evening says to tell a coach or parent.
     public static let body = ["Good", "Tired", "Very tired", "Something hurt"]
     public static let practice = ["Poor", "Okay", "Good", "Great"]
+    /// The fifth answer to "How did practice go?": it didn't happen.
+    public static let skippedPractice = "Didn't go"
+    public static let didntGo = 5
+    /// Poor … Great → the practice log's 1 (badly) … 5 (great) scale.
+    public static func practiceWent(_ answer: Int) -> Int { min(5, max(1, answer + 1)) }
+    /// A practice only told in the evening: its effort from how hard the day
+    /// felt (Easy … Very hard → 2 … 5 of the log's 1–5), 3 when not said.
+    public static func practiceHard(dayHardness: Int?) -> Int { dayHardness.map { min(5, max(1, $0 + 1)) } ?? 3 }
     public static let areas = ["Effort", "Focus", "Technique", "Speed", "Strength", "Decisions", "Communication", "Confidence", "Recovery"]
 }
 

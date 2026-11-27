@@ -16,6 +16,10 @@ extension MindsetRoutine: Identifiable {
 /// Tomorrow's plan reads it (ADAPT).
 struct ReflectionSheet: View {
     let practiceToday: Bool
+    /// A game today: the went-well / to-improve chips follow it.
+    var gameToday = false
+    /// The sport the evening's practice answer is saved for (a `PracticeLog`).
+    var sportSlug: String?
     /// A day without training, practice or a game: no "how hard" question.
     let restDay: Bool
     let onSaved: () -> Void
@@ -57,9 +61,12 @@ struct ReflectionSheet: View {
     @State private var painLevel: PainLevel?
     @State private var paused = DayStatusStore.status() == .concussion
 
-    init(completion: DayCompletion? = nil, practiceToday: Bool = false, restDay: Bool = false, onSaved: @escaping () -> Void) {
+    init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToday: Bool = false, sportSlug: String? = nil,
+         restDay: Bool = false, onSaved: @escaping () -> Void) {
         _completion = State(initialValue: completion)
         self.practiceToday = practiceToday
+        self.gameToday = gameToday
+        self.sportSlug = sportSlug
         self.restDay = restDay
         self.onSaved = onSaved
         let existing = MindsetStore.reflection(on: Self.reflectionDay())
@@ -91,7 +98,10 @@ struct ReflectionSheet: View {
     /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
     /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
-        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.pain] : []) + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork]
+        // What went well / what to improve follow practice or a game — not a
+        // rest day or a gym session that already asked its effort (research C-rules).
+        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.pain] : []) + (practiceToday ? [.practice] : [])
+            + (practiceToday || gameToday ? [.wentWell, .needsWork] : [])
     }
 
     private var progress: Double {
@@ -163,7 +173,7 @@ struct ReflectionSheet: View {
                 }
             }
         case .practice:
-            scale("How did practice go?", EveningOptions.practice, selection: $practice)
+            scale("How did practice go?", EveningOptions.practice + [EveningOptions.skippedPractice], selection: $practice)
         case .wentWell:
             areas("What went well?", selection: $wentWell, note: $wentWellNote, placeholder: "In your words (optional)")
         case .needsWork:
@@ -186,7 +196,12 @@ struct ReflectionSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Headline([.icon("checkmark"), .strong(restDay ? " Rest day done." : " Day done."),
                               .soft(" Your answers shape tomorrow's plan.")])
-                    if let insight {
+                    if bodyFeel == 4, painAreas.contains(.head) {
+                        Text("Training is paused until a doctor clears you. Tell a parent or coach tonight.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.coral)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if let insight {
                         AuraCard(.mind, focus: UnitPoint(x: 0.2, y: 0.3), radius: 200) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("What today shows")
@@ -202,8 +217,7 @@ struct ReflectionSheet: View {
                         }
                         .accessibilityElement(children: .combine)
                     } else if bodyFeel == 4 {
-                        Text(painAreas.contains(.head) ? "Training is paused until a doctor clears you. Tell a parent or coach tonight."
-                             : "Pain is saved, and tomorrow stays lighter around it until you say it's gone. Tell a coach or parent.")
+                        Text("Pain is saved, and tomorrow stays lighter around it until you say it's gone. Tell a coach or parent.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.coral)
                             .fixedSize(horizontal: false, vertical: true)
@@ -333,6 +347,24 @@ struct ReflectionSheet: View {
         NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
     }
 
+    /// The practice answer is the practice: saved as (or joined into) the day's
+    /// `PracticeLog`, so the morning doesn't ask again and the twin reads how it
+    /// went. A log from a watch or Tell keeps its minutes and effort.
+    private func savePractice() {
+        guard practiceToday, let practice, let sportSlug else { return }
+        let key = DayKey.of(Self.reflectionDay())
+        let existing = PracticeLogStore.log(on: key, sportSlug: sportSlug)
+        if practice == EveningOptions.didntGo {
+            // Didn't go: no practice that day (a logged one stands — it happened).
+            if existing == nil { PracticeOverride.set(false, on: key) }
+            return
+        }
+        var log = existing ?? PracticeLog(day: key, sportSlug: sportSlug, types: [], hard: EveningOptions.practiceHard(dayHardness: hardness),
+                                          went: 0, mood: 0, note: "Told in the evening")
+        log.went = EveningOptions.practiceWent(practice)
+        PracticeLogStore.save(log)
+    }
+
     private func pauseForHead() {
         DayStatusStore.set(.concussion, days: nil)
         HealthShare.send(kind: "paused")
@@ -345,11 +377,12 @@ struct ReflectionSheet: View {
         let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)
         MindsetStore.saveEvening(
-            hardness: restDay ? nil : hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
+            hardness: restDay ? nil : hardness, body: bodyFeel, practice: practiceToday && practice != EveningOptions.didntGo ? practice : nil,
             wentWell: order.filter { wentWell.contains($0) } + (wellNote.isEmpty ? [] : [wellNote]),
             needsWork: order.filter { needsWork.contains($0) } + (improve.isEmpty ? [] : [improve]),
             learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
+        savePractice()
         ReminderScheduler.markDone(reflection: true)
         // Tonight's answers shape tomorrow: the saved plan (Lock Screen card,
         // Home's Tomorrow) is rebuilt now, not at the next app open.

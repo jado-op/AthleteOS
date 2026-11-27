@@ -432,8 +432,8 @@ struct HomeView: View {
                 case .safety:
                     SafetyCenterView()
                 case .reflection:
-                    ReflectionSheet(completion: completion, practiceToday: practiceToday,
-                                    restDay: !loggedToday && !practiceToday && gameToday == nil) { revision += 1 }
+                    ReflectionSheet(completion: completion, practiceToday: practiceToday, gameToday: gameToday != nil,
+                                    sportSlug: athlete.activeSport?.sportSlug, restDay: !loggedToday && !practiceToday && gameToday == nil) { revision += 1 }
                 case .search:
                     AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
                         pendingSearch = target
