@@ -157,4 +157,17 @@ final class DailyLoopTests: XCTestCase {
         XCTAssertTrue(lighter?.reason.contains("until you tell us") == true)
         XCTAssertFalse(lighter?.reason.lowercased().contains("injur") == true, "never a diagnosis")
     }
+
+    /// The evening's "Something hurt" joins the day's report: every area,
+    /// the higher level — said twice is never said less.
+    func testEveningPainJoinsTheDaysReport() {
+        let morning = PainReport(day: "2026-11-27", areas: [.knee], level: .some)
+        let evening = PainReport.joining(morning, day: "2026-11-27", areas: [.ankle], level: .little)
+        XCTAssertEqual(evening.areas, [.knee, .ankle])
+        XCTAssertEqual(evening.level, .some)
+        let fresh = PainReport.joining(nil, day: "2026-11-27", areas: [.head], level: .lot)
+        XCTAssertEqual(fresh.areas, [.head])
+        XCTAssertEqual(fresh.level, .lot)
+        XCTAssertTrue(fresh.involvesHead)
+    }
 }

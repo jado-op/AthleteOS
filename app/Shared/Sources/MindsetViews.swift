@@ -27,7 +27,7 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case hardness, body, symptoms, practice, wentWell, needsWork, learned, review, done }
+    enum Step: Hashable { case hardness, body, pain, practice, wentWell, needsWork, learned, review, done }
 
     /// One Campus review question at the end (spaced repetition without a
     /// separate screen): the lesson that's most overdue.
@@ -51,8 +51,11 @@ struct ReflectionSheet: View {
     @State private var wentWell: Set<String> = []
     @State private var needsWork: Set<String> = []
     @State private var learned = ""
-    /// Pain or new symptoms during or after today's activity (none / yes / not sure).
-    @State private var symptoms: IllnessAnswer?
+    /// "Something hurt": where and how much, asked once and kept like the
+    /// check-in's pain (no diagnosis; the head goes to the pause).
+    @State private var painAreas: Set<PainArea> = []
+    @State private var painLevel: PainLevel?
+    @State private var paused = DayStatusStore.status() == .concussion
 
     init(completion: DayCompletion? = nil, practiceToday: Bool = false, restDay: Bool = false, onSaved: @escaping () -> Void) {
         _completion = State(initialValue: completion)
@@ -81,9 +84,9 @@ struct ReflectionSheet: View {
     }
 
     /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
-    /// opens the follow-up about symptoms.
+    /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
-        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.symptoms] : []) + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork]
+        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.pain] : []) + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork]
     }
 
     private var progress: Double {
@@ -113,18 +116,33 @@ struct ReflectionSheet: View {
                     .padding(.bottom, 8)
                     .background(AppTheme.background)
             }
-        case .symptoms:
-            QuestionPage(progress: progress, question: "Any pain or new symptoms?", hint: "During or after today's training or games.",
-                         buttonTitle: symptoms == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .symptoms) }) {
-                ChoiceGrid([IllnessAnswer.no, .yes, .unsure], title: { (answer: IllnessAnswer) -> String in answer == .no ? "None" : answer.title },
-                           isSelected: { (answer: IllnessAnswer) -> Bool in answer == symptoms }) { (answer: IllnessAnswer) in
-                    symptoms = answer
-                    if answer == .no { advance(from: .symptoms) }
+        case .pain:
+            QuestionPage(progress: progress, question: "Where does it hurt?", hint: "Tap every place, then how much.",
+                         buttonTitle: "Next", buttonEnabled: !painAreas.isEmpty && painLevel != nil,
+                         onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .pain) }) {
+                ChoiceGrid(PainArea.allCases, title: { (area: PainArea) -> String in area.title },
+                           isSelected: { (area: PainArea) -> Bool in painAreas.contains(area) }) { (area: PainArea) in
+                    if painAreas.contains(area) { painAreas.remove(area) } else { painAreas.insert(area) }
                 }
-                if symptoms == .yes || symptoms == .unsure {
-                    Text(symptoms == .yes
-                         ? "Tomorrow's plan stays lighter until it's gone. If it's sharp, swelling or getting worse, tell an adult tonight."
-                         : "Mention it in tomorrow's check-in if it's still there. If it's sharp, swelling or getting worse, tell an adult tonight.")
+                Text("How much?")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.top, 6)
+                ChoiceGrid(PainLevel.allCases, title: { (level: PainLevel) -> String in level.title },
+                           isSelected: { (level: PainLevel) -> Bool in level == painLevel }) { (level: PainLevel) in painLevel = level }
+                if painAreas.contains(.head) {
+                    // The head isn't trained through: the pause is right here, tonight.
+                    HeadKnockNote()
+                    if paused {
+                        Label("Training is paused until a doctor clears you.", systemImage: "pause.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                    } else {
+                        Button("Pause training") { pauseForHead() }
+                            .buttonStyle(.secondary)
+                    }
+                } else {
+                    Text("Tomorrow's plan stays lighter until you say it's gone. If it's sharp, swelling or getting worse, tell an adult tonight.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -181,7 +199,7 @@ struct ReflectionSheet: View {
                         }
                         .accessibilityElement(children: .combine)
                     } else if bodyFeel == 4 {
-                        Text("Something hurt? Tell a coach or parent, and add it in tomorrow's check-in.")
+                        Text("Pain is saved. Tell a coach or parent, and tomorrow's check-in asks how it is.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.coral)
                             .fixedSize(horizontal: false, vertical: true)
@@ -297,12 +315,24 @@ struct ReflectionSheet: View {
         dismiss()
     }
 
+    /// Pain after training is kept like pain in the check-in (no diagnosis), on
+    /// the day reflected on, joined with anything already said that day.
+    private func savePain() {
+        guard bodyFeel == 4, !painAreas.isEmpty, let painLevel else { return }
+        let day = Self.reflectionDay()
+        let report = PainReport.joining(PainStore.report(on: day), day: DayKey.of(day), areas: painAreas, level: painLevel)
+        PainStore.set(report, on: day)
+        HealthShare.send(kind: "pain", areas: report.areas, level: report.level, day: day)
+    }
+
+    private func pauseForHead() {
+        DayStatusStore.set(.concussion, days: nil)
+        HealthShare.send(kind: "paused")
+        paused = true
+    }
+
     private func save() {
-        // Symptoms after training are kept like pain in the check-in (no diagnosis).
-        if symptoms == .yes, bodyFeel == 4, PainStore.report() == nil {
-            PainStore.set(PainReport(day: DayKey.of(.now), areas: [.other], level: .some))
-            HealthShare.send(kind: "pain", areas: [.other], level: .some)
-        }
+        savePain()
         let order = EveningOptions.areas
         let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)

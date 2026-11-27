@@ -58,6 +58,15 @@ public struct PainReport: Codable, Sendable, Equatable {
 
     /// A head injury isn't trained through at all.
     public var involvesHead: Bool { areas.contains(.head) }
+
+    /// A new answer joined with what was already said that day: every area,
+    /// the higher level (said twice is never said less).
+    public static func joining(_ existing: PainReport?, day: String, areas: Set<PainArea>, level: PainLevel) -> PainReport {
+        let all = PainArea.allCases.filter { areas.contains($0) || (existing?.areas.contains($0) ?? false) }
+        let levels = PainLevel.allCases
+        let higher = max(levels.firstIndex(of: level) ?? 0, existing.flatMap { levels.firstIndex(of: $0.level) } ?? 0)
+        return PainReport(day: day, areas: all, level: levels[higher])
+    }
 }
 
 public enum PainStore {
