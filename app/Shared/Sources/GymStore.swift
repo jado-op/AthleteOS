@@ -92,7 +92,7 @@ enum GymHistoryBuilder {
     static func history(_ athlete: Athlete, catalogue: Catalogue, now: Date = .now, calendar: Calendar = .current) -> GymHistory {
         let today = calendar.startOfDay(for: now)
         // Today's own sessions count: a session finished this morning makes that region "trained today".
-        let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)|\(HealthWorkoutInbox.revision)|\(AthleteContextStore.revision)"
+        let key = "\(DayKey.of(now, calendar: calendar))|\(athlete.checkIns.count)|\(athlete.sessions.count)|\(athlete.sessions.reduce(0) { $0 + $1.sets.count })|\(catalogue.itemsBySlug.count)|\(MeasuredSleepStore.all().count)|\(HealthWorkoutInbox.revision)|\(AthleteContextStore.revision)"
         if let cache, cache.key == key { return cache.history }
         let twoWeeks = calendar.date(byAdding: .day, value: -14, to: today) ?? today.addingTimeInterval(-14 * 86_400)
         let sixWeeks = calendar.date(byAdding: .day, value: -42, to: today) ?? today.addingTimeInterval(-42 * 86_400)
@@ -104,6 +104,8 @@ enum GymHistoryBuilder {
         // The days a region wants after its newest session: set by a Health
         // workout the athlete rated, the usual rule after a logged one.
         var recoveryOverride: [GymRegion: Int] = [:]
+        // Whether the newest leg session was a hard one (effort 7+).
+        var lastLegsHard = false
         let sessions = athlete.sessions.filter { $0.startedAt >= sixWeeks }.sorted { $0.startedAt < $1.startedAt }
         for session in sessions {
             let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: session.startedAt), to: today).day ?? 99
@@ -128,6 +130,10 @@ enum GymHistoryBuilder {
             let rated = HealthWorkoutInbox.regions(of: session)
             regions.formUnion(rated.keys)
             for region in regions { recoveryOverride[region] = rated[region] }
+            if regions.contains(.lower) {
+                let band = HealthWorkoutInbox.answer(for: session).flatMap { WorkoutTagging.effectiveBands($0, minutes: session.minutes)[.lower] }
+                lastLegsHard = band.map { $0 == .veryHard } ?? ((session.sessionRPE ?? 0) >= 7)
+            }
             guard session.startedAt >= twoWeeks else { continue }
             for region in regions {
                 daysSince[region] = min(daysSince[region] ?? 99, days)
@@ -140,6 +146,12 @@ enum GymHistoryBuilder {
             guard daysSince[region] != days else { continue }
             daysSince[region] = min(daysSince[region] ?? 99, days)
             if days <= 7 { weekCount[region, default: 0] += 1 }
+        }
+        // The twin (T10): when this athlete's legs usually need longer than
+        // the planner's 3 days after their hardest sessions, a hard leg
+        // session gets that time. Only ever longer, never shorter.
+        if lastLegsHard, let legDays = TwinKnowledgeStore.legRecoveryDays(athlete, now: now, calendar: calendar) {
+            recoveryOverride[.lower] = max(recoveryOverride[.lower] ?? GymRegion.lower.recoveryDays, legDays)
         }
         // Stalled: four or more sessions of a lift, and the last three never beat the best before them.
         var stalled: Set<String> = []

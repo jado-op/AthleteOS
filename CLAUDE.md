@@ -125,6 +125,21 @@ Reading files, CI logs or the GitHub API needs no lock.
   `announce: false`; after a gap of more than a day nothing is told. **One evening message**: the evening reflection
   says "Tomorrow: <plan>" (+ practice time, + bedtime; wind-down folds in), game eves keep only the game note.
   Lock Screen and notifications never show body, health or mood words (`PlanExplanation.privateReasons`; sick/away = "Rest day").
+- Twin knows the athlete (owner, 2026-11-27: "more information and knowledge about him inside of it"; research
+  `docs/TWIN-RESEARCH.md`, rules T1–T15): **What I know about you** (`TwinKnowledgeEngine`, Foundation/harness;
+  `TwinKnowledgeStore` gathers data; `TwinKnowledgeView`, card under "Your last 7 days") — short sentences by area
+  (body, training, games, mind, habits) with their basis in counts, and "Still learning: 4 of 10 rated games". Nothing
+  before its minimum; the athlete only vs their own usual; fixed factor lists; a pattern must hold now and before the
+  last 3 cases; "goes with", never "causes"; never a direction that invites less sleep or heavy legs before games.
+  Best games use the athlete's own rating (≥10 rated), never win/loss. Pain in one area on 2 separate occasions in 8
+  weeks → "show it to an athletic trainer, physio or doctor" (can't be hidden). Legs: ≥4 hard leg sessions with
+  check-ins after; a longer personal recovery lengthens the gym planner's leg rest (`GymHistoryBuilder`, T10: only
+  ever longer). "Not right?" hides a line (`AcademyState.knowledgeHidden`); a monthly letter (first 10 days) lists
+  what was learned. Not built on purpose: "you progress better on 3 vs 4 days" (T11), illness alerts from heart data.
+- Practice data (P14–P17): Home asks about yesterday's unlogged scheduled practice once ("Went · normal / Went · hard
+  / Didn't go"; `PracticeRoutine`, `PracticeCards.swift`) and offers a weekday logged in 3 of the last 4 weeks as a
+  practice day (Yes / Not quite / No = 6 weeks quiet; never with a team calendar). A Health workout during practice
+  time already counts as that practice (`ExternalWorkoutStore.refresh`).
 - Workout volume (owner, 2026-11-27): experienced athletes 16+ (performance stage) get **6 gym days off-season**
   (`PlanGenerator.sessionsPerWeek`, Mon–Sat); others 3 off/pre-season, 2 in season. Gym-day placement
   (`WeeklyPlan.alignToSchedule`): free days away from games → practice days ≥ 2 days from a game → days next to a game.

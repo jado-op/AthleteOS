@@ -72,6 +72,9 @@ struct AcademyHomeView: View {
     @State private var weekGroups: [MuscleTraining.GroupWeek] = []
     @State private var weekSentence = "How hard each part of your body worked, and your week's numbers."
     @State private var showingWeek = false
+    /// "What I know about you" (owner, 2026-11-27): the twin's portrait of the athlete.
+    @State private var knowledge = TwinKnowledge(lines: [], learning: [], legRecoveryDays: nil)
+    @State private var showingKnowledge = false
     /// "More insights into your health": everything Apple Health holds.
     @StateObject private var health = HealthInsightsViewModel()
     @State private var showingAllHealth = false
@@ -122,6 +125,7 @@ struct AcademyHomeView: View {
                     // Owner, 2026-11-20: tap the twin, see the week on your body.
                     TwinWeekCard(heat: TwinHeat.map(weekGroups), sentence: weekSentence) { showingWeek = true }
                         .padding(.top, 24)
+                    knowledgeCard.padding(.top, 14)
                     if state.intakeDoneAt == nil { interviewCard.padding(.top, 28) }
                     if let report { coachRead(report).padding(.top, 28) }
                     // Owner, 2026-11-19: Apple Health's data opens the twin
@@ -174,6 +178,8 @@ struct AcademyHomeView: View {
             if DemoData.initialTab == .academy, DemoData.initialSheet == "intake" { showingInterview = true }
             // Screenshots: `-tab academy -sheet week` opens "Your last 7 days".
             if DemoData.initialTab == .academy, DemoData.initialSheet == "week" { showingWeek = true }
+            // Screenshots: `-tab academy -sheet know` opens "What I know about you".
+            if DemoData.initialTab == .academy, DemoData.initialSheet == "know" { showingKnowledge = true }
             openPendingBriefing()
             openPendingInterview()
             openPendingTwinSheet()
@@ -187,6 +193,7 @@ struct AcademyHomeView: View {
         .onChange(of: navigation.pendingBriefingID) { openPendingBriefing() }
         .onChange(of: navigation.pendingInterview) { openPendingInterview() }
         .onChange(of: navigation.pendingTwinSheet) { openPendingTwinSheet() }
+        .sheet(isPresented: $showingKnowledge, onDismiss: reload) { TwinKnowledgeView(athlete: athlete) }
         .fullScreenCover(isPresented: $showingWeek) {
             TwinWeekView(weeks: weekGroups, recovering: recovering, health: health,
                          training: athlete.sessions.map { TwinWeek.Training(date: $0.startedAt, minutes: $0.minutes) })
@@ -253,8 +260,18 @@ struct AcademyHomeView: View {
         reading = ReadingTarget(briefing: briefing, insight: report?.insights.first { $0.briefing?.id == id })
     }
 
+    /// What the twin knows, opened from its first line (pain that came back first).
+    private var knowledgeCard: some View {
+        let lines = TwinKnowledgeStore.visible(knowledge, state: state)
+        let first = lines.first(where: \.safety) ?? lines.first
+        return TwinKnowledgeCard(known: lines.count, learning: knowledge.learning.count, first: first?.text) { showingKnowledge = true }
+    }
+
     private func reload() {
         state = AcademyStore.load()
+        knowledge = TwinKnowledgeStore.current(athlete, state: state)
+        // First-seen dates are noted whenever the twin is open, not only on its page.
+        state = TwinKnowledgeStore.noteFirstSeen(knowledge.lines)
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
         report = TwinAnalysis.report(input)
         records = Performances.records(lifts: input.lifts, tests: input.tests, custom: state.performances)

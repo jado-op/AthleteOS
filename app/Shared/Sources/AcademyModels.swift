@@ -214,6 +214,13 @@ public struct AcademyState: Codable, Equatable, Sendable {
     /// A first interview left half-way: the answers so far and where to pick
     /// up. The twin is only "born" (intakeDoneAt) once the interview is done.
     public var intakeDraft: IntakeDraft?
+    /// "What I know about you" lines the athlete said weren't right (T13),
+    /// and when. Optional so older saved states still decode.
+    public var knowledgeHidden: [String: Date]?
+    /// When each line was first known: the monthly letter's "what I learned".
+    public var knowledgeFirstSeen: [String: Date]?
+    /// The month ("2026-11") whose letter the athlete closed.
+    public var letterClosed: String?
 
     public init() {}
 }

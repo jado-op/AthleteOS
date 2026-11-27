@@ -59,6 +59,8 @@ struct HomeView: View {
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
+    /// Bumped when a practice card is answered, so the notices redraw.
+    @State private var practiceRevision = 0
     /// The coach's latest announcement (closed ones stay closed).
     @State private var announcement = TeamAnnouncements.current
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
@@ -1016,7 +1018,23 @@ struct HomeView: View {
                         withAnimation { self.announcement = nil }
                     }
                 }
-                if !scheduleIsSet && status == .active { scheduleCard }
+                // Better practice data (P14–P17): yesterday in one tap, a routine offered, not assumed.
+                if let day = practiceToAsk {
+                    PracticeAskCard(day: day) { answer in
+                        PracticeAnswers.save(answer, on: day, sportSlug: athlete.activeSport?.sportSlug)
+                        withAnimation { practiceRevision += 1 }
+                    }
+                }
+                if let offer = routineOffer {
+                    RoutineOfferCard(weekdays: offer) { accepted in
+                        if accepted { PracticeSchedule.weekdays = PracticeSchedule.weekdays.union(offer) } else { PracticeAnswers.declineRoutine() }
+                        scheduleIsSet = PracticeSchedule.isSet
+                        withAnimation { practiceRevision += 1 }
+                        NotificationCenter.default.post(name: WeeklyPlan.inputsChanged, object: nil)
+                    } adjust: {
+                        activeSheet = .schedule
+                    }
+                } else if !scheduleIsSet && status == .active { scheduleCard }
             }
         }
     }
@@ -1783,6 +1801,29 @@ struct HomeView: View {
             return PlannedDay(date: tomorrow, items: source.items(on: tomorrow))
         }()
         return (day.title, day.detail, day.kind)
+    }
+
+    /// Yesterday, if its scheduled practice has nothing logged and wasn't answered.
+    private var practiceToAsk: Date? {
+        _ = practiceRevision
+        guard athlete.activeSport != nil, status == .active else { return nil }
+        return PracticeRoutine.dayToAsk(
+            now: clock,
+            hadPractice: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) && DayStatusStore.status(on: $0, calendar: calendar) == .active },
+            logged: { PracticeLogStore.log(on: DayKey.of($0, calendar: calendar)) != nil },
+            answered: { PracticeAnswers.answered(DayKey.of($0, calendar: calendar)) },
+            calendar: calendar)
+    }
+
+    /// Practice weekdays the logs show but the schedule doesn't have.
+    private var routineOffer: Set<Int>? {
+        _ = practiceRevision
+        guard status == .active, let sport = athlete.activeSport?.sportSlug else { return nil }
+        let days = PracticeLogStore.logs.filter { $0.sportSlug == sport }.compactMap { TwinInputBuilder.day($0.day, calendar: calendar) }
+        let offer = PracticeRoutine.proposal(inferred: PracticeRoutine.inferredWeekdays(days, now: clock, calendar: calendar),
+                                             current: PracticeSchedule.weekdays, hasCalendar: !ScheduleStore.feeds.isEmpty,
+                                             declinedUntil: PracticeAnswers.routineDeclinedUntil, now: clock)
+        return offer.isEmpty ? nil : offer
     }
 
     private var scheduleCard: some View {
