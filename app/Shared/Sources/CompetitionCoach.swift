@@ -105,21 +105,25 @@ public enum CompetitionStore {
     }
 
     /// Saves the evening's answers; a result already there takes the rating
-    /// (one rating per game — the hub never asks it again).
+    /// and, where it has none, the went-well / to-improve (asked once per game).
     public static func save(_ evening: GameEvening, _ defaults: UserDefaults = .standard) {
         var all = evenings(defaults)
         all[evening.id] = evening
         defaults.set(try? JSONEncoder().encode(all), forKey: eveningsKey)
-        if var result = results(defaults)[evening.id], let rating = evening.rating {
-            result.rating = rating
+        if var result = results(defaults)[evening.id] {
+            if let rating = evening.rating { result.rating = rating }
+            if result.wentWell.isEmpty { result.wentWell = evening.wentWell }
+            if result.toImprove.isEmpty { result.toImprove = evening.toImprove }
             save(result, defaults)
         }
     }
 
-    /// How the athlete played, 1…5: the result's rating, else the evening's (nil: not said).
+    /// How the athlete played, 1…5: the result's rating, else the evening's
+    /// (nil: not said, or they didn't play — that's no read of their game).
     public static func rating(for id: String, _ defaults: UserDefaults = .standard) -> Int? {
         if let rating = results(defaults)[id]?.rating, (1...5).contains(rating) { return rating }
-        return evenings(defaults)[id]?.rating.flatMap { (1...5).contains($0) ? $0 : nil }
+        guard let evening = evenings(defaults)[id], evening.played != GameEvening.Played.benched else { return nil }
+        return evening.rating.flatMap { (1...5).contains($0) ? $0 : nil }
     }
 
     /// A deleted competition takes its result and outlook with it.
@@ -136,14 +140,16 @@ public enum CompetitionStore {
 /// The evening after a game, in the athlete's words: how they played, how
 /// much, how hard. Kept with results (sealed `mindset.`); the twin reads it.
 public struct GameEvening: Codable, Equatable, Sendable, Identifiable {
+    /// No case is called `none` or `some`: on a `Played?` those would read as
+    /// Optional's own cases (CLAUDE.md).
     public enum Played: String, Codable, CaseIterable, Sendable {
-        case most, some, none
+        case most, part, benched
 
         public var title: String {
             switch self {
             case .most: "Most of it"
-            case .some: "Some of it"
-            case .none: "Didn't play"
+            case .part: "Some of it"
+            case .benched: "Didn't play"
             }
         }
     }
@@ -174,10 +180,11 @@ public struct GameEvening: Codable, Equatable, Sendable, Identifiable {
     /// Minutes of the game that count as the athlete's load: the usual hour,
     /// half of it for "some", none when they didn't play.
     public var minutes: Int {
+        guard let played else { return 60 }
         switch played {
-        case .some: 30
-        case .none: 0
-        default: 60
+        case .most: return 60
+        case .part: return 30
+        case .benched: return 0
         }
     }
 }

@@ -432,9 +432,9 @@ struct CompetitionHubView: View {
                         Text(result.summary)
                             .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(AppTheme.ink)
-                        if (1...5).contains(result.rating) { HStack(spacing: 6) {
+                        if let rating = CompetitionStore.rating(for: result.id) { HStack(spacing: 6) {
                             ForEach(1...5, id: \.self) { n in
-                                Circle().fill(n <= result.rating ? AppTheme.brightRed : Color.white.opacity(0.12)).frame(width: 8, height: 8)
+                                Circle().fill(n <= rating ? AppTheme.brightRed : Color.white.opacity(0.12)).frame(width: 8, height: 8)
                             }
                             Text("how you played").font(.caption).foregroundStyle(AppTheme.secondaryText)
                         } }
@@ -743,11 +743,13 @@ struct CompetitionResultForm: View {
                     return
                 }
                 outcome = existing.outcome
+                // A result Tell made ("we won 3-1") without a rating: the evening's answers fill it.
+                let evening = CompetitionStore.evenings()[competition.id]
                 placement = existing.placement ?? 1
                 score = existing.score ?? ""
-                rating = existing.rating
-                wentWell = Set(existing.wentWell)
-                toImprove = Set(existing.toImprove)
+                rating = (1...5).contains(existing.rating) ? existing.rating : (evening?.rating ?? 0)
+                wentWell = Set(existing.wentWell.isEmpty ? evening?.wentWell ?? [] : existing.wentWell)
+                toImprove = Set(existing.toImprove.isEmpty ? evening?.toImprove ?? [] : existing.toImprove)
                 note = existing.note ?? ""
             }
         }

@@ -164,6 +164,22 @@ Reading files, CI logs or the GitHub API needs no lock.
   read by the planner and the gym advisor (`TrainingDay.twinHoldsLegsAfterGame`; steps aside in a two-games week when
   legs haven't been heavy for a week). The leg-recovery blend was dropped on purpose. Still to come (research order):
   sleep safety floor vs personal "short for you", lighter first sessions after a break, heart widths, load-spike width.
+- Check-ins (owner, 2026-11-27: "shape the check-ins so the twin learns more… the check-in changes on what you did";
+  research + second opinion `docs/CHECKIN-RESEARCH.md`, its review section wins): **nothing is preset or made up** — a watch
+  practice has no "went", a game result form starts empty (rating 0 = not said), minutes only when known; one-tap "Feeling
+  normal" days are marked (`OneTapCheckIns`, sealed `safety.`) and left out of the readiness spread, the twin's felt-answer
+  patterns (`TwinInput.Morning.assumed`), the mind trend and the low-energy check; sleep quality starts "like yesterday", not
+  from hours. A history that barely moved (spread < 0.5) reads with the assumed one-point swing, capped (one item never red).
+  **The evening follows the day** (`ReflectionSheet`, the reflected day = yesterday until 05:00): game not rated yet → "Did you
+  play?" (team sports; `GameEvening.Played` has no `none`/`some` case on purpose), "How did you play?" (= the game's rating,
+  `CompetitionStore.rating(for:)`; the hub shows it, never asks again), how hard 0–10; practice → how it went (or "Didn't go"),
+  how hard 0–10 with minutes from watch/schedule — saved as the day's `PracticeLog` (rpe), so the morning card stays quiet;
+  "How hard did today feel?" only when no effort is known (an unanswered watch guess isn't one) — the day's hardness follows
+  from the efforts; body; "Something hurt" asks where + how much once (head = pause at once, open pain keeps its areas out of
+  the next workouts); went well / to improve only after a practice or game. The twin counts practice and rated games as
+  minutes × effort, says the usual practice ("about 1 h 30 min at 6 of 10 — hard", ≥6 rated) and a big week in hours (never a
+  percent or risk). An evening that rated a practice or game can say what it taught (`TwinLearned.Input.evening`, Home's
+  notices). Still to come: the weekly "next week looks…" question.
 - Heart data (owner, 2026-11-27: "heart data is important information"; `docs/TWIN-RESEARCH.md` §3): `HeartStore` keeps
   daily resting HR and HRV from Health **per device** on the phone only (`health.` keys, never backed up); `HeartSignals`
   (harness) compares one device with itself (the source with most days this week — a new watch learns its own usual).

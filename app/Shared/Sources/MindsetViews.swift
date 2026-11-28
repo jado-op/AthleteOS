@@ -144,7 +144,7 @@ struct ReflectionSheet: View {
             _painLevel = State(initialValue: pain.level)
         }
         let asks = EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: hadGame && gameToRate == nil)
-        _step = State(initialValue: gameToRate != nil ? .gameRating : practiceToday ? .practice : asks ? .hardness : .body)
+        _step = State(initialValue: gameToRate.map { $0.team ? Step.gamePlayed : Step.gameRating } ?? (practiceToday ? .practice : asks ? .hardness : .body))
     }
 
 
@@ -154,7 +154,7 @@ struct ReflectionSheet: View {
     }
 
     private var practiceWent: Bool { practiceToday && practice != nil && practice != EveningOptions.didntGo }
-    private var playedGame: Bool { gameToRate != nil && gamePlayed != GameEvening.Played.none }
+    private var playedGame: Bool { gameToRate != nil && gamePlayed != GameEvening.Played.benched }
 
     /// The day's hardness (1 easy … 4 very hard) for tomorrow's plan: what the
     /// athlete said, else the hardest effort the day's sessions were rated.
@@ -176,14 +176,18 @@ struct ReflectionSheet: View {
         return calendar.date(byAdding: .day, value: -1, to: now) ?? now
     }
 
-    /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
+    /// A few short questions, depending on the day (V6 §18): what happened
+    /// (game, practice), then the body. "Something hurt"
     /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
         var steps: [Step] = []
+        // Team sports ask first whether they played: no rating, no effort for a game on the bench.
         if let gameToRate {
-            steps.append(.gameRating)
             if gameToRate.team { steps.append(.gamePlayed) }
-            if playedGame { steps.append(.gameEffort) }
+            if playedGame {
+                steps.append(.gameRating)
+                steps.append(.gameEffort)
+            }
         }
         if practiceToday {
             steps.append(.practice)
@@ -272,14 +276,17 @@ struct ReflectionSheet: View {
                 skipFooter(.gameRating)
             }
         case .gamePlayed:
-            QuestionPage(progress: progress, question: "Did you play?", hint: "How much of the \(gameToRate?.event ?? "game") you were on.",
-                         buttonTitle: gamePlayed == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() },
-                         onButton: { next(from: .gamePlayed) }, tone: .mind) {
-                ChoiceGrid(GameEvening.Played.allCases, title: { (played: GameEvening.Played) -> String in played.title },
-                           isSelected: { (played: GameEvening.Played) -> Bool in played == gamePlayed }) { (played: GameEvening.Played) in
-                    gamePlayed = played
-                    advance(from: .gamePlayed)
+            VStack(spacing: 0) {
+                QuestionPage(progress: progress, question: "Did you play?", hint: "How much of the \(gameToRate?.event ?? "game") you were on.",
+                             buttonTitle: gamePlayed == nil ? nil : "Next", onClose: { dismiss() }, onBack: steps.first == .gamePlayed ? nil : { back() },
+                             onButton: { next(from: .gamePlayed) }, tone: .mind) {
+                    ChoiceGrid(GameEvening.Played.allCases, title: { (played: GameEvening.Played) -> String in played.title },
+                               isSelected: { (played: GameEvening.Played) -> Bool in played == gamePlayed }) { (played: GameEvening.Played) in
+                        gamePlayed = played
+                        advance(from: .gamePlayed)
+                    }
                 }
+                skipFooter(.gamePlayed)
             }
         case .gameEffort:
             QuestionPage(progress: progress, question: "How hard was the \(gameToRate?.event ?? "game") for you?",
@@ -555,7 +562,7 @@ struct ReflectionSheet: View {
     /// it again), how much was played, how hard — the twin's game load.
     private func saveGame(wentWell: [String], toImprove: [String]) {
         guard let gameToRate, gameRating != nil || gamePlayed != nil || gameRPE != nil else { return }
-        CompetitionStore.save(GameEvening(id: gameToRate.id, rating: gameRating, played: gameToRate.team ? gamePlayed : nil,
+        CompetitionStore.save(GameEvening(id: gameToRate.id, rating: playedGame ? gameRating : nil, played: gameToRate.team ? gamePlayed : nil,
                                           rpe: playedGame ? gameRPE : nil, wentWell: wentWell, toImprove: toImprove))
     }
 

@@ -94,13 +94,10 @@ struct HomeView: View {
     private var examWeek: Bool { _ = practiceDays; return ScheduleStore.isExamWeek(.now) }
     private var loggedToday: Bool { !todaysSessions.isEmpty }
 
-    /// The athlete's sport words and whether it's a team sport ("Did you play?").
-    private var gameFamily: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
-
     /// The day the evening reflects on (after midnight, until 05:00, still
     /// yesterday): its practice — kept when the evening itself said "Didn't go",
-    /// so the answer can be changed — its game, and whether a game still waits
-    /// for the games hub's questions (asked there, not twice).
+    /// so the answer can be changed — its game, and the game not rated yet (the
+    /// evening asks how it went; the hub then shows it, not asks again).
     private var reflectionDayFacts: (practice: Bool, game: Bool, gameToRate: Competition?, trained: Bool, effort: Int?, practiceMinutes: Int?) {
         let day = ReflectionSheet.reflectionDay()
         let key = DayKey.of(day)
@@ -460,7 +457,10 @@ struct HomeView: View {
                 case .reflection:
                     let evening = reflectionDayFacts
                     ReflectionSheet(completion: completion, practiceToday: evening.practice,
-                                    gameToRate: evening.gameToRate.map { ($0.id, gameFamily.team, gameFamily.event) },
+                                    gameToRate: evening.gameToRate.map { game -> (id: String, team: Bool, event: String) in
+                                        let family = AcademyContent.family(forSport: game.sportSlug)
+                                        return (game.id, family.team, family.event)
+                                    },
                                     sportSlug: athlete.activeSport?.sportSlug ?? athlete.sports.first?.sportSlug,
                                     restDay: !evening.trained && !evening.practice && !evening.game,
                                     trained: evening.trained, trainedEffort: evening.effort,

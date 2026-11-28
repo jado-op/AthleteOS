@@ -41,7 +41,7 @@ enum TwinInputBuilder {
         let loads = athlete.sessions.map { TwinInput.Load(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE) }
         let evenings = CompetitionStore.evenings()
         let gameLoads = athlete.competitions.compactMap { game -> TwinInput.Load? in
-            guard let evening = evenings[game.id], evening.rpe != nil || evening.played == GameEvening.Played.none else { return nil }
+            guard let evening = evenings[game.id], evening.rpe != nil || evening.played == GameEvening.Played.benched else { return nil }
             return TwinInput.Load(date: game.date, minutes: evening.minutes, rpe: evening.rpe)
         }
         var built = TwinInput(mornings: mornings, games: athlete.competitions.map(\.date), sessions: athlete.sessions.map(\.startedAt),

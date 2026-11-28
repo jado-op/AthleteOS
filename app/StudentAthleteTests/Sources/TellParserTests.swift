@@ -276,13 +276,18 @@ final class TellParserTests: XCTestCase {
     func testTheEveningRatesTheGame() {
         let defaults = UserDefaults(suiteName: "game-evening-\(UUID().uuidString)")!
         XCTAssertNil(CompetitionStore.rating(for: "g1", defaults))
-        CompetitionStore.save(GameEvening(id: "g1", rating: 4, played: .some, rpe: 7), defaults)
+        CompetitionStore.save(GameEvening(id: "g1", rating: 4, played: .part, rpe: 7), defaults)
         XCTAssertEqual(CompetitionStore.rating(for: "g1", defaults), 4)
         XCTAssertEqual(CompetitionStore.evenings(defaults)["g1"]?.minutes, 30)
         CompetitionStore.save(CompetitionResult(id: "g2", outcome: .win, rating: 0), defaults)
         CompetitionStore.save(GameEvening(id: "g2", rating: 5), defaults)
         XCTAssertEqual(CompetitionStore.results(defaults)["g2"]?.rating, 5, "a result already there takes the evening's rating")
-        XCTAssertEqual(GameEvening(id: "x", rating: nil, played: .none).minutes, 0)
+        XCTAssertEqual(GameEvening(id: "x", rating: nil, played: .benched).minutes, 0)
+        XCTAssertEqual(GameEvening(id: "x", rating: nil, played: .most).minutes, 60)
+        XCTAssertEqual(GameEvening(id: "x", rating: nil, played: nil).minutes, 60, "an individual sport: the usual length")
+        // Didn't play: no read of their game.
+        CompetitionStore.save(GameEvening(id: "g3", rating: 3, played: .benched), defaults)
+        XCTAssertNil(CompetitionStore.rating(for: "g3", defaults))
         CompetitionStore.forget("g1", defaults)
         XCTAssertNil(CompetitionStore.evenings(defaults)["g1"])
     }
