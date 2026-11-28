@@ -148,7 +148,8 @@ enum HealthWorkoutInbox {
             answers = answersMap
             if let minutes, minutes > 0, existing.healthKitWorkoutId == nil {
                 existing.minutes = minutes
-                existing.startedAt = (existing.endedAt ?? existing.startedAt).addingTimeInterval(-Double(minutes) * 60)
+                existing.startedAt = max((existing.endedAt ?? existing.startedAt).addingTimeInterval(-Double(minutes) * 60),
+                                         calendar.startOfDay(for: day))
             }
             existing.sessionRPE = answer.rating
             let old = activity(of: existing)
@@ -162,7 +163,9 @@ enum HealthWorkoutInbox {
 
         let length = max(0, minutes ?? 0)
         let end = isToday ? now : (calendar.date(bySettingHour: 18, minute: 0, second: 0, of: day) ?? calendar.startOfDay(for: day))
-        let session = Session(startedAt: end.addingTimeInterval(-Double(length) * 60), endedAt: end, sessionRPE: rating, minutes: length,
+        // Told for today, it stays today: just after midnight it never starts yesterday.
+        let start = max(end.addingTimeInterval(-Double(length) * 60), calendar.startOfDay(for: day))
+        let session = Session(startedAt: start, endedAt: end, sessionRPE: rating, minutes: length,
                               source: .phone, notes: "\(toldTitle(names)) · told AthleteOS", syncedAt: now, athlete: athlete)
         context.insert(session)
         if !regions.isEmpty { SessionKinds.record(session.clientId, .gym) }
