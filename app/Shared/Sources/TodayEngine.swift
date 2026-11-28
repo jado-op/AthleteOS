@@ -236,6 +236,15 @@ enum TodayEngine {
             .min()
             .flatMap { calendar.dateComponents([.day], from: day, to: $0).day }
         built.context = context
+        // The first two strength sessions for a new lifter or after 14+ days
+        // without one are a bit lighter (twin priors step 5; only adds caution).
+        let strengthDays = sessions.filter { session in
+            SessionKinds.kind(of: session.clientId) == .gym || session.sets.contains { set in
+                guard let profile = catalogue.item(set.itemSlug)?.planProfile else { return false }
+                return profile.role == "primary" || profile.role == "secondary"
+            }
+        }.map(\.startedAt)
+        built.gymComeback = TrainingDay.isComeback(strengthDays: strengthDays, before: date, calendar: calendar)
         // A gym day: what to train and for how long — the athlete's pick, or the advisor's.
         var gym = GymHistoryBuilder.request(athlete, day: built, catalogue: catalogue, calendar: calendar).0
         // Told "only 30 minutes": the session is composed for the length that

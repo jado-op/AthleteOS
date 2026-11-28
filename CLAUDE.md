@@ -167,8 +167,11 @@ Reading files, CI logs or the GitHub API needs no lock.
   copy in the sleep card; a check-in item whose history never moved gets an assumed one-point swing, capped so one item alone never makes red (`ReadinessEngine`);
   the day-two game caution needs the athlete's own day-two mornings (`TwinSteer.from([TwinInsight])`) and is one rule
   read by the planner and the gym advisor (`TrainingDay.twinHoldsLegsAfterGame`; steps aside in a two-games week when
-  legs haven't been heavy for a week). The leg-recovery blend was dropped on purpose. Still to come (research order):
-  sleep safety floor vs personal "short for you", lighter first sessions after a break, heart widths, load-spike width.
+  legs haven't been heavy for a week). The leg-recovery blend was dropped on purpose. First sessions back: the first two
+  strength sessions for a new lifter or after 14+ days without one (`TrainingDay.isComeback`, `gymComeback`) are ~10 min
+  shorter, two sets at most, "stop with 3–4 reps left", less leg volume (reason `FIRST_SESSIONS_BACK`). Still to come:
+  sleep safety floor vs personal "short for you" (waits on the owner: it changes an existing test's wording), heart widths,
+  load-spike width.
 - Check-ins (owner, 2026-11-27: "shape the check-ins so the twin learns more… the check-in changes on what you did";
   research + second opinion `docs/CHECKIN-RESEARCH.md`, its review section wins): **nothing is preset or made up** — a watch
   practice has no "went", a game result form starts empty (rating 0 = not said), minutes only when known; one-tap "Feeling

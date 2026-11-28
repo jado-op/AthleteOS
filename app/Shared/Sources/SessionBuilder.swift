@@ -839,6 +839,8 @@ private struct BuildState {
         }
         // Taper before a tournament or meet: half the sets, the same weights
         // and reps (Bosquet 2007; Part 2, A9). Last, so filling time can't undo it.
+        // First sessions back: two sets at most on the strength work.
+        if day.gymComeback, [.primaryStrength, .secondaryStrength, .accessory].contains(block), dose.sets > 2 { dose.sets = 2 }
         if day.tapering, [.primaryStrength, .secondaryStrength, .accessory, .power].contains(block), dose.sets > 1 {
             dose.sets = (dose.sets + 1) / 2
             if dose.kind == plyometricDoseKind, let contacts = dose.contacts { dose.contacts = max(3, contacts / 2) }
@@ -851,6 +853,7 @@ private struct BuildState {
     /// maximum testing — the effort is felt, not a percentage of a max.
     func strengthEffort(primary: Bool, easier: Bool) -> String {
         if easier { return "Easier today: stop each set with 3–4 reps left." }
+        if day.gymComeback { return "First sessions back: stop each set with 3–4 reps left." }
         switch stage {
         case .foundation: return "Light enough for perfect form — stop with 3–4 reps left."
         case .development: return "Stop each set with 2–3 good reps left."

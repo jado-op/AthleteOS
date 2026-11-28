@@ -314,6 +314,31 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertTrue(free.twinHoldsLegsAfterGame)
     }
 
+    /// The first two strength sessions for a new lifter or after 14+ days
+    /// without one: shorter, two sets at most, an easier effort — only caution.
+    func testFirstSessionsBackAreLighter() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        func ago(_ n: Int) -> Date { calendar.date(byAdding: .day, value: -n, to: date)! }
+        XCTAssertTrue(TrainingDay.isComeback(strengthDays: [], before: date, calendar: calendar), "a new lifter")
+        XCTAssertTrue(TrainingDay.isComeback(strengthDays: [ago(20), ago(23)], before: date, calendar: calendar), "two weeks off")
+        XCTAssertTrue(TrainingDay.isComeback(strengthDays: [ago(2), ago(30)], before: date, calendar: calendar), "the second session back")
+        XCTAssertFalse(TrainingDay.isComeback(strengthDays: [ago(2), ago(5), ago(40)], before: date, calendar: calendar), "the third is full")
+        XCTAssertFalse(TrainingDay.isComeback(strengthDays: [ago(3), ago(6)], before: date, calendar: calendar))
+
+        let normal = day("soccer", phase: .offSeason, age: 18, experience: .experienced)
+        var back = normal
+        back.gymComeback = true
+        let (plain, _) = build(normal, sport: "soccer")
+        let (lighter, session) = build(back, sport: "soccer")
+        XCTAssertTrue(lighter.reasons.contains(.firstSessionsBack))
+        XCTAssertFalse(plain.reasons.contains(.firstSessionsBack))
+        XCTAssertLessThan(lighter.durationTarget, plain.durationTarget)
+        let strength = session.items.filter { [.primaryStrength, .secondaryStrength, .accessory].contains($0.block) }
+        XCTAssertFalse(strength.isEmpty)
+        XCTAssertTrue(strength.allSatisfy { $0.dose.sets <= 2 })
+    }
+
     func testTravelAndGameDaysRespectRecovery() {
         let tired = TrainingDay(date: date, phase: .inSeason, age: 16, experience: .intermediate,
                                 demands: SportDemandsTable.demands(sport: Self.catalogue.sportsBySlug["soccer"], position: nil),

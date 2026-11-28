@@ -112,6 +112,9 @@ public enum PlanReason: String, Codable, Sendable, CaseIterable {
     /// The twin steered the day (see `TwinSteer`).
     case twinSlowGameRecovery = "TWIN_SLOW_GAME_RECOVERY"
     case twinLoadSpike = "TWIN_LOAD_SPIKE"
+    /// The first two strength sessions for a new lifter or after two weeks
+    /// without one: a bit lighter (the repeated-bout effect).
+    case firstSessionsBack = "FIRST_SESSIONS_BACK"
     case twinSpeedFocus = "TWIN_SPEED_FOCUS"
     /// Training stage (docs/TRAINING-RESEARCH.md §1): learning the movements
     /// and general strength first; the specific, faster work comes with training age.
@@ -285,6 +288,19 @@ public struct ReflectionSignal: Sendable, Equatable, Codable {
 }
 
 public extension TrainingDay {
+    /// Whether the next strength session is one of the first two back: no
+    /// strength session yet, the newest one 14+ days ago, or only one since a
+    /// 14-day gap. Muscles get sorest after the first session back and adapt
+    /// fast (repeated-bout effect), so two sessions are enough.
+    static func isComeback(strengthDays: [Date], before day: Date, calendar: Calendar = .current) -> Bool {
+        let today = calendar.startOfDay(for: day)
+        let past = Array(Set(strengthDays.map { calendar.startOfDay(for: $0) }.filter { $0 < today })).sorted(by: >)
+        func gap(_ a: Date, _ b: Date) -> Int { calendar.dateComponents([.day], from: b, to: a).day ?? 0 }
+        guard let newest = past.first, gap(today, newest) < 14 else { return true }
+        guard past.count >= 2 else { return true }
+        return gap(newest, past[1]) >= 14
+    }
+
     /// The twin's game-recovery caution today: two days after a game, for an
     /// athlete whose own day-two mornings still show it. Not when it would take
     /// the only heavy-leg slot of a two-games week — a game within two days and
@@ -348,6 +364,10 @@ public struct TrainingDay: Sendable {
     /// What the athlete told AthleteOS that matters today (tired regions,
     /// sprint-heavy practice, temporary equipment and time).
     public var context: ContextSignals = ContextSignals()
+    /// One of the first two strength sessions for a new lifter or after 14+
+    /// days without one (`TrainingDay.isComeback`): fewer sets, easier effort.
+    /// Only ever adds caution (twin priors, step 5).
+    public var gymComeback: Bool = false
     /// Within ten days of a tournament or meet: half the gym sets, same weights.
     public var tapering: Bool { (daysToKeyEvent ?? 99) >= 1 && (daysToKeyEvent ?? 99) <= 10 }
     /// Training stage, from age and training age.
@@ -604,6 +624,12 @@ public enum SessionPlanner {
             }
         }
 
+        // First strength sessions back: less leg volume (the soreness comes from volume).
+        if day.gymComeback, type == .gymDevelopment || type == .afterPractice {
+            add(.firstSessionsBack)
+            avoid.insert(.highVolumeLowerBody)
+        }
+
         // 2. How much leg loading is allowed.
         var legBudget = 3
         if let practice = day.practice {
@@ -773,6 +799,7 @@ public enum SessionPlanner {
             if let illness = day.illnessReturnDay { minutes -= illness <= 3 ? 20 : 10 }
             if day.examOrLongDay { minutes -= 15 }
             if day.twin.contains(.loadSpike) { minutes -= 10 }
+            if day.gymComeback { minutes -= 10 }
             minutes = min(75, max(35, minutes))
         case .afterPractice:
             minutes = day.phase == .inSeason ? 22 : 28
