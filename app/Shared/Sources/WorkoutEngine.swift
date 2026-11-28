@@ -673,7 +673,7 @@ public enum SessionPlanner {
         if let gym {
             // First sessions back: the chosen length, ten minutes shorter (the
             // builder then fills that time, not the full one).
-            duration = gym.length.minutes - (day.gymComeback ? 10 : 0)
+            duration = gym.length.minutes - (day.gymComeback && gym.length != .quick ? 10 : 0)
             if let told = day.context.minutes, told < duration { duration = max(10, told); add(.availableTimeToday) }
         }
 

@@ -237,6 +237,7 @@ public struct MainTabView: View {
                 Task {
                     await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
                     await HeartStore.refresh()
+                    await MeasuredSleepStore.backfill()
                     // A workout from Health counts as today's training straight away.
                     if !athlete.isDeleted, HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext) > 0 { regenerate() }
                 }

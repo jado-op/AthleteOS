@@ -14,9 +14,10 @@ enum MeasuredSleepStore {
         guard hours > 0, hours < 16 else { return }
         var values = all()
         values[DayKey.of(date, calendar: calendar)] = hours
-        // Keep five weeks.
-        if values.count > 35 {
-            for old in values.keys.sorted().prefix(values.count - 35) { values.removeValue(forKey: old) }
+        // Keep four months: the twin's longer patterns read one source, not
+        // measured nights for the last weeks and typed ones before.
+        if values.count > 120 {
+            for old in values.keys.sorted().prefix(values.count - 120) { values.removeValue(forKey: old) }
         }
         UserDefaults.standard.set(values, forKey: key)
         // The twin's sleep widget says where the numbers come from.
@@ -29,10 +30,15 @@ enum MeasuredSleepStore {
     static func backfill(now: Date = .now, calendar: Calendar = .current) async {
         let today = DayKey.of(now, calendar: calendar)
         guard UserDefaults.standard.string(forKey: "sleep.backfilledDay") != today else { return }
-        UserDefaults.standard.set(today, forKey: "sleep.backfilledDay")
         let known = all()
-        for night in await HealthKitManager.shared.sleepNights(days: 28, now: now, calendar: calendar)
-        where known[DayKey.of(night.date, calendar: calendar)] == nil {
+        // Finished nights only: tonight's (this morning's) may still be going or
+        // not synced yet — the check-in reads it.
+        let nights = await HealthKitManager.shared.sleepNights(days: 28, now: now, calendar: calendar)
+            .filter { $0.date < calendar.startOfDay(for: now) }
+        // Nothing back (no permission yet, no watch): try again next open.
+        guard !nights.isEmpty else { return }
+        UserDefaults.standard.set(today, forKey: "sleep.backfilledDay")
+        for night in nights where known[DayKey.of(night.date, calendar: calendar)] == nil {
             save(night.value, on: night.date, calendar: calendar)
         }
     }

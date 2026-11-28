@@ -245,7 +245,8 @@ enum TodayEngine {
             session.sets.contains { set in
                 guard let profile = catalogue.item(set.itemSlug)?.planProfile else { return false }
                 return profile.role == "primary" || profile.role == "secondary"
-            } || HealthWorkoutInbox.regions(of: session).keys.contains { $0 == .lower || $0 == .upper }
+            } || (HealthWorkoutInbox.answer(for: session).map { !$0.cardio } ?? false
+                  && HealthWorkoutInbox.regions(of: session).keys.contains { $0 == .lower || $0 == .upper })
         }.map(\.startedAt)
         built.gymComeback = isToday && TrainingDay.isComeback(strengthDays: strengthDays, before: date, calendar: calendar)
         // A gym day: what to train and for how long — the athlete's pick, or the advisor's.
