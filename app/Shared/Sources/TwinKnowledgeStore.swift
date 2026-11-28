@@ -25,7 +25,7 @@ enum TwinKnowledgeStore {
         let key = [DayKey.of(now, calendar: calendar), "\(mornings.hashValue)", "\(athlete.sessions.count)", "\(efforts)",
                    "\(athlete.competitions.count)", "\(results.hashValue)", "\(pains.hashValue)",
                    "\(practices.hashValue)", "\(HealthWorkoutInbox.revision)", "\(AthleteContextStore.revision)",
-                   "\(HeartStore.resting.count)\(HeartStore.resting.last?.value ?? 0)"].joined(separator: "|")
+                   "\(HeartStore.resting.count)\(HeartStore.resting.last?.value ?? 0)", "\(MeasuredSleepStore.all().count)"].joined(separator: "|")
         if let cache, cache.key == key { return cache.knowledge }
         let knowledge = TwinKnowledgeEngine.build(input(athlete, state: state, now: now, calendar: calendar), calendar: calendar)
         cache = (key, knowledge)
@@ -44,8 +44,12 @@ enum TwinKnowledgeStore {
             guard let day = TwinInputBuilder.day(report.day, calendar: calendar) else { return nil }
             return KnowledgeInput.Pain(date: day, areas: report.areas.map(\.rawValue))
         }
-        return KnowledgeInput(base: base, ratedGames: rated, pains: pains, efforts: legEfforts(athlete),
-                              excludedDays: excludedDays(now: now, calendar: calendar), restingHeart: HeartStore.resting)
+        var knowledge = KnowledgeInput(base: base, ratedGames: rated, pains: pains, efforts: legEfforts(athlete),
+                                       excludedDays: excludedDays(now: now, calendar: calendar), restingHeart: HeartStore.resting)
+        knowledge.measuredSleep = Dictionary(MeasuredSleepStore.all().compactMap { key, hours in
+            TwinInputBuilder.day(key, calendar: calendar).map { ($0, hours) }
+        }, uniquingKeysWith: { first, _ in first })
+        return knowledge
     }
 
     /// How hard each session worked the legs (CR-10): the athlete's own

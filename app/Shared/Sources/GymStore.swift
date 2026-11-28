@@ -23,6 +23,20 @@ enum MeasuredSleepStore {
         UserDefaults.standard.set(true, forKey: "sleep.fromHealth")
     }
 
+    /// The nights Apple Health already has (the last four weeks), read once a
+    /// day: the twin knows the athlete's usual sleep on day one instead of
+    /// after a week of check-ins (first-two-weeks plan). Nothing is asked for.
+    static func backfill(now: Date = .now, calendar: Calendar = .current) async {
+        let today = DayKey.of(now, calendar: calendar)
+        guard UserDefaults.standard.string(forKey: "sleep.backfilledDay") != today else { return }
+        UserDefaults.standard.set(today, forKey: "sleep.backfilledDay")
+        let known = all()
+        for night in await HealthKitManager.shared.sleepNights(days: 28, now: now, calendar: calendar)
+        where known[DayKey.of(night.date, calendar: calendar)] == nil {
+            save(night.value, on: night.date, calendar: calendar)
+        }
+    }
+
     /// Last night and the average of the last three measured nights.
     static func recent(now: Date = .now, calendar: Calendar = .current) -> MeasuredSleep? {
         let values = all()

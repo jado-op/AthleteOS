@@ -252,6 +252,7 @@ public struct MainTabView: View {
             if !DemoData.isEnabled {
                 await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
                 await HeartStore.refresh()
+                await MeasuredSleepStore.backfill()
                 HealthWorkoutInbox.importNew(athlete: athlete, context: modelContext)
             }
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)

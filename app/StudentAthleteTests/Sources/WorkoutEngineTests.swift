@@ -337,6 +337,12 @@ final class WorkoutEngineTests: XCTestCase {
         let strength = session.items.filter { [.primaryStrength, .secondaryStrength, .accessory].contains($0.block) }
         XCTAssertFalse(strength.isEmpty)
         XCTAssertTrue(strength.allSatisfy { $0.dose.sets <= 2 })
+        // The Gym button's path (a focus and a length): ten minutes shorter too.
+        var focused = normal
+        focused.gym = GymRequest(focus: .full, length: .standard, anchorSeed: "test")
+        var focusedBack = focused
+        focusedBack.gymComeback = true
+        XCTAssertEqual(SessionPlanner.decide(focusedBack).durationTarget, SessionPlanner.decide(focused).durationTarget - 10)
     }
 
     func testTravelAndGameDaysRespectRecovery() {

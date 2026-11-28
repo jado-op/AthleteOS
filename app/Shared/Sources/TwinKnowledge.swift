@@ -45,6 +45,9 @@ public struct KnowledgeInput: Sendable {
     public var excludedDays: Set<Date>
     /// Resting heart rate per day from Apple Health (any watch or band).
     public var restingHeart: [HeartNight]
+    /// Hours asleep Apple Health measured, by the morning (start of day): the
+    /// usual sleep is known from Health's history, not only from check-ins.
+    public var measuredSleep: [Date: Double] = [:]
 
     public init(base: TwinInput, ratedGames: [RatedGame] = [], pains: [Pain] = [], efforts: [RegionEffort] = [], excludedDays: Set<Date> = [],
                 restingHeart: [HeartNight] = []) {
@@ -189,6 +192,8 @@ public enum TwinKnowledgeEngine {
         for morning in input.base.mornings {
             if let sleep = morning.sleepHours, sleep > 0 { byDay[dayKey(morning.date, calendar)] = sleep }
         }
+        // A measured night counts for more than a guess (owner, 2026-11-19).
+        for (day, hours) in input.measuredSleep where hours > 0 { byDay[dayKey(day, calendar)] = hours }
         return byDay
     }
 
@@ -197,7 +202,8 @@ public enum TwinKnowledgeEngine {
     /// "You usually sleep about 7 h 40 min" — the median of the last 28 nights (T2).
     static func usualSleep(_ input: KnowledgeInput, calendar: Calendar) -> Result {
         let since = calendar.date(byAdding: .day, value: -28, to: input.base.now) ?? input.base.now
-        let nights = input.base.mornings.filter { $0.date >= since }.compactMap { $0.sleepHours }.filter { $0 > 0 }
+        // Check-ins and Apple Health's nights: with a watch the usual is known on day one.
+        let nights = sleepByDay(input, calendar).filter { $0.key >= dayKey(since, calendar) && $0.key <= input.base.now }.map(\.value)
         let need = 7
         guard nights.count >= need, let usual = median(nights) else {
             return .learning(LearningItem(id: "habits.sleep", area: .habits, question: "How much you usually sleep",

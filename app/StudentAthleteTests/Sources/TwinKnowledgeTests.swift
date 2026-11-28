@@ -179,4 +179,15 @@ final class TwinKnowledgeTests: XCTestCase {
         let unrated = build(KnowledgeInput(base: TwinInput(practices: weeks.map { practice($0 + 1, rpe: nil) }, now: now)))
         XCTAssertNil(unrated.lines.first { $0.id == "training.practice" })
     }
+
+    /// With a watch, the usual sleep is known from Apple Health's nights on day
+    /// one — no check-ins needed; a measured night wins over a typed one.
+    func testUsualSleepFromHealthNightsOnDayOne() {
+        var input = KnowledgeInput(base: TwinInput(now: now))
+        XCTAssertNotNil(build(input).learning.first { $0.id == "habits.sleep" })
+        input.measuredSleep = Dictionary(uniqueKeysWithValues: (1...8).map { (calendar.startOfDay(for: day(-$0)), 7.5) })
+        let line = build(input).lines.first { $0.id == "habits.sleep" }
+        XCTAssertEqual(line?.text, "You usually sleep about 7 h 30 min.")
+        XCTAssertEqual(line?.basis, "Middle value of your last 8 nights")
+    }
 }
