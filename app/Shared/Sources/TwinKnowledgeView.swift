@@ -240,8 +240,15 @@ struct TwinLetterCard: View {
                     .buttonStyle(.pressable)
                     .accessibilityLabel("Close the letter")
                 }
+                if let summary = letter.summary {
+                    Text(summary)
+                        .font(.body)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if letter.learned.isEmpty {
-                    Text("Nothing new I can say for sure yet — I'd rather wait than guess.")
+                    Text(letter.summary == nil ? "Nothing new I can say for sure yet — I'd rather wait than guess."
+                                               : "Nothing for sure yet — the closest ones are below.")
                         .font(.body)
                         .foregroundStyle(AppTheme.ink)
                 } else {

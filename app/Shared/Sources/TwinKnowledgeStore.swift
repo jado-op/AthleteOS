@@ -173,6 +173,28 @@ enum TwinKnowledgeStore {
                           learned: learned, unsure: Array(knowledge.learning.prefix(3)))
     }
 
+    /// The first week's letter (first-two-weeks plan): from day 7 to day 13,
+    /// what the week held and what the twin already knows or is close to.
+    static func weekOneLetter(_ knowledge: TwinKnowledge, state: AcademyState, athlete: Athlete,
+                              now: Date = .now, calendar: Calendar = .current) -> TwinLetter? {
+        let start = calendar.startOfDay(for: athlete.createdAt)
+        let days = calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: now)).day ?? 0
+        guard (7...13).contains(days), state.letterClosed != "week1",
+              let weekEnd = calendar.date(byAdding: .day, value: 7, to: start) else { return nil }
+        let inWeek = { (date: Date) in date >= start && date < weekEnd }
+        let checkIns = athlete.checkIns.filter { inWeek($0.date) }.count
+        let workouts = athlete.sessions.filter { inWeek($0.startedAt) }.count
+        let practices = PracticeLogStore.logs.compactMap { TwinInputBuilder.day($0.day, calendar: calendar) }.filter(inWeek).count
+        let games = athlete.competitions.filter { inWeek($0.date) && $0.date < now }.count
+        var parts = [countedNoun(checkIns, "check-in"), countedNoun(workouts, "workout")]
+        if practices > 0 { parts.append(countedNoun(practices, "practice")) }
+        if games > 0 { parts.append(countedNoun(games, "competition")) }
+        let summary = "Your first week: " + PlanExplanation.list(parts) + "."
+        let learned = visible(knowledge, state: state)
+        return TwinLetter(month: "week1", monthName: "Your first week", learned: Array(learned.prefix(3)),
+                          unsure: Array(TwinPage.stillLearning(knowledge.learning, limit: 3)), summary: summary)
+    }
+
     static func closeLetter(_ month: String) {
         var state = AcademyStore.load()
         state.letterClosed = month
@@ -185,4 +207,6 @@ struct TwinLetter: Equatable {
     let monthName: String
     let learned: [KnowledgeLine]
     let unsure: [LearningItem]
+    /// The first week's letter: what the week held, in counts.
+    var summary: String? = nil
 }

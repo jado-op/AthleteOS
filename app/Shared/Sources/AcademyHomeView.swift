@@ -318,7 +318,8 @@ struct AcademyHomeView: View {
         knowledge = TwinKnowledgeStore.current(athlete, state: state)
         // First-seen dates are noted whenever the twin is open, not only on its page.
         state = TwinKnowledgeStore.noteFirstSeen(knowledge.lines)
-        letter = TwinKnowledgeStore.letter(knowledge, state: state)
+        letter = TwinKnowledgeStore.weekOneLetter(knowledge, state: state, athlete: athlete)
+            ?? TwinKnowledgeStore.letter(knowledge, state: state)
         let input = TwinInputBuilder.input(athlete: athlete, state: state)
         report = TwinAnalysis.report(input)
         records = Performances.records(lifts: input.lifts, tests: input.tests, custom: state.performances)
