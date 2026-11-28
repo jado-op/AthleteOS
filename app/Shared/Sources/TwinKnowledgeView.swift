@@ -182,22 +182,10 @@ struct LearningRow: View {
     /// how far, a thin bar, and the one thing to do as a text link.
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(question)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                if let actionTitle {
-                    Button(action: action) {
-                        Text(actionTitle)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AuraTone.mind.mark)
-                            .frame(minHeight: 32)
-                    }
-                    .buttonStyle(.pressable)
-                }
-            }
+            Text(question)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
             if let fraction {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -212,10 +200,21 @@ struct LearningRow: View {
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
+            if let actionTitle {
+                Button(action: action) {
+                    HStack(spacing: 4) {
+                        Text(actionTitle)
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AuraTone.mind.mark)
+                    .frame(minHeight: 32)
+                }
+                .buttonStyle(.pressable)
+            }
         }
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 

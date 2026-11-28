@@ -142,10 +142,15 @@ Reading files, CI logs or the GitHub API needs no lock.
   insight (+ its briefing) → the coach's read; then the body figure (`TwinWeekCard`), the monthly letter, **What I know
   about you** inline (one portrait: knowledge lines + `TwinAnalysis` insights + strengths by area, pain first, lines that
   steer the plan first with "In your plan: …"; an older insight saying the same as a knowledge line is dropped,
-  `TwinPage.sameSubject`), season and goals, **Still learning** (interview first while open, then the 2–3 closest to
-  known, each with the one action that adds what's missing: check in, rate your last game), then **The evidence** — three
-  rows pushing one level down (performing / changing incl. Health / mind). The heart note never leads the page (it lives
-  in the check-in). Don't bring back the separate Coach's read card, "Your training", "What's working" or the knowledge sheet.
+  `TwinPage.sameSubject`), the goals as one line, and **Learning next** inside it as slim rows (interview first while open,
+  then the 2–3 closest to known, each with the one action that adds what's missing: check in, rate your last game), then
+  **The evidence** — three rows pushing one level down (performing / changing incl. Health / mind), then one quiet footer
+  (help link, how it reads + privacy, Delete twin). The heart note never leads the page (it lives in the check-in). Don't
+  bring back the separate Coach's read card, "Your training", "What's working" or the knowledge sheet.
+  Calmer pass (owner, 2026-11-28: "busy / not organised"): the header is the name + one line (sport · phase · season date ·
+  "N weeks of your data") — the hero has no counts footnote; no intro paragraphs under section titles. Campus (embedded):
+  one header sentence with the lesson count → "Campus asks" → next lesson / review → Your sport → Long reads + Mental
+  skills → "Lessons by area" as a two-column tile grid → "What you've told Campus" (interview answers) at the bottom.
 - The twin across the app (owner, 2026-11-27: "everything turns into the twin and ecosystem. But everything solves a
   purpose"): **one place works out what the twin changes** (`TwinKnowledgeStore.planEffects`) — the Twin page and Home's
   Body tile ("Ready · Legs ready Sunday") read it. **After an input** (check-in, game rating — only inputs that move

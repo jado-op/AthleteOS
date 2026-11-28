@@ -8,7 +8,7 @@ import Foundation
 /// 2. "What I know about you" — one portrait: the knowledge lines and the
 ///    analysis's insights and strengths in one list by area, the ones that
 ///    shape the plan first and saying how (`portrait`, `effects`);
-/// 3. "Still learning" — the few closest to known first (`stillLearning`);
+/// 3. "Learning next" (inside "What I know about you") — the few closest to known first (`stillLearning`);
 /// 4. the evidence, one level down.
 /// Never a score; the heart's note stays in the check-in (its own rule).
 public struct TwinPlanEffect: Equatable, Sendable {

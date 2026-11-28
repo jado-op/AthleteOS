@@ -11,12 +11,16 @@ struct CampusPage: View {
     var body: some View {
         // One order (redesign 2026-11-28): the header and the next question,
         // the next lesson, your sport, long reads, the areas, then what you've told it.
-        CampusView(
+        let state = AcademyStore.load()
+        let ids = AcademyContent.intake(forSport: athlete.activeSport?.sportSlug).map(\.id)
+        let answered = AcademyStore.answeredCount(state.intake.merging(state.intakeDraft?.answers ?? [:]) { _, draft in draft }, of: ids)
+        // An empty part takes no slot (no double gap on the page).
+        return CampusView(
             athlete: athlete,
             embedded: true,
             prelude: AnyView(AcademyPageSwitcher(name: athlete.displayName)),
-            extra: AnyView(CampusAsksSection(athlete: athlete, part: .answers)),
-            asks: AnyView(CampusAsksSection(athlete: athlete, part: .ask)),
+            extra: answered > 0 ? AnyView(CampusAsksSection(athlete: athlete, part: .answers)) : nil,
+            asks: answered < ids.count ? AnyView(CampusAsksSection(athlete: athlete, part: .ask)) : nil,
             middle: AnyView(CampusReadingSection(athlete: athlete))
         )
     }
@@ -68,13 +72,21 @@ struct CampusAsksSection: View {
             }
         }
         .onAppear(perform: load)
-        .fullScreenCover(isPresented: $showingInterview, onDismiss: load) {
+        // The question card and the answers below are two parts: one changing tells the other.
+        .onReceive(NotificationCenter.default.publisher(for: Self.changed)) { _ in load() }
+        .fullScreenCover(isPresented: $showingInterview, onDismiss: changedAnswers) {
             IntakeInterviewView(sportSummary: AthleteStats.sportName(athlete), sportSlug: sportSlug, startAt: interviewStart)
         }
     }
 
+    static let changed = Notification.Name("AthleteOS.campusAnswersChanged")
+
     private func load() {
         state = AcademyStore.load()
+    }
+
+    private func changedAnswers() {
+        NotificationCenter.default.post(name: Self.changed, object: nil)
     }
 
     // MARK: Asking
@@ -151,7 +163,7 @@ struct CampusAsksSection: View {
             AcademyStore.save(AcademyStore.savingDraft(all, at: nextID, in: before, date: .now))
         }
         text = ""
-        withAnimation(.easeInOut(duration: 0.25)) { load() }
+        withAnimation(.easeInOut(duration: 0.25)) { changedAnswers() }
     }
 
     // MARK: What Campus knows
