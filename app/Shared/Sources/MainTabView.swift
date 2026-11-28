@@ -511,7 +511,9 @@ enum WeeklyPlan {
                 built.slot = planned.slot
                 return built
             }
-            let week = GeneratedWeek(phase: aligned.phase, weekStart: aligned.weekStart, sessions: rebuilt)
+            var week = GeneratedWeek(phase: aligned.phase, weekStart: aligned.weekStart, sessions: rebuilt)
+            // Exam weeks: two sessions at most (each already shorter from the engine).
+            if ScheduleStore.isExamWeek(weekStart, calendar: calendar) { week = ExamWeek.fewer(week) }
             return Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: week.phase, calendar: calendar)
                 ? Deload.apply(to: week) : week
         }

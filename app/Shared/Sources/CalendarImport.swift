@@ -586,10 +586,17 @@ public enum ScheduleStore {
 /// everything. Enough to keep what was built, with time and sleep left for
 /// studying.
 public enum ExamWeek {
+    /// Two sessions at most, as far apart as the week allows (the engine's own
+    /// sessions are already shorter in an exam week: `examOrLongDay`).
+    public static func fewer(_ week: GeneratedWeek) -> GeneratedWeek {
+        guard week.sessions.count > 2 else { return week }
+        return GeneratedWeek(phase: week.phase, weekStart: week.weekStart,
+                             sessions: [week.sessions[0], week.sessions[week.sessions.count - 1]])
+    }
+
     public static func lighten(_ week: GeneratedWeek) -> GeneratedWeek {
         guard !week.sessions.isEmpty else { return week }
-        // Two at most, as far apart as the week allows.
-        let kept = week.sessions.count > 2 ? [week.sessions[0], week.sessions[week.sessions.count - 1]] : week.sessions
+        let kept = fewer(week).sessions
         let lighter = kept.map { session in
             GeneratedSession(
                 date: session.date, title: session.title, focusQualities: session.focusQualities,

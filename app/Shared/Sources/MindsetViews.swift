@@ -318,7 +318,7 @@ struct ReflectionSheet: View {
         case .needsWork:
             areas("What should improve next time?", selection: $needsWork, note: $improveNote, placeholder: "One small thing to try (optional)")
         case .nextWeek:
-            QuestionPage(progress: progress, question: "Next week looks…", hint: "Exams or a busy school week: fewer, shorter sessions, and the twin won't compare that week's sleep with your usual.",
+            QuestionPage(progress: progress, question: "Next week looks…", hint: "Exams or a busy school week: two shorter gym sessions at most, and the twin won't compare that week's sleep with your usual.",
                          buttonTitle: busyNextWeek == nil ? nil : "Save", onClose: { dismiss() }, onBack: { back() },
                          onButton: { next(from: .nextWeek) }, tone: .mind) {
                 ChoiceGrid([false, true], title: { (busy: Bool) -> String in busy ? "Exams or busy with school" : "Normal" },
