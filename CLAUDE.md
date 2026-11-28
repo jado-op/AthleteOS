@@ -184,7 +184,8 @@ Reading files, CI logs or the GitHub API needs no lock.
   the next workouts); went well / to improve only after a practice or game. The twin counts practice and rated games as
   minutes × effort, says the usual practice ("about 1 h 30 min at 6 of 10 — hard", ≥6 rated) and a big week in hours (never a
   percent or risk). An evening that rated a practice or game can say what it taught (`TwinLearned.Input.evening`, Home's
-  notices). Still to come: the weekly "next week looks…" question.
+  notices). Sunday evening asks once "Next week looks… normal / exams or busy with school" (not when already known): busy marks
+  it an exam week — two shorter gym sessions at most (`ExamWeek.fewer` in the engine path too) and its nights out of the twin.
 - Heart data (owner, 2026-11-27: "heart data is important information"; `docs/TWIN-RESEARCH.md` §3): `HeartStore` keeps
   daily resting HR and HRV from Health **per device** on the phone only (`health.` keys, never backed up); `HeartSignals`
   (harness) compares one device with itself (the source with most days this week — a new watch learns its own usual).

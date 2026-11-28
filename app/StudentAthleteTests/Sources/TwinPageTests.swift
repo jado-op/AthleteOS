@@ -142,4 +142,17 @@ final class TwinLearnedTests: XCTestCase {
         let pain = KnowledgeLine(id: "body.legs.pain", area: .body, text: "Your knee hurt again.", basis: "", safety: true)
         XCTAssertNil(TwinLearned.line(before: empty, after: TwinKnowledge(lines: [pain], learning: [], legRecoveryDays: nil), input: .checkIn))
     }
+
+    /// The portrait shows three entries until "See all"; a pain line is never cut.
+    func testThePortraitIsTrimmedToThreeButKeepsPain() {
+        func line(_ id: String, _ area: KnowledgeLine.Area, safety: Bool = false) -> TwinPageEntry {
+            .line(KnowledgeLine(id: id, area: area, text: id, basis: "", safety: safety))
+        }
+        let areas = [TwinPageArea(area: .body, entries: [line("a", .body), line("b", .body)]),
+                     TwinPageArea(area: .training, entries: [line("c", .training), line("d", .training)]),
+                     TwinPageArea(area: .habits, entries: [line("pain", .habits, safety: true)])]
+        let trimmed = TwinPage.trimmed(areas, limit: 3)
+        XCTAssertEqual(trimmed.flatMap(\.entries).map(\.id), ["line.a", "line.b", "line.c", "line.pain"])
+        XCTAssertEqual(TwinPage.entryCount(areas), 5)
+    }
 }

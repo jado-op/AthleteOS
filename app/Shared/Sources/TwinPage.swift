@@ -59,6 +59,26 @@ public struct TwinPageArea: Equatable, Sendable {
     public var entries: [TwinPageEntry]
 }
 
+public extension TwinPage {
+    /// The first `limit` entries of the portrait, in its order (pain and lines
+    /// that steer the plan come first already); a safety line is never cut.
+    /// Areas left empty drop out (owner, 2026-11-28: the page was busy).
+    static func trimmed(_ areas: [TwinPageArea], limit: Int) -> [TwinPageArea] {
+        var left = limit
+        return areas.compactMap { area in
+            let kept = area.entries.filter { entry in
+                if case .line(let line) = entry, line.safety { return true }
+                guard left > 0 else { return false }
+                left -= 1
+                return true
+            }
+            return kept.isEmpty ? nil : TwinPageArea(area: area.area, entries: kept)
+        }
+    }
+
+    static func entryCount(_ areas: [TwinPageArea]) -> Int { areas.reduce(0) { $0 + $1.entries.count } }
+}
+
 public struct TwinHero: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case safety, plan, learned, insight, read }
     public var kind: Kind

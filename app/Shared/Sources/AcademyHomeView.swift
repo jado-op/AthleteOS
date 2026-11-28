@@ -77,6 +77,8 @@ struct AcademyHomeView: View {
     @State private var weekGroups: [MuscleTraining.GroupWeek] = []
     @State private var weekSentence = "How hard each part of your body worked, and your week's numbers."
     @State private var showingWeek = false
+    /// "What I know about you" shows three lines until "See all".
+    @State private var showingAllKnown = false
     /// "What I know about you" (owner, 2026-11-27): the twin's portrait of the athlete.
     @State private var knowledge = TwinKnowledge(lines: [], learning: [], legRecoveryDays: nil)
     /// What the twin changes in the plan, said where the fact is (TwinPage).
@@ -490,7 +492,8 @@ struct AcademyHomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            ForEach(portrait, id: \.area) { area in
+            let shown = showingAllKnown ? portrait : TwinPage.trimmed(portrait, limit: 3)
+            ForEach(shown, id: \.area) { area in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(area.area.title)
                         .font(.subheadline.weight(.semibold))
@@ -499,6 +502,16 @@ struct AcademyHomeView: View {
                         .accessibilityAddTraits(.isHeader)
                     ForEach(area.entries) { entry in portraitRow(entry) }
                 }
+            }
+            let more = TwinPage.entryCount(portrait) - TwinPage.entryCount(shown)
+            if more > 0 || (showingAllKnown && TwinPage.entryCount(portrait) > 3) {
+                Button(showingAllKnown ? "Show less" : "See all \(TwinPage.entryCount(portrait))") {
+                    withAnimation(.easeInOut(duration: 0.2)) { showingAllKnown.toggle() }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(minHeight: 44)
+                .buttonStyle(.pressable)
             }
             goalsLine
             if showsLearning { learningSection.padding(.top, 14).id("learning") }
