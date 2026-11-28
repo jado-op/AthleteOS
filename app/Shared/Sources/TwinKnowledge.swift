@@ -234,7 +234,8 @@ public enum TwinKnowledgeEngine {
     static func usualPractice(_ input: KnowledgeInput, calendar: Calendar) -> Result {
         let need = 6
         guard let since = calendar.date(byAdding: .day, value: -56, to: input.base.now) else { return .none }
-        let rated = input.base.practices.filter { $0.date >= since && $0.date <= input.base.now && $0.rpe != nil }
+        // By day: a practice rated tonight counts tonight, whatever its clock time.
+        let rated = input.base.practices.filter { $0.date >= since && calendar.startOfDay(for: $0.date) <= input.base.now && $0.rpe != nil }
         // Only for athletes with team practice at all.
         guard !input.base.practices.isEmpty else { return .none }
         guard rated.count >= need else {

@@ -105,8 +105,11 @@ struct HomeView: View {
         let games = athlete.competitions.filter { calendar.isDate($0.date, inSameDayAs: day) }
         let results = CompetitionStore.results()
         let sessions = athlete.sessions.filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
-        // The day's effort is known only when every workout has one (else ask).
-        let efforts = sessions.compactMap(\.sessionRPE)
+        // The day's effort is known only when every workout has one the athlete
+        // gave (a watch's heart-rate guess isn't an answer — else ask).
+        let efforts = sessions.compactMap { session -> Int? in
+            HealthWorkoutInbox.isImported(session) && HealthWorkoutInbox.answer(for: session) == nil ? nil : session.sessionRPE
+        }
         let effort = !sessions.isEmpty && efforts.count == sessions.count ? efforts.max() : nil
         let minutes = PracticeSchedule.time(on: day, calendar: calendar).map { $0.end - $0.start }.flatMap { $0 > 0 ? $0 : nil }
         return (practice, !games.isEmpty, games.contains { results[$0.id] == nil }, !sessions.isEmpty, effort, minutes)
@@ -455,7 +458,7 @@ struct HomeView: View {
                                     sportSlug: athlete.activeSport?.sportSlug ?? athlete.sports.first?.sportSlug,
                                     restDay: !evening.trained && !evening.practice && !evening.game,
                                     trained: evening.trained, trainedEffort: evening.effort,
-                                    scheduledMinutes: evening.practiceMinutes, athlete: athlete) { revision += 1 }
+                                    scheduledMinutes: evening.practiceMinutes, hadGame: evening.game, athlete: athlete) { revision += 1 }
                 case .search:
                     AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
                         pendingSearch = target

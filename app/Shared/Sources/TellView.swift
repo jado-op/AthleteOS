@@ -560,6 +560,8 @@ struct TellView: View {
         var log = PracticeLogStore.log(on: day, sportSlug: sport)
             ?? PracticeLog(day: day, sportSlug: sport, types: [], hard: hard, went: 0, mood: 0, note: "Told AthleteOS")
         log.hard = hard
+        // What was just told wins over an earlier evening's 0–10 that says otherwise.
+        if let rpe = log.rpe, PracticeLog.hard(fromRPE: rpe) != hard { log.rpe = nil }
         PracticeLogStore.save(log)
     }
 

@@ -959,7 +959,9 @@ struct PracticeLogSheet: View {
             tiredMuscles: level == .exact ? tiredMuscles.sorted() : [],
             ratings: level == .exact ? ratings : [:],
             note: level == .exact && !trimmed.isEmpty ? trimmed : nil,
-            intent: intent, enjoyment: enjoyment
+            intent: intent, enjoyment: enjoyment,
+            // The evening's 0–10 effort stays while the 1–5 effort is unchanged.
+            rpe: existing.flatMap { $0.hard == hard ? $0.rpe : nil }
         ))
         dismiss()
     }

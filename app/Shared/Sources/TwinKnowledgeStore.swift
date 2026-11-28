@@ -17,6 +17,7 @@ enum TwinKnowledgeStore {
         let results = CompetitionStore.results().values.map { "\($0.id)\($0.rating)" }.sorted().joined()
         let pains = PainStore.all().map { "\($0.day)\($0.areas.map(\.rawValue).joined())" }.joined()
         let practices = PracticeLogStore.logs.map { "\($0.day)\($0.hard)\($0.saidWent)\($0.rpe ?? -1)\($0.minutes ?? 0)" }.joined()
+            + PracticeTimes.all.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.start)-\($0.value.end)" }.joined()
         let mornings = athlete.checkIns.map { "\($0.date.timeIntervalSince1970)\($0.soreness)\($0.energy)\($0.sleepHours ?? 0)" }.joined()
             + OneTapCheckIns.days.joined()
         let efforts = athlete.sessions.reduce(0) { $0 + ($1.sessionRPE ?? 0) }

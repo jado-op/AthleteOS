@@ -29,6 +29,9 @@ struct ReflectionSheet: View {
     var trainedEffort: Int?
     /// Practice length from the schedule (minutes), the evening's starting value.
     var scheduledMinutes: Int?
+    /// A game that day (with or without a result): its effort isn't known, so
+    /// "How hard did today feel?" is asked.
+    var hadGame = false
     /// Whose twin a rated practice teaches ("Your twin learned …" on Home).
     var athlete: Athlete?
     let onSaved: () -> Void
@@ -66,6 +69,9 @@ struct ReflectionSheet: View {
     @State private var practiceMinutes = 90
     /// Where the minutes came from ("from your watch", "from your schedule").
     @State private var minutesSource: String?
+    /// The length is known (watch, schedule, or the athlete set it): only then
+    /// is it saved — a minute is never made up.
+    @State private var minutesKnown = false
     /// A watch's heart-rate read of the practice, shown as a dot, never picked.
     @State private var practiceEstimate: Int?
     @State private var wentWell: Set<String> = []
@@ -80,8 +86,9 @@ struct ReflectionSheet: View {
 
     init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToday: Bool = false, sportSlug: String? = nil,
          restDay: Bool = false, trained: Bool = false, trainedEffort: Int? = nil, scheduledMinutes: Int? = nil,
-         athlete: Athlete? = nil, onSaved: @escaping () -> Void) {
+         hadGame: Bool = false, athlete: Athlete? = nil, onSaved: @escaping () -> Void) {
         self.athlete = athlete
+        self.hadGame = hadGame
         _completion = State(initialValue: completion)
         self.practiceToday = practiceToday
         self.gameToday = gameToday
@@ -94,13 +101,16 @@ struct ReflectionSheet: View {
         let log = PracticeLogStore.log(on: DayKey.of(Self.reflectionDay()), sportSlug: sportSlug)
         _practiceRPE = State(initialValue: log?.rpe)
         let fromWatch = log?.note?.hasPrefix("From your ") == true
-        if fromWatch, log?.rpe == nil, let hard = log?.hard { _practiceEstimate = State(initialValue: min(10, hard * 2)) }
+        // Effort already said (Tell, the morning card) or measured (watch): the dot, never picked.
+        if log?.rpe == nil, let hard = log?.hard { _practiceEstimate = State(initialValue: min(10, hard * 2)) }
         if let minutes = log?.minutes, minutes > 0 {
             _practiceMinutes = State(initialValue: minutes)
             _minutesSource = State(initialValue: fromWatch ? "from your watch" : nil)
+            _minutesKnown = State(initialValue: true)
         } else if let scheduledMinutes, scheduledMinutes > 0 {
             _practiceMinutes = State(initialValue: scheduledMinutes)
             _minutesSource = State(initialValue: "from your schedule")
+            _minutesKnown = State(initialValue: true)
         }
         self.restDay = restDay
         self.onSaved = onSaved
@@ -122,9 +132,13 @@ struct ReflectionSheet: View {
             _painLevel = State(initialValue: pain.level)
         }
         _step = State(initialValue: practiceToday ? .practice : (EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort,
-                                                                                  game: gameToday) ? .hardness : .body))
+                                                                                  game: hadGame || gameToday) ? .hardness : .body))
     }
 
+
+    private var asksHardness: Bool {
+        EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: hadGame || gameToday)
+    }
 
     private var practiceWent: Bool { practiceToday && practice != nil && practice != EveningOptions.didntGo }
 
@@ -133,7 +147,9 @@ struct ReflectionSheet: View {
     private var dayHardness: Int? {
         let efforts = [practiceWent ? practiceRPE : nil, trainedEffort].compactMap { $0 }
         let derived = efforts.max().map(EveningOptions.hardness(fromRPE:))
-        switch (hardness, derived) {
+        // The answer counts only when it was asked tonight (a reopened evening
+        // pre-fills the saved, derived value — it mustn't hold the day up).
+        switch (asksHardness ? hardness : nil, derived) {
         case let (said?, derived?): return max(said, derived)
         case let (said, derived): return said ?? derived
         }
@@ -154,7 +170,7 @@ struct ReflectionSheet: View {
             steps.append(.practice)
             if practiceWent { steps.append(.practiceEffort) }
         }
-        if EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: gameToday) { steps.append(.hardness) }
+        if asksHardness { steps.append(.hardness) }
         steps.append(.body)
         if bodyFeel == 4 { steps.append(.pain) }
         // What went well / what to improve follow a practice that happened or a
@@ -309,10 +325,10 @@ struct ReflectionSheet: View {
                         estimateNote: practiceEstimate.map { "Your watch suggests about \($0) (the dot). How it felt decides." })
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("About \(practiceMinutes) min")
+                    Text(minutesKnown ? "About \(practiceMinutes) min" : "How long was it?")
                         .font(.headline.monospacedDigit())
                         .foregroundStyle(AppTheme.ink)
-                    Text(minutesSource ?? "how long it went")
+                    Text(minutesKnown ? (minutesSource ?? "how long it went") : "Optional — tap − or + to set it")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -327,7 +343,8 @@ struct ReflectionSheet: View {
 
     private func minutesButton(_ symbol: String, by change: Int) -> some View {
         Button {
-            practiceMinutes = min(300, max(15, practiceMinutes + change))
+            if minutesKnown { practiceMinutes = min(300, max(15, practiceMinutes + change)) }
+            minutesKnown = true
             minutesSource = nil
         } label: {
             Image(systemName: symbol)
@@ -488,7 +505,7 @@ struct ReflectionSheet: View {
         if let practiceRPE {
             log.rpe = practiceRPE
             log.hard = PracticeLog.hard(fromRPE: practiceRPE)
-            log.minutes = practiceMinutes
+            if minutesKnown { log.minutes = practiceMinutes }
         }
         PracticeLogStore.save(log)
     }
