@@ -103,6 +103,17 @@ final class TwinAnalysisTests: XCTestCase {
         XCTAssertEqual(unrated.load, 90 * 8)
     }
 
+    /// A game rated in the evening counts minutes played × its effort; one
+    /// not played counts nothing; an unrated game stays the usual hour at 8.
+    func testAGameCountsWhatTheAthleteSaid() {
+        var input = TwinInput(games: [day(1)], now: now)
+        XCTAssertEqual(TwinAnalysis.weeklyLoads(TwinAnalysis.Context(input: input, calendar: calendar)).last, 480)
+        input.gameLoads = [TwinInput.Load(date: day(1), minutes: 30, rpe: 6)]
+        XCTAssertEqual(TwinAnalysis.weeklyLoads(TwinAnalysis.Context(input: input, calendar: calendar)).last, 180)
+        input.gameLoads = [TwinInput.Load(date: day(1), minutes: 0, rpe: nil)]
+        XCTAssertEqual(TwinAnalysis.weeklyLoads(TwinAnalysis.Context(input: input, calendar: calendar)).last, 0)
+    }
+
     func testLowGameDayEnergyOrTheInterviewFlagsFuel() {
         let tired = TwinAnalysis.report(season(games: [3, 10, 17], gameEnergy: 2), calendar: calendar)
         XCTAssertEqual(tired.insights.first { $0.kind == .gameDayFuel }?.values["energyGap"], "2.0 points")

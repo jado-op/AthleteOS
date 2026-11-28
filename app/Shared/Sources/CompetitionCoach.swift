@@ -96,12 +96,89 @@ public enum CompetitionStore {
         defaults.set(try? JSONEncoder().encode(all), forKey: outlooksKey)
     }
 
+    // The evening after a game (its own answers until a result exists).
+
+    static let eveningsKey = "mindset.gameEvenings"
+
+    public static func evenings(_ defaults: UserDefaults = .standard) -> [String: GameEvening] {
+        defaults.data(forKey: eveningsKey).flatMap { try? JSONDecoder().decode([String: GameEvening].self, from: $0) } ?? [:]
+    }
+
+    /// Saves the evening's answers; a result already there takes the rating
+    /// (one rating per game — the hub never asks it again).
+    public static func save(_ evening: GameEvening, _ defaults: UserDefaults = .standard) {
+        var all = evenings(defaults)
+        all[evening.id] = evening
+        defaults.set(try? JSONEncoder().encode(all), forKey: eveningsKey)
+        if var result = results(defaults)[evening.id], let rating = evening.rating {
+            result.rating = rating
+            save(result, defaults)
+        }
+    }
+
+    /// How the athlete played, 1…5: the result's rating, else the evening's (nil: not said).
+    public static func rating(for id: String, _ defaults: UserDefaults = .standard) -> Int? {
+        if let rating = results(defaults)[id]?.rating, (1...5).contains(rating) { return rating }
+        return evenings(defaults)[id]?.rating.flatMap { (1...5).contains($0) ? $0 : nil }
+    }
+
     /// A deleted competition takes its result and outlook with it.
     public static func forget(_ id: String, _ defaults: UserDefaults = .standard) {
         var all = results(defaults)
         if all.removeValue(forKey: id) != nil { defaults.set(try? JSONEncoder().encode(all), forKey: resultsKey) }
+        var nights = evenings(defaults)
+        if nights.removeValue(forKey: id) != nil { defaults.set(try? JSONEncoder().encode(nights), forKey: eveningsKey) }
         var looks = outlooks(defaults)
         if looks.removeValue(forKey: id) != nil { defaults.set(try? JSONEncoder().encode(looks), forKey: outlooksKey) }
+    }
+}
+
+/// The evening after a game, in the athlete's words: how they played, how
+/// much, how hard. Kept with results (sealed `mindset.`); the twin reads it.
+public struct GameEvening: Codable, Equatable, Sendable, Identifiable {
+    public enum Played: String, Codable, CaseIterable, Sendable {
+        case most, some, none
+
+        public var title: String {
+            switch self {
+            case .most: "Most of it"
+            case .some: "Some of it"
+            case .none: "Didn't play"
+            }
+        }
+    }
+
+    /// The Competition's id.
+    public var id: String
+    /// 1 (poorly) … 5 (your best); nil: not said.
+    public var rating: Int?
+    /// Team sports only (nil: not asked).
+    public var played: Played?
+    /// Session effort 0–10 (CR-10) for the game; nil when not played or not said.
+    public var rpe: Int?
+    public var wentWell: [String]
+    public var toImprove: [String]
+
+    public init(id: String, rating: Int?, played: Played? = nil, rpe: Int? = nil, wentWell: [String] = [], toImprove: [String] = []) {
+        self.id = id
+        self.rating = rating
+        self.played = played
+        self.rpe = rpe
+        self.wentWell = wentWell
+        self.toImprove = toImprove
+    }
+
+    /// The words for "How did you play?" (1 … 5).
+    public static let ratings = ["Poorly", "Not my best", "Okay", "Well", "My best"]
+
+    /// Minutes of the game that count as the athlete's load: the usual hour,
+    /// half of it for "some", none when they didn't play.
+    public var minutes: Int {
+        switch played {
+        case .some: 30
+        case .none: 0
+        default: 60
+        }
     }
 }
 

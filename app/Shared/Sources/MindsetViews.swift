@@ -16,8 +16,10 @@ extension MindsetRoutine: Identifiable {
 /// Tomorrow's plan reads it (ADAPT).
 struct ReflectionSheet: View {
     let practiceToday: Bool
-    /// A game today: the went-well / to-improve chips follow it.
-    var gameToday = false
+    /// That day's game the athlete hasn't rated yet: the evening asks how they
+    /// played (its rating — the hub won't ask again), how much, how hard.
+    var gameToRate: (id: String, team: Bool, event: String)?
+    private var gameToday: Bool { gameToRate != nil }
     /// The sport the evening's practice answer is saved for (a `PracticeLog`).
     var sportSlug: String?
     /// A day without training, practice or a game: no "how hard" question.
@@ -43,7 +45,7 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case practice, practiceEffort, hardness, body, pain, wentWell, needsWork, learned, review, done }
+    enum Step: Hashable { case gameRating, gamePlayed, gameEffort, practice, practiceEffort, hardness, body, pain, wentWell, needsWork, learned, review, done }
 
     /// One Campus review question at the end (spaced repetition without a
     /// separate screen): the lesson that's most overdue.
@@ -74,6 +76,10 @@ struct ReflectionSheet: View {
     @State private var minutesKnown = false
     /// A watch's heart-rate read of the practice, shown as a dot, never picked.
     @State private var practiceEstimate: Int?
+    /// The game: how they played (1–5), how much (team sports), how hard (0–10).
+    @State private var gameRating: Int?
+    @State private var gamePlayed: GameEvening.Played?
+    @State private var gameRPE: Int?
     @State private var wentWell: Set<String> = []
     @State private var needsWork: Set<String> = []
     @State private var learned = ""
@@ -84,14 +90,20 @@ struct ReflectionSheet: View {
     @State private var paused = DayStatusStore.status() == .concussion
     @State private var saved = false
 
-    init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToday: Bool = false, sportSlug: String? = nil,
+    init(completion: DayCompletion? = nil, practiceToday: Bool = false, gameToRate: (id: String, team: Bool, event: String)? = nil,
+         sportSlug: String? = nil,
          restDay: Bool = false, trained: Bool = false, trainedEffort: Int? = nil, scheduledMinutes: Int? = nil,
          hadGame: Bool = false, athlete: Athlete? = nil, onSaved: @escaping () -> Void) {
         self.athlete = athlete
         self.hadGame = hadGame
         _completion = State(initialValue: completion)
         self.practiceToday = practiceToday
-        self.gameToday = gameToday
+        self.gameToRate = gameToRate
+        if let gameToRate, let evening = CompetitionStore.evenings()[gameToRate.id] {
+            _gameRating = State(initialValue: evening.rating)
+            _gamePlayed = State(initialValue: evening.played)
+            _gameRPE = State(initialValue: evening.rpe)
+        }
         self.sportSlug = sportSlug
         self.trained = trained
         self.trainedEffort = trainedEffort
@@ -131,21 +143,23 @@ struct ReflectionSheet: View {
             _painAreas = State(initialValue: Set(pain.areas))
             _painLevel = State(initialValue: pain.level)
         }
-        _step = State(initialValue: practiceToday ? .practice : (EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort,
-                                                                                  game: hadGame || gameToday) ? .hardness : .body))
+        let asks = EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: hadGame && gameToRate == nil)
+        _step = State(initialValue: gameToRate != nil ? .gameRating : practiceToday ? .practice : asks ? .hardness : .body)
     }
 
 
     private var asksHardness: Bool {
-        EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: hadGame || gameToday)
+        // A game asked about tonight has its own effort; one rated in the hub doesn't.
+        EveningOptions.asksHardness(restDay: restDay, trained: trained, trainedEffort: trainedEffort, game: hadGame && gameToRate == nil)
     }
 
     private var practiceWent: Bool { practiceToday && practice != nil && practice != EveningOptions.didntGo }
+    private var playedGame: Bool { gameToRate != nil && gamePlayed != GameEvening.Played.none }
 
     /// The day's hardness (1 easy … 4 very hard) for tomorrow's plan: what the
     /// athlete said, else the hardest effort the day's sessions were rated.
     private var dayHardness: Int? {
-        let efforts = [practiceWent ? practiceRPE : nil, trainedEffort].compactMap { $0 }
+        let efforts = [practiceWent ? practiceRPE : nil, playedGame ? gameRPE : nil, trainedEffort].compactMap { $0 }
         let derived = efforts.max().map(EveningOptions.hardness(fromRPE:))
         // The answer counts only when it was asked tonight (a reopened evening
         // pre-fills the saved, derived value — it mustn't hold the day up).
@@ -166,6 +180,11 @@ struct ReflectionSheet: View {
     /// asks where and how much — once, never "None" after it.
     private var steps: [Step] {
         var steps: [Step] = []
+        if let gameToRate {
+            steps.append(.gameRating)
+            if gameToRate.team { steps.append(.gamePlayed) }
+            if playedGame { steps.append(.gameEffort) }
+        }
         if practiceToday {
             steps.append(.practice)
             if practiceWent { steps.append(.practiceEffort) }
@@ -176,7 +195,7 @@ struct ReflectionSheet: View {
         // What went well / what to improve follow a practice that happened or a
         // game the games hub hasn't asked about — not a rest day or a gym
         // session that already asked its effort (research C-rules).
-        if (practiceToday && practice != EveningOptions.didntGo) || gameToday {
+        if practiceWent || gameToday {
             steps.append(.wentWell)
             steps.append(.needsWork)
         }
@@ -247,6 +266,28 @@ struct ReflectionSheet: View {
             }
         case .practiceEffort:
             practiceEffortPage
+        case .gameRating:
+            VStack(spacing: 0) {
+                scale("How did you play?", GameEvening.ratings, selection: $gameRating)
+                skipFooter(.gameRating)
+            }
+        case .gamePlayed:
+            QuestionPage(progress: progress, question: "Did you play?", hint: "How much of the \(gameToRate?.event ?? "game") you were on.",
+                         buttonTitle: gamePlayed == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() },
+                         onButton: { next(from: .gamePlayed) }, tone: .mind) {
+                ChoiceGrid(GameEvening.Played.allCases, title: { (played: GameEvening.Played) -> String in played.title },
+                           isSelected: { (played: GameEvening.Played) -> Bool in played == gamePlayed }) { (played: GameEvening.Played) in
+                    gamePlayed = played
+                    advance(from: .gamePlayed)
+                }
+            }
+        case .gameEffort:
+            QuestionPage(progress: progress, question: "How hard was the \(gameToRate?.event ?? "game") for you?",
+                         hint: "Think of the whole \(gameToRate?.event ?? "game"), not just the end.",
+                         buttonTitle: gameRPE == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() },
+                         onButton: { next(from: .gameEffort) }, tone: .training) {
+                EffortScale(rating: $gameRPE)
+            }
         case .wentWell:
             areas("What went well?", selection: $wentWell, note: $wentWellNote, placeholder: "In your words (optional)")
         case .needsWork:
@@ -510,6 +551,14 @@ struct ReflectionSheet: View {
         PracticeLogStore.save(log)
     }
 
+    /// The game's evening answers: its rating (the hub shows it, never asks
+    /// it again), how much was played, how hard — the twin's game load.
+    private func saveGame(wentWell: [String], toImprove: [String]) {
+        guard let gameToRate, gameRating != nil || gamePlayed != nil || gameRPE != nil else { return }
+        CompetitionStore.save(GameEvening(id: gameToRate.id, rating: gameRating, played: gameToRate.team ? gamePlayed : nil,
+                                          rpe: playedGame ? gameRPE : nil, wentWell: wentWell, toImprove: toImprove))
+    }
+
     private func pauseForHead() {
         DayStatusStore.set(.concussion, days: nil)
         HealthShare.send(kind: "paused")
@@ -530,11 +579,12 @@ struct ReflectionSheet: View {
             needsWork: order.filter { needsWork.contains($0) } + (improve.isEmpty ? [] : [improve]),
             learned: learned.isEmpty ? nil : learned, on: Self.reflectionDay()
         )
-        // What a rated practice taught the twin — never next to pain (its own path).
+        // What a rated practice or game taught the twin — never next to pain (its own path).
         let twinBefore = athlete.map { TwinPulse.before($0) }
         savePractice()
-        if let athlete, let twinBefore, practiceWent, practiceRPE != nil, bodyFeel != 4 {
-            TwinPulse.after(athlete, before: twinBefore, input: .practice)
+        saveGame(wentWell: order.filter { wentWell.contains($0) }, toImprove: order.filter { needsWork.contains($0) })
+        if let athlete, let twinBefore, (practiceWent && practiceRPE != nil) || gameRating != nil, bodyFeel != 4 {
+            TwinPulse.after(athlete, before: twinBefore, input: .evening)
         }
         ReminderScheduler.markDone(reflection: true)
         // Tonight's answers shape tomorrow: the saved plan (Lock Screen card,

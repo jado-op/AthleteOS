@@ -270,4 +270,20 @@ final class TellParserTests: XCTestCase {
         XCTAssertTrue(results("We want to win the game on Saturday").isEmpty)
         XCTAssertTrue(parse("We want to win the game on Saturday").proposals.contains { if case .competition = $0 { true } else { false } })
     }
+
+    /// The evening's "How did you play?" is the game's rating until a result
+    /// exists, then the result takes it — one rating per game.
+    func testTheEveningRatesTheGame() {
+        let defaults = UserDefaults(suiteName: "game-evening-\(UUID().uuidString)")!
+        XCTAssertNil(CompetitionStore.rating(for: "g1", defaults))
+        CompetitionStore.save(GameEvening(id: "g1", rating: 4, played: .some, rpe: 7), defaults)
+        XCTAssertEqual(CompetitionStore.rating(for: "g1", defaults), 4)
+        XCTAssertEqual(CompetitionStore.evenings(defaults)["g1"]?.minutes, 30)
+        CompetitionStore.save(CompetitionResult(id: "g2", outcome: .win, rating: 0), defaults)
+        CompetitionStore.save(GameEvening(id: "g2", rating: 5), defaults)
+        XCTAssertEqual(CompetitionStore.results(defaults)["g2"]?.rating, 5, "a result already there takes the evening's rating")
+        XCTAssertEqual(GameEvening(id: "x", rating: nil, played: .none).minutes, 0)
+        CompetitionStore.forget("g1", defaults)
+        XCTAssertNil(CompetitionStore.evenings(defaults)["g1"])
+    }
 }

@@ -118,6 +118,9 @@ public struct TwinInput: Sendable {
     public var reflections: [Reflect]
     public var practices: [Practice]
     public var loads: [Load]
+    /// Games the athlete rated in the evening: minutes played × effort (a game
+    /// without one counts as the usual hour at 8 of 10).
+    public var gameLoads: [Load] = []
     /// Intake answers: question id → option id or free text.
     public var intake: [String: String]
     /// The athlete's sport: its words ("matches", "races") and whether speed decides.
@@ -568,7 +571,10 @@ public enum TwinAnalysis {
             func inWeek(_ d: Date) -> Bool { d >= begin && d < end }
             let sessions = c.input.loads.filter { inWeek($0.date) }.map { (Double($0.minutes), Double($0.minutes) * Double($0.rpe ?? 5)) }
             let practices = c.input.practices.filter { inWeek($0.date) }.map { (Double($0.minutes ?? 90), $0.load) }
-            let games = c.gameDays.filter { inWeek($0) }.map { _ in (60.0, 60.0 * 8) }
+            let games = c.gameDays.filter { inWeek($0) }.map { day -> (Double, Double) in
+                guard let told = c.input.gameLoads.first(where: { c.calendar.isDate($0.date, inSameDayAs: day) }) else { return (60, 60 * 8) }
+                return (Double(told.minutes), Double(told.minutes) * Double(told.rpe ?? 8))
+            }
             let all = sessions + practices + games
             return (all.map(\.0).reduce(0, +), all.map(\.1).reduce(0, +))
         }

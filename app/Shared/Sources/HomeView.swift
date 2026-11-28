@@ -94,16 +94,18 @@ struct HomeView: View {
     private var examWeek: Bool { _ = practiceDays; return ScheduleStore.isExamWeek(.now) }
     private var loggedToday: Bool { !todaysSessions.isEmpty }
 
+    /// The athlete's sport words and whether it's a team sport ("Did you play?").
+    private var gameFamily: SportFamily { AcademyContent.family(forSport: athlete.activeSport?.sportSlug) }
+
     /// The day the evening reflects on (after midnight, until 05:00, still
     /// yesterday): its practice — kept when the evening itself said "Didn't go",
     /// so the answer can be changed — its game, and whether a game still waits
     /// for the games hub's questions (asked there, not twice).
-    private var reflectionDayFacts: (practice: Bool, game: Bool, gameWithoutResult: Bool, trained: Bool, effort: Int?, practiceMinutes: Int?) {
+    private var reflectionDayFacts: (practice: Bool, game: Bool, gameToRate: Competition?, trained: Bool, effort: Int?, practiceMinutes: Int?) {
         let day = ReflectionSheet.reflectionDay()
         let key = DayKey.of(day)
         let practice = PracticeSchedule.hasPractice(on: day) || EveningPractice.skipped(on: key)
         let games = athlete.competitions.filter { calendar.isDate($0.date, inSameDayAs: day) }
-        let results = CompetitionStore.results()
         let sessions = athlete.sessions.filter { calendar.isDate($0.startedAt, inSameDayAs: day) }
         // The day's effort is known only when every workout has one the athlete
         // gave (a watch's heart-rate guess isn't an answer — else ask).
@@ -112,7 +114,10 @@ struct HomeView: View {
         }
         let effort = !sessions.isEmpty && efforts.count == sessions.count ? efforts.max() : nil
         let minutes = PracticeSchedule.time(on: day, calendar: calendar).map { $0.end - $0.start }.flatMap { $0 > 0 ? $0 : nil }
-        return (practice, !games.isEmpty, games.contains { results[$0.id] == nil }, !sessions.isEmpty, effort, minutes)
+        // A game not rated yet (hub or an earlier evening): the evening asks how it went.
+        let unrated = games.first { CompetitionStore.rating(for: $0.id) == nil }
+            ?? games.first { CompetitionStore.evenings()[$0.id] != nil && CompetitionStore.results()[$0.id] == nil }
+        return (practice, !games.isEmpty, unrated, !sessions.isEmpty, effort, minutes)
     }
     private var isTrainingDay: Bool { status != .sick && status != .concussion }
 
@@ -454,7 +459,8 @@ struct HomeView: View {
                     SafetyCenterView()
                 case .reflection:
                     let evening = reflectionDayFacts
-                    ReflectionSheet(completion: completion, practiceToday: evening.practice, gameToday: evening.gameWithoutResult,
+                    ReflectionSheet(completion: completion, practiceToday: evening.practice,
+                                    gameToRate: evening.gameToRate.map { ($0.id, gameFamily.team, gameFamily.event) },
                                     sportSlug: athlete.activeSport?.sportSlug ?? athlete.sports.first?.sportSlug,
                                     restDay: !evening.trained && !evening.practice && !evening.game,
                                     trained: evening.trained, trainedEffort: evening.effort,

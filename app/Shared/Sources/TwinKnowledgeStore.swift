@@ -15,6 +15,7 @@ enum TwinKnowledgeStore {
         // again, a 60-day pain list that only rolls): a cheap fingerprint of
         // each source's content instead.
         let results = CompetitionStore.results().values.map { "\($0.id)\($0.rating)" }.sorted().joined()
+            + CompetitionStore.evenings().values.map { "\($0.id)\($0.rating ?? 0)\($0.rpe ?? -1)\($0.played?.rawValue ?? "")" }.sorted().joined()
         let pains = PainStore.all().map { "\($0.day)\($0.areas.map(\.rawValue).joined())" }.joined()
         let practices = PracticeLogStore.logs.map { "\($0.day)\($0.hard)\($0.saidWent)\($0.rpe ?? -1)\($0.minutes ?? 0)" }.joined()
             + PracticeTimes.all.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.start)-\($0.value.end)" }.joined()
@@ -34,10 +35,10 @@ enum TwinKnowledgeStore {
     static func input(_ athlete: Athlete, state: AcademyState, now: Date, calendar: Calendar) -> KnowledgeInput {
         let base = TwinInputBuilder.input(athlete: athlete, state: state, now: now, calendar: calendar)
         // The athlete's own rating of their game, never the result (research §1).
-        let results = CompetitionStore.results()
         let rated = athlete.competitions.compactMap { game -> KnowledgeInput.RatedGame? in
-            guard game.date < now, let result = results[game.id], (1...5).contains(result.rating) else { return nil }
-            return KnowledgeInput.RatedGame(date: game.date, rating: result.rating)
+            // The hub's rating, else the evening's "How did you play?".
+            guard game.date < now, let rating = CompetitionStore.rating(for: game.id) else { return nil }
+            return KnowledgeInput.RatedGame(date: game.date, rating: rating)
         }
         let pains = PainStore.all().compactMap { report -> KnowledgeInput.Pain? in
             guard let day = TwinInputBuilder.day(report.day, calendar: calendar) else { return nil }

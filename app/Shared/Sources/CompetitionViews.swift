@@ -733,7 +733,15 @@ struct CompetitionResultForm: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
             .onAppear {
-                guard let existing else { return }
+                guard let existing else {
+                    // Said the evening after: shown here, not asked again.
+                    if let evening = CompetitionStore.evenings()[competition.id] {
+                        rating = evening.rating ?? 0
+                        wentWell = Set(evening.wentWell)
+                        toImprove = Set(evening.toImprove)
+                    }
+                    return
+                }
                 outcome = existing.outcome
                 placement = existing.placement ?? 1
                 score = existing.score ?? ""

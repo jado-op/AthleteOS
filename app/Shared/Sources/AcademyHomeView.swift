@@ -647,7 +647,7 @@ struct AcademyHomeView: View {
         case "games.best":
             // Only the newest past game: the hub offers a result for that one.
             guard let last = athlete.competitions.filter({ $0.date < .now }).max(by: { $0.date < $1.date }),
-                  !((CompetitionStore.results()[last.id]?.rating).map { (1...5).contains($0) } ?? false) else { return nil }
+                  CompetitionStore.rating(for: last.id) == nil else { return nil }
             return ("Rate your last \(family.event)", { showingCompetitions = true })
         default:
             return nil
