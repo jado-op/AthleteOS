@@ -155,20 +155,13 @@ struct AcademyHomeView: View {
                         }
                         .padding(.top, 28)
                     }
-                    // 2–3. New twins lead with what they're learning.
-                    if portrait.isEmpty {
-                        if showsLearning { learningSection.padding(.top, 44).id("learning") }
-                        if hiddenCount > 0 || !contextLines.isEmpty { knowSection.padding(.top, 44).id("know") }
-                    } else {
-                        knowSection.padding(.top, 44).id("know")
-                        if showsLearning { learningSection.padding(.top, 44).id("learning") }
-                    }
-                    // 4. The evidence, one level down.
-                    evidence.padding(.top, 52).id("evidence")
-                    supportRow.padding(.top, 44)
-                    if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
-                        privacyRow.padding(.top, 20)
-                    }
+                    // 2. What it knows and, right under it, what it's learning next
+                    // (one section — redesign 2026-11-28: the page was busy).
+                    knowSection.padding(.top, 44).id("know")
+                    // 3. The evidence, one level down.
+                    evidence.padding(.top, 44).id("evidence")
+                    // 4. One quiet footer: help, whose this is, the way out.
+                    footer.padding(.top, 44)
                     Color.clear.frame(height: 24)
                 }
                 .padding(.horizontal, 24)
@@ -375,24 +368,34 @@ struct AcademyHomeView: View {
         AcademyPageSwitcher(name: athlete.displayName)
     }
 
-    private var identityLine: [Headline.Part] {
-        let name = athlete.displayName ?? ""
-        let opener: Headline.Part = name.isEmpty ? .strong("Your twin.") : .strong(name + ".")
-        guard let counts = report?.counts else {
-            if name.isEmpty { return [opener] }
-            return [opener, .soft(" Your twin.")]
-        }
-        return [opener, .soft(" Read from "), .strong(countedNoun(counts.weeks, "week")), .soft(" of your own data.")]
-    }
-
     private var identity: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // V8: one sentence says whose twin this is and how much it has seen.
-            Headline(identityLine, size: 36)
-            Text(meta)
+        let name = athlete.displayName ?? ""
+        return VStack(alignment: .leading, spacing: 8) {
+            // Whose twin, then one quiet line: the sport, the season, how much it has seen.
+            Headline([.strong(name.isEmpty ? "Your twin" : name)], size: 36)
+            Text(headerFacts.joined(separator: " · "))
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// "Skiing · Pre-season · season from 1 December · 1 week of your data".
+    private var headerFacts: [String] {
+        var facts = [meta]
+        if let seasonNote { facts.append(seasonNote) }
+        if let report { facts.append(countedNoun(report.counts.weeks, "week") + " of your data") }
+        return facts
+    }
+
+    /// "season from 1 December" / "until 15 March" — the season, said once, up top.
+    private var seasonNote: String? {
+        guard let sport = athlete.activeSport else { return nil }
+        let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
+        let date = { (d: Date) in d.formatted(.dateTime.day().month(.wide)) }
+        if phase == .inSeason { return "until \(date(sport.seasonEnd))" }
+        guard sport.seasonStart > .now else { return nil }
+        return "season from \(date(sport.seasonStart))"
     }
 
     private var heroLine: TwinHero {
@@ -416,11 +419,6 @@ struct AcademyHomeView: View {
                 .lineSpacing(3)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            if let report {
-                Text("From \(report.counts.checkIns) check-ins, \(report.counts.sessions) sessions and \(report.counts.games) \(family.events)\(state.intakeDoneAt == nil ? "" : ", and your interview")")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.ink.opacity(0.65))
-            }
             heroAction(line).padding(.top, 4)
         }
         .padding(22)
@@ -481,10 +479,6 @@ struct AcademyHomeView: View {
     private var knowSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionLabel("What I know about you")
-            Text("Worked out on your phone from your own data. Only you see it, and you're only ever compared with you.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
             if let correctedNote {
                 Label(correctedNote, systemImage: "checkmark")
                     .font(.subheadline.weight(.medium))
@@ -492,9 +486,9 @@ struct AcademyHomeView: View {
                     .transition(.opacity)
             }
             if portrait.isEmpty {
-                Text("Nothing I can say for sure yet — I'd rather wait than guess.")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.ink)
+                Text("Nothing for sure yet — I'd rather wait than guess.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             ForEach(portrait, id: \.area) { area in
                 VStack(alignment: .leading, spacing: 10) {
@@ -506,7 +500,8 @@ struct AcademyHomeView: View {
                     ForEach(area.entries) { entry in portraitRow(entry) }
                 }
             }
-            seasonAndGoals
+            goalsLine
+            if showsLearning { learningSection.padding(.top, 14).id("learning") }
             if hiddenCount > 0 {
                 Button {
                     TwinKnowledgeStore.showHidden()
@@ -520,10 +515,6 @@ struct AcademyHomeView: View {
                 }
                 .buttonStyle(.secondary)
             }
-            Text("It says what goes together in your data, never what causes what. A pattern is only said once it has held more than once.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.mutedText)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -544,54 +535,23 @@ struct AcademyHomeView: View {
         }
     }
 
-    /// What else shapes the plan: the season and the athlete's own goals.
+    /// The athlete's own goals, as one line (the season is in the header;
+    /// the twin's own steers sit on their lines).
     @ViewBuilder
-    private var seasonAndGoals: some View {
-        let lines = contextLines
-        if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Also shaping your plan")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .padding(.top, 10)
-                ForEach(lines, id: \.0) { line in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(line.0)
-                            .font(.headline)
-                            .foregroundStyle(AuraTone.training.mark)
-                        Text(line.1)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    /// The season and the goals (the twin's own steers sit on their lines).
-    private var contextLines: [(String, String)] {
-        var lines: [(String, String)] = []
-        if let sport = athlete.activeSport {
-            let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
-            let date = { (d: Date) in d.formatted(.dateTime.day().month(.abbreviated)) }
-            var next = ""
-            if phase != .inSeason, sport.seasonStart > .now {
-                if let pre = PreSeasonStore.start, pre > .now, pre < sport.seasonStart, phase != .preSeason {
-                    next = "Pre-season from \(date(pre)), the season from \(date(sport.seasonStart))."
-                } else {
-                    next = "The season starts \(date(sport.seasonStart))."
-                }
-            } else if phase == .inSeason {
-                next = "Until \(date(sport.seasonEnd))."
-            }
-            lines.append((AthleteStats.phaseLabel(phase), (next + " " + phase.focus).trimmingCharacters(in: .whitespaces)))
-        }
+    private var goalsLine: some View {
         let goals = Struggles.selected.prefix(3).map(\.title)
         if !goals.isEmpty {
-            lines.append(("Your goals", "Workouts lean towards " + goals.joined(separator: ", ").lowercased() + "."))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Your goals")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                Text("Workouts lean towards " + goals.joined(separator: ", ").lowercased() + ".")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 6)
         }
-        return lines
     }
 
     // MARK: 3. Still learning
@@ -607,12 +567,11 @@ struct AcademyHomeView: View {
     private var learningSection: some View {
         let interviewOpen = state.intakeDoneAt == nil
         let items = TwinPage.stillLearning(knowledge.learning, limit: interviewOpen ? 2 : 3)
-        let more = knowledge.learning.count - items.count
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionLabel("Still learning")
-            Text("I won't guess. These open up as your data grows.")
-                .font(.subheadline)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Learning next")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.secondaryText)
+                .accessibilityAddTraits(.isHeader)
             if interviewOpen {
                 let total = interviewQuestions.count
                 LearningRow(question: "How you train, compete and think",
@@ -627,11 +586,6 @@ struct AcademyHomeView: View {
                 LearningRow(question: item.question, progress: item.progress,
                             fraction: item.checking ? nil : Double(min(item.have, item.need)) / Double(max(item.need, 1)),
                             actionTitle: action?.title) { action?.run() }
-            }
-            if more > 0 {
-                Text("\(more) more \(more == 1 ? "thing opens" : "things open") up as your data grows.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.mutedText)
             }
         }
     }
@@ -659,9 +613,6 @@ struct AcademyHomeView: View {
     private var evidence: some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionLabel("The evidence")
-            Text("Your own numbers behind all of this.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
             VStack(spacing: 0) {
                 Button { path.append(.performing) } label: {
                     ListRow(systemImage: "chart.line.uptrend.xyaxis", color: AuraTone.training.mark, title: "How are you performing?",
@@ -819,27 +770,30 @@ struct AcademyHomeView: View {
         showingInterview = true
     }
 
-    private var supportRow: some View {
-        Button { showingSupport = true } label: {
-            ListRow(systemImage: "bubble.left.and.bubble.right.fill", color: AppTheme.purple, title: "Need to talk to someone?",
-                    detail: "Free, confidential help — any time")
-        }
-        .buttonStyle(.pressable)
-    }
-
-    /// Whose this is, and the way out.
-    private var privacyRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Your twin is yours alone — never shown to coaches, parents or teammates. Backed up encrypted to your own account.")
+    /// One quiet footer: help a tap away, how the twin reads you, whose it
+    /// is, and the way out.
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Button { showingSupport = true } label: {
+                Label("Need to talk to someone? Free, confidential help", systemImage: "bubble.left.and.bubble.right.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AuraTone.mind.mark)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+            .buttonStyle(.pressable)
+            Text("Worked out on your phone, from your own data, compared only with you. It says what goes together, never what causes what. Your twin is yours alone — never shown to coaches, parents or teammates, and backed up encrypted to your own account.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button(role: .destructive) { confirmingDelete = true } label: {
-                Text("Delete twin")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.danger)
+            if state.intakeDoneAt != nil || !state.read.isEmpty || !state.performances.isEmpty {
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Text("Delete twin")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.danger)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.pressable)
             }
-            .buttonStyle(.pressable)
         }
     }
 }

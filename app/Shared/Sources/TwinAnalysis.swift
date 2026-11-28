@@ -721,8 +721,8 @@ public enum TwinAnalysis {
         let enough = counts.checkIns >= 5 || counts.sessions >= 3 || counts.games >= 1
         guard enough || !insights.isEmpty else {
             return hasIntake
-                ? "Your twin knows who you are — now it needs your data. Check in each morning, log your sessions and add your \(events); in a couple of weeks it will show you what's really going on."
-                : "Your twin needs to get to know you. Start with the interview, then check in each morning and log your sessions and \(events)."
+                ? "Your twin is learning you. Check in each morning — in about two weeks it starts showing you patterns."
+                : "Your twin needs to get to know you. Start with the five-minute interview."
         }
         var parts: [String] = []
         if let good = strengths.first {

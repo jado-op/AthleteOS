@@ -178,40 +178,44 @@ struct LearningRow: View {
     let actionTitle: String?
     let action: () -> Void
 
+    /// One slim line (redesign 2026-11-28: the page was busy): the question,
+    /// how far, a thin bar, and the one thing to do as a text link.
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(question)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(question)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                if let actionTitle {
+                    Button(action: action) {
+                        Text(actionTitle)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AuraTone.mind.mark)
+                            .frame(minHeight: 32)
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            if let fraction {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(AuraTone.mind.mark).frame(width: max(4, geo.size.width * min(1, max(0, fraction))))
+                    }
+                }
+                .frame(height: 4)
+                .accessibilityHidden(true)
+            }
             Text(progress)
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            if let fraction {
-                ProgressView(value: fraction)
-                    .tint(AuraTone.mind.mark)
-                    .accessibilityHidden(true)
-            }
-            if let actionTitle {
-                Button(action: action) {
-                    HStack(spacing: 6) {
-                        Text(actionTitle)
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.black)
-                    .padding(.horizontal, 16)
-                    .frame(height: 36)
-                    .background(Color.white, in: Capsule())
-                }
-                .buttonStyle(.pressable)
-                .padding(.top, 6)
-            }
         }
-        .padding(18)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassSurface()
+        .accessibilityElement(children: .combine)
     }
 }
 

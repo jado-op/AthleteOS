@@ -124,6 +124,10 @@ struct CampusView: View {
     var prelude: AnyView? = nil
     /// Shown under the lessons (long reads, mental skills).
     var extra: AnyView? = nil
+    /// Embedded: "Campus asks" under the header, and what's read between the
+    /// sport and the areas (redesign 2026-11-28: one order, less to scan).
+    var asks: AnyView? = nil
+    var middle: AnyView? = nil
     @AppStorage(CampusProgress.learnedKey) private var learnedRaw = ""
     @State private var playing: CampusLesson?
     @State private var reviewing: ReviewSession?
@@ -153,28 +157,24 @@ struct CampusView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     if let prelude { prelude }
                     header
+                    if let asks { asks }
                     continueRow
                     if !dueForReview.isEmpty { reviewCard }
                     dailyAllowance
-                    VStack(alignment: .leading, spacing: 4) {
-                        SpaceSection(1, "Areas")
-                        ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
-                            NavigationLink(value: topic) { areaRow(topic, index: index) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        SpaceSection(2, "Your sport")
-                        SportGuideCard(athlete: athlete) { showingGuide = true }
-                        if let lesson = positionLesson {
-                            Button { playing = lesson } label: {
-                                ListRow(systemImage: "person.fill.viewfinder", color: AppTheme.brand, title: "Know your position",
-                                        detail: "\(lesson.minutes) min · your job in the \(AcademyContent.family(forSport: athlete.activeSport?.sportSlug).event)")
+                    if embedded {
+                        // The Academy page (redesign 2026-11-28): sport, reading, then the areas as a grid.
+                        sportSection
+                        if let middle { middle }
+                        areaGrid
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            SpaceSection(1, "Areas")
+                            ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
+                                NavigationLink(value: topic) { areaRow(topic, index: index) }
+                                    .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                            .padding(14)
-                            .glassSurface(cornerRadius: 16)
                         }
+                        sportSection
                     }
                     if let extra { extra }
                 }
@@ -246,17 +246,79 @@ struct CampusView: View {
 
     // MARK: Header
 
+    @ViewBuilder
     private var header: some View {
-        // V8: the count in one sentence; the next lesson is the card below.
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Short lessons")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
-                .accessibilityAddTraits(.isHeader)
-            Headline([.strong("\(learned.count) of \(totalLessons)"), .soft(" learned. A few minutes each.")], size: 30)
+        if embedded {
+            // The Academy's Campus: one sentence says what it is and how far you are.
+            Headline([.strong("Learn what makes you better."),
+                      .soft(" \(learned.count) of \(totalLessons) lessons learned.")], size: 30)
+                .padding(.top, 12)
+        } else {
+            // V8: the count in one sentence; the next lesson is the card below.
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Short lessons")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .accessibilityAddTraits(.isHeader)
+                Headline([.strong("\(learned.count) of \(totalLessons)"), .soft(" learned. A few minutes each.")], size: 30)
+            }
+            .padding(.top, 8)
+            .padding(.trailing, 44) // the sheet's close button
         }
-        .padding(.top, embedded ? 12 : 8)
-        .padding(.trailing, embedded ? 0 : 44) // the sheet's close button
+    }
+
+    /// The sport guide and the athlete's position lesson.
+    private var sportSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Your sport")
+            SportGuideCard(athlete: athlete) { showingGuide = true }
+            if let lesson = positionLesson {
+                Button { playing = lesson } label: {
+                    ListRow(systemImage: "person.fill.viewfinder", color: AppTheme.brand, title: "Know your position",
+                            detail: "\(lesson.minutes) min · your job in the \(AcademyContent.family(forSport: athlete.activeSport?.sportSlug).event)")
+                }
+                .buttonStyle(.plain)
+                .padding(14)
+                .glassSurface(cornerRadius: 16)
+            }
+        }
+    }
+
+    /// The nine areas as a two-column grid: icon, name, how far.
+    private var areaGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Lessons by area")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(campusTopics) { topic in
+                    NavigationLink(value: topic) { areaTile(topic) }
+                        .buttonStyle(.pressable)
+                }
+            }
+        }
+    }
+
+    private func areaTile(_ topic: CampusTopic) -> some View {
+        let done = topic.lessons.filter { learned.contains($0.id) }.count
+        return VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: topic.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Self.color(for: topic))
+            Spacer(minLength: 0)
+            Text(topic.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(done) of \(topic.lessons.count)")
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     /// The athlete's position, as a lesson from their sport's guide.

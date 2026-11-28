@@ -9,14 +9,15 @@ struct CampusPage: View {
     let athlete: Athlete
 
     var body: some View {
+        // One order (redesign 2026-11-28): the header and the next question,
+        // the next lesson, your sport, long reads, the areas, then what you've told it.
         CampusView(
             athlete: athlete,
             embedded: true,
-            prelude: AnyView(VStack(alignment: .leading, spacing: 28) {
-                AcademyPageSwitcher(name: athlete.displayName)
-                CampusAsksSection(athlete: athlete)
-            }),
-            extra: AnyView(CampusReadingSection(athlete: athlete))
+            prelude: AnyView(AcademyPageSwitcher(name: athlete.displayName)),
+            extra: AnyView(CampusAsksSection(athlete: athlete, part: .answers)),
+            asks: AnyView(CampusAsksSection(athlete: athlete, part: .ask)),
+            middle: AnyView(CampusReadingSection(athlete: athlete))
         )
     }
 }
@@ -26,6 +27,9 @@ struct CampusPage: View {
 /// interview keeps them (AcademyStore) — only the athlete sees them.
 struct CampusAsksSection: View {
     let athlete: Athlete
+    /// The next question (under the header) or the answers so far (at the bottom).
+    enum Part { case ask, answers }
+    var part: Part = .ask
 
     @State private var state = AcademyState()
     @State private var skipped: Set<String> = []
@@ -51,21 +55,17 @@ struct CampusAsksSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Campus")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .accessibilityAddTraits(.isHeader)
-                Headline([.strong("Learn what makes you better."), .soft(" Campus gets to know you as you go.")], size: 30)
+            switch part {
+            case .ask:
+                if let next {
+                    askCard(next)
+                } else if answeredCount < questions.count {
+                    Button("Show the skipped questions") { withAnimation(.easeInOut(duration: 0.2)) { skipped = [] } }
+                        .buttonStyle(.secondary)
+                }
+            case .answers:
+                if answeredCount > 0 { knows }
             }
-            .padding(.top, 8)
-            if let next {
-                askCard(next)
-            } else if answeredCount < questions.count {
-                Button("Show the skipped questions") { withAnimation(.easeInOut(duration: 0.2)) { skipped = [] } }
-                    .buttonStyle(.secondary)
-            }
-            if answeredCount > 0 { knows }
         }
         .onAppear(perform: load)
         .fullScreenCover(isPresented: $showingInterview, onDismiss: load) {
@@ -158,7 +158,7 @@ struct CampusAsksSection: View {
 
     private var knows: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("What Campus knows about you") {
+            SectionLabel("What you've told Campus") {
                 Button(showingAll ? "Less" : "All") { withAnimation(.easeInOut(duration: 0.2)) { showingAll.toggle() } }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
