@@ -288,10 +288,16 @@ struct CampusView: View {
     private var areaGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("Lessons by area")
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(campusTopics) { topic in
-                    NavigationLink(value: topic) { areaTile(topic) }
-                        .buttonStyle(.pressable)
+            // Not lazy: a dozen tiles, every one there for VoiceOver and UI tests.
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                ForEach(Array(stride(from: 0, to: campusTopics.count, by: 2)), id: \.self) { start in
+                    GridRow {
+                        ForEach(campusTopics[start..<min(start + 2, campusTopics.count)]) { topic in
+                            NavigationLink(value: topic) { areaTile(topic) }
+                                .buttonStyle(.pressable)
+                        }
+                        if start + 1 >= campusTopics.count { Color.clear.gridCellUnsizedAxes([.horizontal, .vertical]) }
+                    }
                 }
             }
         }
@@ -303,6 +309,7 @@ struct CampusView: View {
             Image(systemName: topic.systemImage)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Self.color(for: topic))
+                .accessibilityHidden(true)
             Spacer(minLength: 0)
             Text(topic.title)
                 .font(.subheadline.weight(.semibold))
