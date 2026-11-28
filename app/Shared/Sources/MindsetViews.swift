@@ -45,7 +45,7 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case gameRating, gamePlayed, gameEffort, practice, practiceEffort, hardness, body, pain, wentWell, needsWork, learned, review, done }
+    enum Step: Hashable { case gameRating, gamePlayed, gameEffort, practice, practiceEffort, hardness, body, pain, wentWell, needsWork, nextWeek, learned, review, done }
 
     /// One Campus review question at the end (spaced repetition without a
     /// separate screen): the lesson that's most overdue.
@@ -80,6 +80,8 @@ struct ReflectionSheet: View {
     @State private var gameRating: Int?
     @State private var gamePlayed: GameEvening.Played?
     @State private var gameRPE: Int?
+    /// Sunday evening: "Next week looks…" (nil: not answered).
+    @State private var busyNextWeek: Bool?
     @State private var wentWell: Set<String> = []
     @State private var needsWork: Set<String> = []
     @State private var learned = ""
@@ -203,7 +205,23 @@ struct ReflectionSheet: View {
             steps.append(.wentWell)
             steps.append(.needsWork)
         }
+        if asksNextWeek { steps.append(.nextWeek) }
         return steps
+    }
+
+    /// The Monday after the reflected Sunday (nil on any other evening).
+    private var nextWeekStart: Date? {
+        let calendar = Calendar.current
+        let day = Self.reflectionDay()
+        guard calendar.component(.weekday, from: day) == 1 else { return nil }
+        return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: day))
+    }
+
+    /// Once a week, on Sunday evening, one extra question — unless the coming
+    /// week is already known to be an exam week, or was answered tonight.
+    private var asksNextWeek: Bool {
+        guard let nextWeekStart else { return false }
+        return !ScheduleStore.isExamWeek(nextWeekStart) || busyNextWeek != nil
     }
 
     private var progress: Double {
@@ -299,6 +317,16 @@ struct ReflectionSheet: View {
             areas("What went well?", selection: $wentWell, note: $wentWellNote, placeholder: "In your words (optional)")
         case .needsWork:
             areas("What should improve next time?", selection: $needsWork, note: $improveNote, placeholder: "One small thing to try (optional)")
+        case .nextWeek:
+            QuestionPage(progress: progress, question: "Next week looks…", hint: "Exams or a busy school week: fewer, shorter sessions, and the twin won't compare that week's sleep with your usual.",
+                         buttonTitle: busyNextWeek == nil ? nil : "Save", onClose: { dismiss() }, onBack: { back() },
+                         onButton: { next(from: .nextWeek) }, tone: .mind) {
+                ChoiceGrid([false, true], title: { (busy: Bool) -> String in busy ? "Exams or busy with school" : "Normal" },
+                           isSelected: { (busy: Bool) -> Bool in busy == busyNextWeek }) { (busy: Bool) in
+                    busyNextWeek = busy
+                    advance(from: .nextWeek)
+                }
+            }
         case .learned:
             QuestionPage(progress: progress, question: "What did you learn today?", hint: "Optional. One line is plenty.",
                          buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }, tone: .mind) {
@@ -589,6 +617,9 @@ struct ReflectionSheet: View {
         // What a rated practice or game taught the twin — never next to pain (its own path).
         let twinBefore = athlete.map { TwinPulse.before($0) }
         savePractice()
+        // "Exams or busy": the coming week is lighter (the exam-week plan) and
+        // its nights stay out of the twin's sleep comparisons.
+        if busyNextWeek == true, let nextWeekStart { ScheduleStore.setManualExamWeek(nextWeekStart, true) }
         saveGame(wentWell: order.filter { wentWell.contains($0) }, toImprove: order.filter { needsWork.contains($0) })
         if let athlete, let twinBefore, (practiceWent && practiceRPE != nil) || gameRating != nil, bodyFeel != 4 {
             TwinPulse.after(athlete, before: twinBefore, input: .evening)

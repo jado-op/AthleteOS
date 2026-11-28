@@ -1448,7 +1448,7 @@ struct HomeView: View {
 
     private var focusTag: String? {
         if readinessBand != nil { return "Lighter today" }
-        if examWeek { return "Exam week" }
+        if examWeek { return "Busy school week" }
         if status != .active { return "Optional" }
         return nil
     }

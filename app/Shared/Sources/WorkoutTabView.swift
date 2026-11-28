@@ -291,7 +291,7 @@ struct WorkoutTabView: View {
             tags.append(days == 1 ? "\(eventWord) tomorrow" : "\(eventWord) in \(days) days")
         }
         if band != nil { tags.append("Lighter today") }
-        if ScheduleStore.isExamWeek(.now) { tags.append("Exam week") }
+        if ScheduleStore.isExamWeek(.now) { tags.append("Busy school week") }
         tags += Struggles.selected.prefix(2).map(\.title)
         return tags
     }
